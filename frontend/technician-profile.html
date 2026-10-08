@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بروفايل الفني — دشاوي</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="دشاوي">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <!-- iOS splash screen (universal fallback) -->
+  <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
+  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+      <div class="nav-menu">
+        <a href="/"><i class="fa-solid fa-house"></i> الرئيسية</a>
+      </div>
+      <div class="nav-actions">
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container page" style="max-width:1000px;">
+    <div id="profile-container">
+      <!-- Populated by JS -->
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    Ui.renderNavUser(document.getElementById('nav-user'));
+    Ui.initNav();
+
+    const container = document.getElementById('profile-container');
+    const params = new URLSearchParams(window.location.search);
+    const techId = Number(params.get('id'));
+
+    if (!techId) {
+      container.appendChild(Ui.el('div', { class: 'empty' }, [
+        Ui.ic('fa-solid fa-circle-exclamation'),
+        Ui.el('b', {}, ['الفني غير موجود']),
+        Ui.el('p', {}, ['تأكد من الرابط أو ارجع للصفحة الرئيسية.'])
+      ]));
+    } else {
+      loadProfile();
+    }
+
+    async function loadProfile() {
+      container.appendChild(Ui.el('div', { class: 'sk sk-card', attrs: { style: 'height:180px' } }));
+      try {
+        const data = await api('/api/public/technicians/' + techId);
+        render(data);
+      } catch (e) {
+        Ui.clear(container);
+        container.appendChild(Ui.el('div', { class: 'empty' }, [
+          Ui.ic('fa-solid fa-triangle-exclamation'),
+          Ui.el('b', {}, ['تعذر تحميل البروفايل']),
+          Ui.el('p', {}, [e.message])
+        ]));
+      }
+    }
+
+    function render(data) {
+      const t = data.technician || {};
+      const p = data.profile || {};
+      const s = data.stats || {};
+      Ui.clear(container);
+
+      // Header card
+      const headerCard = Ui.el('div', { class: 'public-profile-header' });
+
+      // The avatar lives on the profile row, not on the technician row.
+      const avatar = Ui.el('div', { class: 'pp-avatar' });
+      if (p.profile_image_path) {
+        avatar.appendChild(Ui.el('img', { attrs: { src: p.profile_image_path, alt: t.name } }));
+      } else {
+        avatar.appendChild(Ui.el('span', { class: 'pp-avatar-initials' }, [Ui.initials(t.name)]));
+      }
+
+      const stars = [];
+      const avg = s.avg_rating == null ? 0 : Number(s.avg_rating);
+      const rating = Math.round(avg);
+      for (let i = 1; i <= 5; i++) {
+        stars.push(Ui.ic(i <= rating ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+      }
+
+      headerCard.appendChild(avatar);
+      headerCard.appendChild(Ui.el('div', { class: 'pp-info' }, [
+        Ui.el('h1', { class: 'pp-name' }, [Ui.escapeHtml(t.name)]),
+        Ui.el('div', { class: 'pp-meta' }, [
+          Ui.el('span', {}, [Ui.ic('fa-solid fa-location-dot'), ' ' + (t.location_text || '—')]),
+          p.years_experience ? Ui.el('span', {}, [Ui.ic('fa-solid fa-briefcase'), ' ' + p.years_experience + ' سنة خبرة']) : null
+        ]),
+        Ui.el('div', { class: 'pp-rating' }, [
+          Ui.el('span', { class: 'stars' }, stars),
+          Ui.el('span', {}, [avg.toFixed(1) + ' من 5 — ' + (s.review_count || 0) + ' مراجعة'])
+        ]),
+        Ui.el('div', { class: 'pp-stats-row' }, [
+          Ui.el('div', {}, [
+            Ui.el('b', {}, [String(s.completed_count || 0)]),
+            Ui.el('span', {}, ['طلب مكتمل'])
+          ]),
+          Ui.el('div', {}, [
+            Ui.el('b', {}, [String(s.review_count || 0)]),
+            Ui.el('span', {}, ['مراجعة'])
+          ])
+        ])
+      ]));
+
+      if (p.bio) {
+        headerCard.appendChild(Ui.el('div', { class: 'pp-bio' }, [Ui.escapeHtml(p.bio)]));
+      }
+
+      container.appendChild(headerCard);
+
+      // CTA: Request this technician
+      const user = Auth.getUser();
+      if (user && user.role === 'customer') {
+        container.appendChild(Ui.el('a', {
+          class: 'btn btn-brand btn-lg btn-block',
+          attrs: { href: '/customer/create-request.html?technician_id=' + t.id, style: 'margin-top:20px' }
+        }, [Ui.ic('fa-solid fa-hand-pointer'), 'اطلب من هذا الفني']));
+      }
+
+      // Portfolio
+      if (data.portfolio && data.portfolio.length) {
+        const portfolioCard = Ui.el('div', { class: 'card', attrs: { style: 'margin-top:20px' } }, [
+          Ui.el('h2', { class: 'card-title' }, [Ui.ic('fa-solid fa-images'), ' صور من أعماله'])
+        ]);
+        const grid = Ui.el('div', { class: 'portfolio-grid', attrs: { style: 'margin-top:14px' } });
+        data.portfolio.forEach((img) => {
+          grid.appendChild(Ui.el('div', { class: 'portfolio-item' }, [
+            Ui.el('img', { attrs: { src: img.image_path, alt: 'عمل سابق' } })
+          ]));
+        });
+        portfolioCard.appendChild(grid);
+        container.appendChild(portfolioCard);
+      }
+
+      // Reviews
+      const reviewsCard = Ui.el('div', { class: 'card', attrs: { style: 'margin-top:20px' } }, [
+        Ui.el('h2', { class: 'card-title' }, [Ui.ic('fa-solid fa-star'), ' تقييمات العملاء'])
+      ]);
+
+      if (!data.reviews || data.reviews.length === 0) {
+        reviewsCard.appendChild(Ui.el('div', { class: 'empty' }, [
+          Ui.ic('fa-regular fa-star'),
+          Ui.el('b', {}, ['لا توجد تقييمات بعد']),
+          Ui.el('p', {}, ['كن أول من يقيّم هذا الفني.'])
+        ]));
+      } else {
+        const list = Ui.el('div', { class: 'reviews-list', attrs: { style: 'margin-top:14px' } });
+        data.reviews.forEach((r) => {
+          const rStars = [];
+          for (let i = 1; i <= 5; i++) {
+            rStars.push(Ui.ic(i <= r.rating ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+          }
+          // The public endpoint never exposes the reviewer's name, so the
+          // reviewer stays anonymous here on purpose.
+          const item = Ui.el('div', { class: 'review-item' });
+          item.appendChild(Ui.el('div', { class: 'review-head' }, [
+            Ui.el('span', { class: 'avatar', attrs: { style: 'width:38px;height:38px;font-size:0.85rem' } }, [Ui.initials('عميل')]),
+            Ui.el('div', { attrs: { style: 'flex:1;min-width:0' } }, [
+              Ui.el('b', { attrs: { style: 'display:block;font-size:0.9rem;color:var(--ink)' } }, ['عميل']),
+              Ui.el('span', { class: 'tbl-sub' }, [Ui.dateTime(r.created_at)])
+            ]),
+            Ui.el('span', { class: 'stars review-stars' }, rStars)
+          ]));
+          if (r.comment) {
+            item.appendChild(Ui.el('p', { class: 'review-comment' }, [Ui.escapeHtml(r.comment)]));
+          }
+          if (r.technician_reply) {
+            item.appendChild(Ui.el('div', { class: 'review-reply' }, [
+              Ui.el('div', { class: 'rr-head' }, [Ui.ic('fa-solid fa-reply'), ' رد الفني']),
+              Ui.el('div', { class: 'rr-body' }, [Ui.escapeHtml(r.technician_reply)])
+            ]));
+          }
+          list.appendChild(item);
+        });
+        reviewsCard.appendChild(list);
+      }
+
+      container.appendChild(reviewsCard);
+    }
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>

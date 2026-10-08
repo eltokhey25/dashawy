@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <title>إعادة التوجيه…</title>
+  <script>
+    // Preserve query string when redirecting
+    const qs = window.location.search || '';
+    window.location.replace('/login.html' + qs);
+  </script>
+</head>
+<body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>

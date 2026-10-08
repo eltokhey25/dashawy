@@ -1,0 +1,2016 @@
+/* ============================================================
+   ADMIN PANEL — Phase 4 design system
+   Mirrors the tokens/components of /css/style.css (Phase 1) so the
+   admin panel matches the public site, customer pages and auth pages.
+   The layers below are, in order:
+     1. Design tokens
+     2. Core shell / components  (the Phase 4 redesign)
+     3. Compatibility layer      (components the pages + shared ui.js
+                                   already relied on, kept so nothing
+                                   loses its styling)
+   ============================================================ */
+
+/* ============================================================
+   1. DESIGN TOKENS
+   ============================================================ */
+
+:root {
+  --font-body: 'IBM Plex Sans Arabic', 'Cairo', 'Segoe UI', system-ui, sans-serif;
+
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-grad: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #a855f7 100%);
+
+  --ink-50: #f8fafc;
+  --ink-100: #f1f5f9;
+  --ink-200: #e2e8f0;
+  --ink-300: #cbd5e1;
+  --ink-400: #94a3b8;
+  --ink-500: #64748b;
+  --ink-600: #475569;
+  --ink-700: #334155;
+  --ink-900: #0f172a;
+  --ink-950: #020617;
+
+  --success-50: #ecfdf5;
+  --success-500: #10b981;
+  --success-600: #059669;
+  --success-700: #047857;
+
+  --warning-50: #fffbeb;
+  --warning-500: #f59e0b;
+  --warning-700: #b45309;
+
+  --danger-50: #fef2f2;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  --danger-700: #b91c1c;
+
+  --info-50: #f0f9ff;
+  --info-500: #0ea5e9;
+  --info-700: #0369a1;
+
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --line: #e2e8f0;
+  --line-soft: #f1f5f9;
+
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 8px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 24px -6px rgba(15, 23, 42, 0.08);
+  --shadow-xl: 0 24px 48px -12px rgba(15, 23, 42, 0.12);
+  --shadow-brand: 0 8px 20px -6px rgba(79, 70, 229, 0.35);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 120ms;
+  --t-normal: 200ms;
+
+  /* Legacy admin aliases — kept so any --adm-* reference still resolves. */
+  --adm-sidebar-w: 260px;
+  --adm-header-h: 60px;
+  --adm-sidebar-bg: #1e293b;
+  --adm-sidebar-hover: #334155;
+  --adm-sidebar-text: #cbd5e1;
+  --adm-sidebar-muted: #64748b;
+  --adm-primary: var(--brand-600);
+  --adm-primary-grad: var(--brand-grad);
+  --adm-bg: var(--bg);
+  --adm-card: var(--surface);
+  --adm-border: var(--line);
+  --adm-ink: var(--ink-900);
+  --adm-body: var(--ink-600);
+  --adm-muted: var(--ink-400);
+  --muted: var(--ink-400);
+  --body: var(--ink-600);
+  --brand: var(--brand-600);
+  --accent: var(--success-500);
+  --accent-soft: var(--success-50);
+  --danger: var(--danger-500);
+  --warn: var(--warning-500);
+  --info: var(--info-500);
+  --font: var(--font-body);
+}
+
+/* Global base */
+* {
+  box-sizing: border-box;
+}
+body.adm-body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-600);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   2. CORE SHELL / COMPONENTS  (Phase 4 redesign)
+   ============================================================ */
+
+/* ---------- Shell ---------- */
+.adm-shell {
+  display: flex;
+  min-height: 100vh;
+  direction: rtl;
+}
+
+/* ---------- Sidebar (dark navy) ---------- */
+.adm-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 80;
+  transition: transform 0.25s var(--ease-out);
+}
+
+.adm-sidebar-brand {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.adm-sidebar-brand .asb-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--brand-grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+}
+.adm-sidebar-brand .asb-info b {
+  display: block;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.adm-sidebar-brand .asb-info span {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+.adm-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+}
+.adm-sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.adm-sidebar-nav::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+.adm-nav-section {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 14px 12px 6px;
+}
+
+.adm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 150ms var(--ease-out);
+  margin-bottom: 3px;
+  position: relative;
+}
+.adm-nav-item i {
+  width: 20px;
+  text-align: center;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+.adm-nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.adm-nav-item.active {
+  background: var(--brand-grad);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+}
+.adm-nav-item.active i {
+  opacity: 1;
+}
+.adm-nav-item .badge {
+  margin-inline-start: auto;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 0.68rem;
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  font-weight: 700;
+}
+
+.adm-sidebar-user {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.adm-sidebar-user .asu-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.adm-sidebar-user .asu-info {
+  flex: 1;
+  min-width: 0;
+}
+.adm-sidebar-user .asu-info b {
+  display: block;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-sidebar-user .asu-info span {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+/* ---------- Main area ---------- */
+.adm-main {
+  flex: 1;
+  margin-inline-end: 260px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ---------- Top bar ---------- */
+.adm-topbar {
+  height: 60px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 70;
+}
+.adm-topbar .atb-spacer {
+  flex: 1;
+}
+.adm-topbar .atb-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+.adm-topbar .atb-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--ink-50);
+  border: 1px solid var(--line);
+  color: var(--ink-600);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 150ms;
+  text-decoration: none;
+}
+.adm-topbar .atb-btn:hover {
+  background: var(--ink-100);
+  color: var(--ink-900);
+}
+.adm-topbar .atb-btn.primary {
+  background: var(--brand-600);
+  color: #fff;
+  border-color: var(--brand-600);
+}
+
+.adm-mobile-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--ink-50);
+  border: 1px solid var(--line);
+  color: var(--ink-900);
+  cursor: pointer;
+  font-size: 1.05rem;
+}
+
+/* ---------- Content ---------- */
+.adm-content {
+  padding: 24px;
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin-inline: auto;
+}
+
+/* ---------- Stat cards ---------- */
+.adm-stat-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+@media (max-width: 1400px) {
+  .adm-stat-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .adm-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .adm-stat-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.adm-stat {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 18px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  transition: all 200ms var(--ease-out);
+  min-height: 96px;
+}
+.adm-stat::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 5px;
+  background: var(--stat-accent, var(--brand-600));
+  border-radius: 0 4px 4px 0;
+}
+.adm-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+.adm-stat .as-info {
+  flex: 1;
+  min-width: 0;
+}
+.adm-stat .as-info b {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.adm-stat .as-info span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-400);
+  font-weight: 600;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adm-stat .as-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  background: var(--stat-bg, var(--brand-50));
+  color: var(--stat-accent, var(--brand-600));
+}
+
+.adm-stat.accent-red {
+  --stat-accent: #ef4444;
+  --stat-bg: #fef2f2;
+}
+.adm-stat.accent-orange {
+  --stat-accent: #f59e0b;
+  --stat-bg: #fffbeb;
+}
+.adm-stat.accent-blue {
+  --stat-accent: #0ea5e9;
+  --stat-bg: #f0f9ff;
+}
+.adm-stat.accent-green {
+  --stat-accent: #10b981;
+  --stat-bg: #ecfdf5;
+}
+.adm-stat.accent-purple {
+  --stat-accent: #8b5cf6;
+  --stat-bg: #f5f3ff;
+}
+.adm-stat.accent-pink {
+  --stat-accent: #ec4899;
+  --stat-bg: #fdf2f8;
+}
+
+/* The wallets page renders five stat cards, and the base .adm-stat-row is a
+   six-column grid — which would leave the sixth cell visibly empty. Narrower
+   breakpoints step down in the same order the base grid does. */
+#stats-row {
+  grid-template-columns: repeat(5, 1fr);
+}
+@media (max-width: 1400px) {
+  #stats-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  #stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  #stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The admin dashboard renders eight cards. Four columns divides evenly into two
+   full rows; the base six would leave two cells empty in the second row. */
+#stat-row {
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 900px) {
+  #stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  #stat-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Segmented tabs ----------
+   A pill container with one filled segment, used to switch between the wallets /
+   withdrawals / pending-payments views. Distinct from .adm-card-head's styling on
+   purpose: the active tab is the page's primary control, so it carries the brand
+   fill rather than a border.
+
+   The colour tokens are the ones this stylesheet actually defines — there is no
+   --ink-800 here, so a var() naming a missing token would fall back to the
+   inherited colour and render the hover state invisible. */
+.adm-tabs {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.adm-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.87rem;
+  font-weight: 700;
+  color: var(--ink-500);
+  cursor: pointer;
+  transition: all 150ms;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  white-space: nowrap;
+}
+.adm-tab:hover {
+  background: var(--ink-50);
+  color: var(--ink-700);
+}
+.adm-tab.active {
+  background: var(--brand-600);
+  color: #fff;
+  box-shadow: 0 4px 12px -4px rgba(79, 70, 229, 0.4);
+}
+/* A focus ring that survives the brand fill, so a keyboard user can see where they
+   are. The default outline is suppressed by the .adm-btn reset. */
+.adm-tab:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+.adm-tab.active:focus-visible {
+  outline-color: #fff;
+}
+.adm-tab .adm-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 9999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.adm-tab.active .adm-tab-badge {
+  background: #fff;
+  color: var(--brand-600);
+}
+
+/* At phone width three labelled tabs with count badges cannot share a row without
+   truncating their labels, so they become full-width stacked rows instead. */
+@media (max-width: 700px) {
+  .adm-tabs {
+    flex-direction: column;
+  }
+  .adm-tab {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
+/* ---------- Cards ---------- */
+.adm-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-xs);
+}
+.adm-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.adm-card-head h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  margin: 0;
+}
+.adm-card-head .ach-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ---------- Buttons ---------- */
+.adm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.87rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink-600);
+  cursor: pointer;
+  transition: all 150ms var(--ease-out);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.adm-btn:hover {
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+}
+.adm-btn.primary {
+  background: var(--brand-600);
+  color: #fff;
+  border-color: var(--brand-600);
+}
+.adm-btn.primary:hover {
+  background: var(--brand-700);
+  box-shadow: var(--shadow-brand);
+  transform: translateY(-1px);
+}
+.adm-btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--brand-600);
+}
+.adm-btn.ghost:hover {
+  background: var(--brand-50);
+}
+.adm-btn.sm {
+  padding: 7px 13px;
+  font-size: 0.8rem;
+  border-radius: var(--r-sm);
+}
+.adm-btn.danger {
+  background: var(--danger-50);
+  border-color: #fecaca;
+  color: var(--danger-700);
+}
+.adm-btn.danger:hover {
+  background: #fee2e2;
+}
+.adm-btn.block {
+  width: 100%;
+}
+
+/* ---------- Tables ---------- */
+.adm-table-wrap {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+}
+.adm-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
+  min-width: 680px;
+}
+.adm-table th {
+  text-align: right;
+  padding: 12px 14px;
+  background: var(--ink-50);
+  font-size: 0.76rem;
+  color: var(--ink-400);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.adm-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-600);
+  vertical-align: middle;
+}
+.adm-table tbody tr {
+  transition: background 120ms;
+}
+.adm-table tbody tr:hover {
+  background: var(--ink-50);
+}
+.adm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tbl-main {
+  color: var(--ink-900);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.tbl-sub {
+  font-size: 0.78rem;
+  color: var(--ink-400);
+}
+
+/* ---------- Badges ---------- */
+.adm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.adm-badge.green {
+  background: var(--success-50);
+  color: var(--success-700);
+}
+.adm-badge.yellow {
+  background: var(--warning-50);
+  color: var(--warning-700);
+}
+.adm-badge.blue {
+  background: var(--info-50);
+  color: var(--info-700);
+}
+.adm-badge.red {
+  background: var(--danger-50);
+  color: var(--danger-700);
+}
+.adm-badge.purple {
+  background: var(--brand-50);
+  color: var(--brand-700);
+}
+.adm-badge.gray {
+  background: var(--ink-100);
+  color: var(--ink-600);
+}
+
+/* ---------- Empty state ---------- */
+.adm-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ink-400);
+}
+.adm-empty i {
+  font-size: 2.5rem;
+  opacity: 0.35;
+  display: block;
+  margin-bottom: 12px;
+}
+.adm-empty b {
+  display: block;
+  color: var(--ink-900);
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+/* ---------- Modal (used in permissions etc.) ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 120;
+}
+.modal-overlay.open {
+  display: flex;
+}
+.modal {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: var(--shadow-xl);
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 26px;
+  animation: admModalIn 200ms var(--ease-out);
+}
+@keyframes admModalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.modal-head h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  margin: 0;
+  flex: 1;
+}
+.modal-head .mh-ic {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+.modal-close {
+  background: transparent;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--ink-400);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 120ms;
+}
+.modal-close:hover {
+  background: var(--ink-100);
+  color: var(--ink-900);
+}
+.modal-body {
+  margin-bottom: 18px;
+}
+.modal-foot {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+  flex-wrap: wrap;
+}
+.modal-lg {
+  max-width: 780px;
+}
+
+/* ---------- Pagination ---------- */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  flex-wrap: wrap;
+}
+.pager button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-600);
+  cursor: pointer;
+  transition: all 120ms;
+}
+.pager button:hover:not(:disabled) {
+  border-color: var(--brand-600);
+  color: var(--brand-600);
+}
+.pager button.on {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: #fff;
+}
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- Form ---------- */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  margin-bottom: 6px;
+}
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink-900);
+  transition: all 120ms;
+}
+select.input {
+  cursor: pointer;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px var(--brand-100);
+}
+.input.invalid {
+  border-color: var(--danger-500);
+}
+.input.invalid:focus {
+  box-shadow: 0 0 0 3px var(--danger-50);
+}
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--ink-400);
+  margin-top: 4px;
+}
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--danger-700);
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-top: 6px;
+}
+textarea.input {
+  resize: vertical;
+  min-height: 90px;
+}
+
+/* ---------- Mobile ---------- */
+.adm-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 75;
+}
+@media (max-width: 1024px) {
+  .adm-sidebar {
+    transform: translateX(-100%);
+  }
+  .adm-sidebar.open {
+    transform: translateX(0);
+  }
+  .adm-main {
+    margin-inline-end: 0;
+  }
+  .adm-mobile-toggle {
+    display: grid;
+    place-items: center;
+  }
+  .adm-backdrop.show {
+    display: block;
+  }
+  .adm-content {
+    padding: 16px;
+  }
+  .adm-topbar {
+    padding: 0 16px;
+  }
+}
+@media (max-width: 600px) {
+  .adm-content {
+    padding: 12px;
+  }
+  .adm-card {
+    padding: 16px;
+  }
+  .adm-table {
+    min-width: 520px;
+    font-size: 0.8rem;
+  }
+  .adm-table th,
+  .adm-table td {
+    padding: 10px 10px;
+  }
+}
+
+/* ---------- Permission modal (Phase 3B) ---------- */
+.perm-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--brand-50);
+  color: var(--brand-700);
+  border: 1px solid var(--brand-100);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+.perm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.perm-header-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.perm-select-all {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--brand-600);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 150ms;
+}
+.perm-select-all:hover {
+  background: var(--brand-50);
+}
+.perm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .perm-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.perm-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+  transition: all 150ms;
+  user-select: none;
+}
+.perm-option:hover {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+}
+.perm-option.active {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+}
+.perm-option input[type='checkbox'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.perm-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--ink-100);
+  color: var(--ink-500);
+  display: grid;
+  place-items: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  transition: all 150ms;
+}
+.perm-option.active .perm-icon {
+  background: var(--brand-600);
+  color: #fff;
+}
+.perm-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink-900);
+  flex: 1;
+}
+.perm-option.active .perm-label {
+  color: var(--brand-700);
+}
+/* ============================================================
+   3. COMPATIBILITY LAYER
+   Components the admin pages and the shared /js/ui.js already use
+   (status badges, toasts, modal parts, skeletons, empty states, detail
+   grids, the technicians assignment cards, and the older shell still used
+   by settings.html / specialties.html). Kept and retokenised so the
+   Phase 4 layer has a complete surface.
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+.adm-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.adm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.adm-actions .adm-btn {
+  flex: 1;
+  min-width: 160px;
+}
+
+.adm-input,
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--adm-border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--adm-ink);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.adm-input:focus,
+.input:focus {
+  outline: none;
+  border-color: var(--adm-primary);
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+}
+
+.search {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+
+.search i {
+  position: absolute;
+  inset-inline-start: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--adm-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.search .input {
+  padding-inline-start: 38px;
+}
+
+.b-pending {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.b-assigned {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.b-in_progress {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.b-completed {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.b-cancelled {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.b-available {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.b-busy {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.b-offline {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.87rem;
+  font-weight: 700;
+  border: 1px solid var(--adm-border);
+  background: #fff;
+  color: var(--adm-body);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.btn-sm {
+  padding: 7px 13px;
+  font-size: 0.8rem;
+}
+
+.btn-icon {
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--adm-primary);
+}
+
+.btn-ghost:hover {
+  background: #ecfdf5;
+}
+
+.btn-brand {
+  background: var(--adm-primary);
+  color: #fff;
+  border-color: var(--adm-primary);
+}
+
+.btn-brand:hover {
+  background: #047857;
+  color: #fff;
+}
+
+.btn-soft {
+  background: #ecfdf5;
+  border-color: #d1fae5;
+  color: #047857;
+}
+
+.btn-soft:hover {
+  background: #d1fae5;
+}
+
+.btn-soft-brand {
+  background: #ecfdf5;
+  border-color: #d1fae5;
+  color: #047857;
+}
+
+.btn-soft-brand:hover {
+  background: #d1fae5;
+}
+
+.btn-soft-warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.btn-soft-warn:hover {
+  background: #fef3c7;
+}
+
+.btn-soft-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.btn-soft-danger:hover {
+  background: #fee2e2;
+}
+
+.btn-outline {
+  background: #fff;
+  border-color: var(--adm-border);
+  color: var(--adm-body);
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.page-head h1 {
+  font-size: 1.3rem;
+  font-weight: 900;
+  color: var(--adm-ink);
+  margin: 0;
+}
+
+.page-head .sub {
+  color: var(--adm-muted);
+  font-size: 0.84rem;
+  margin-top: 2px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.toolbar .tb-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--adm-muted);
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mb-14 {
+  margin-bottom: 14px;
+}
+
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tbl-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: var(--adm-ink);
+  display: inline-grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.74rem;
+  flex-shrink: 0;
+}
+
+.btn-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-tabs .tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--adm-border);
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--adm-body);
+  transition: all 0.15s ease;
+}
+
+.btn-tabs .tab:hover {
+  border-color: var(--adm-primary);
+  color: var(--adm-primary);
+}
+
+.btn-tabs .tab.active {
+  background: var(--adm-primary);
+  color: #fff;
+  border-color: var(--adm-primary);
+}
+
+.detail-grid {
+  display: grid;
+  gap: 0;
+}
+
+.detail-row {
+  display: flex;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px dashed #e2e8f0;
+  font-size: 0.88rem;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row .dk {
+  width: 130px;
+  flex-shrink: 0;
+  color: var(--adm-muted);
+  font-weight: 600;
+}
+
+.detail-row .dv {
+  flex: 1;
+  color: var(--adm-body);
+}
+
+.dv-tel {
+  color: var(--adm-primary);
+  font-weight: 700;
+}
+
+.history-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  color: #b91c1c;
+  margin-top: 7px;
+}
+
+.assign-box {
+  margin-top: 18px;
+  background: var(--adm-bg);
+  border: 1px solid var(--adm-border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.assign-box h4 {
+  font-size: 0.9rem;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--adm-ink);
+}
+
+.assign-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.assign-row select {
+  flex: 1;
+  min-width: 200px;
+}
+
+.stat-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-stat {
+  background: var(--adm-bg);
+  border: 1px solid var(--adm-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.mini-stat b {
+  font-size: 1.05rem;
+  display: block;
+}
+
+.sk {
+  background: #e2e8f0;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: admShimmer 1.2s infinite;
+}
+
+.sk-line {
+  height: 12px;
+}
+
+.sk-card {
+  border-radius: 12px;
+}
+
+@keyframes admShimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.w40 {
+  width: 40% !important;
+}
+
+.w60 {
+  width: 60% !important;
+}
+
+.spin {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: admSpin 0.7s linear infinite;
+  vertical-align: -2px;
+}
+
+@keyframes admSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+#toast-root {
+  position: fixed;
+  inset-block-end: 18px;
+  inset-inline: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 300;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--adm-ink);
+  color: #fff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
+  max-width: 90vw;
+}
+
+.toast.success {
+  background: #059669;
+}
+
+.toast.error {
+  background: #dc2626;
+}
+
+.toast.warn {
+  background: #d97706;
+}
+
+canvas {
+  direction: ltr;
+}
+
+.perm-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+  line-height: 1.7;
+}
+
+/* Responsive rules for the components above */
+
+@media (max-width: 1000px) {
+  .adm-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .adm-actions {
+    flex-direction: column;
+  }
+  .adm-actions .adm-btn {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   LEGACY SHELL (settings.html + specialties.html)
+   These two pages still use the older .shell/.side-link/.topbar markup.
+   Restyled to the Phase 4 look so all admin pages look identical.
+   ============================================================ */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  direction: rtl;
+}
+
+.shell .sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 80;
+  transition: transform 0.25s var(--ease-out);
+}
+.shell .sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+.shell .sidebar .brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--brand-grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+}
+.shell .side-links {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+}
+.shell .side-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 3px;
+  transition: all 150ms var(--ease-out);
+}
+.shell .side-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.shell .side-link.active {
+  background: var(--brand-grad);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+}
+.shell .side-user {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 16px;
+}
+.shell .side-user .avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--brand-grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+.shell .side-user .tbl-main {
+  color: #fff;
+}
+.shell .side-user .tbl-sub {
+  color: #64748b;
+}
+
+.shell-main {
+  flex: 1;
+  margin-inline-end: 260px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.shell-main .topbar {
+  height: 60px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 70;
+}
+.shell-main .topbar .tb-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+.shell-main .topbar .tb-spacer {
+  flex: 1;
+}
+.shell-main .topbar .tb-date {
+  font-size: 0.8rem;
+  color: var(--ink-400);
+}
+.shell-main .topbar a {
+  color: var(--ink-600);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--ink-50);
+  transition: all 150ms;
+}
+.shell-main .topbar a:hover {
+  background: var(--ink-100);
+  color: var(--ink-900);
+}
+.shell .page {
+  padding: 24px;
+  max-width: 1400px;
+  width: 100%;
+  margin-inline: auto;
+}
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 75;
+}
+.sidebar-backdrop.show {
+  display: block;
+}
+.shell .nav-toggle {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .shell .sidebar {
+    transform: translateX(-100%);
+  }
+  .shell .sidebar.open {
+    transform: translateX(0);
+  }
+  .shell-main {
+    margin-inline-end: 0;
+  }
+  .shell .nav-toggle {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--ink-50);
+    border: 1px solid var(--line);
+    color: var(--ink-900);
+    cursor: pointer;
+    font-size: 1.05rem;
+  }
+  .shell .page {
+    padding: 16px;
+  }
+  .shell-main .topbar {
+    padding: 0 16px;
+  }
+}
+
+/* ============================================================
+   4. LEGACY SURFACE
+   A handful of containers the pages already used were never
+   defined in this stylesheet (they came from the public site's
+   style.css, which the admin pages do not load). Defined here so
+   settings / specialties / dashboard / reviews render as cards,
+   tables and panels instead of bare boxes.
+   ============================================================ */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-xs);
+}
+.card-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  margin: 0 0 12px;
+}
+.card-sub {
+  font-size: 0.85rem;
+  color: var(--ink-500);
+  margin-bottom: 14px;
+}
+
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+}
+.switch-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.switch-label input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand-600);
+  cursor: pointer;
+}
+
+.rev-filters {
+  display: grid;
+  gap: 10px;
+}
+
+.tbl-scroll {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid var(--line-soft);
+}
+.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
+  min-width: 520px;
+}
+.tbl th {
+  text-align: right;
+  padding: 12px 14px;
+  background: var(--ink-50);
+  font-size: 0.76rem;
+  color: var(--ink-400);
+  font-weight: 700;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tbl td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--ink-600);
+}
+.tbl tbody tr {
+  transition: background 120ms;
+}
+.tbl tbody tr:hover {
+  background: var(--ink-50);
+}
+.tbl tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------- Cash-confirmation summary ----------
+   Shown at the top of the "تأكيد المبلغ" / "حل النزاع" modal. The two figures it
+   puts side by side ARE the decision the admin is being asked to make, so it is a
+   boxed block rather than loose rows: the disagreement is the point of the screen.
+
+   The two columns collapse to one under 480px, because a name and a currency
+   amount on the same line is what overflows first on a narrow phone. */
+.payment-dispute-summary {
+  background: var(--ink-50);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pds-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.pds-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-500);
+  white-space: nowrap;
+}
+.pds-value {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--ink-900);
+  text-align: left;
+  /* The name and the amount are one string, so a long technician name has to be
+     allowed to break rather than push the amount off the edge. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pds-value.muted {
+  color: var(--ink-400);
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .pds-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .pds-value {
+    text-align: right;
+  }
+}

@@ -1,0 +1,1253 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة الفني — دشاوي</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner">
+        <a class="brand" href="/technician/dashboard.html">
+          <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+          <span>دشاوي</span>
+        </a>
+
+        <div class="nav-menu">
+          <a class="active" href="/technician/dashboard.html">
+            <i class="fa-solid fa-briefcase"></i> الطلبات
+          </a>
+          <a href="/technician/profile.html"> <i class="fa-solid fa-user"></i> بروفايلي </a>
+        </div>
+
+        <div class="nav-actions">
+          <span id="nav-user"></span>
+          <button class="nav-toggle" aria-label="القائمة">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container page">
+      <header class="page-head">
+        <div>
+          <h1>واجباتك</h1>
+          <p class="sub">تحديث تلقائي كل 15 ثانية — لا تفوّت طلب جديد</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+          <span id="specialty-chip"></span>
+          <span id="wallet-chip" class="wallet-chip"> <i class="fa-solid fa-wallet"></i> — </span>
+          <button class="btn btn-outline btn-sm" id="refresh-btn">
+            <i class="fa-solid fa-rotate"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <div id="debt-warning" class="debt-warning" style="display: none">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div>
+          <b>حسابك موقوف مؤقتاً</b>
+          <span
+            >تجاوزت حد المديونية (<span id="debt-limit-num">300</span> ج.م). يرجى سداد المستحقات
+            لاستعادة استقبال الطلبات.</span
+          >
+        </div>
+      </div>
+
+      <div class="tabs-row">
+        <div class="tabs">
+          <button class="tab active" data-tab="incoming">
+            <i class="fa-solid fa-bell"></i> الواردة
+            <span id="incoming-count" class="tab-badge" style="display: none">0</span>
+          </button>
+          <button class="tab" data-tab="active">
+            <i class="fa-solid fa-bolt"></i> الجارية
+            <span id="active-count" class="tab-badge" style="display: none">0</span>
+          </button>
+          <button class="tab" data-tab="history">
+            <i class="fa-solid fa-clock-rotate-left"></i> السجل
+          </button>
+          <button class="tab" data-tab="wallet"><i class="fa-solid fa-wallet"></i> محفظتي</button>
+        </div>
+      </div>
+
+      <div id="tab-content" style="margin-top: 18px"></div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script>
+      if (!Auth.requireRole('technician')) throw new Error('redirect');
+      Ui.renderNavUser(document.getElementById('nav-user'));
+      Ui.initNav();
+
+      const profile = Auth.getProfile();
+      if (profile && profile.specialty) {
+        const pm = Ui.meta(profile.specialty);
+        document
+          .getElementById('specialty-chip')
+          .appendChild(
+            Ui.el('span', { class: 'badge b-assigned' }, [Ui.ic('fa-solid fa-toolbox'), pm.label])
+          );
+      }
+
+      let currentTab = 'incoming';
+      let walletData = null;
+
+      // Cached lists, refreshed by pollAll(). render() paints from these so the
+      // 5s poll and a user action share one code path.
+      let incomingList = [];
+      let activeList = [];
+      let historyList = [];
+
+      // True while a mutation is in flight. The poll skips re-rendering while
+      // this is set, otherwise a rebuild can land between disabling a button and
+      // its request resolving and leave a dead button on screen.
+      let busy = false;
+
+      // Signature of what is currently painted, so an unchanged poll is a no-op.
+      // Without this the poll re-creates the DOM every 5s, which resets scroll
+      // position and makes the pulse animation restart for no reason.
+      let paintedSig = null;
+
+      // Broadcast ids seen on the last render, used to flag genuinely new offers
+      // so the attention pulse fires on arrival instead of on every repaint.
+      let knownBroadcastIds = null;
+
+      const contentEl = document.getElementById('tab-content');
+
+      // ============================================================
+      // Loaders
+      // ============================================================
+      async function loadWallet() {
+        try {
+          const data = await api('/api/technician/wallet');
+          walletData = data;
+          paintWalletChip(data);
+        } catch (e) {
+          // A failed wallet read must not wipe the page; the chip keeps its last
+          // value and the console records why.
+          console.warn('wallet load failed', e);
+        }
+      }
+
+      async function loadIncoming() {
+        try {
+          const data = await api('/api/technician/incoming');
+          incomingList = data.requests || [];
+          setBadge('incoming-count', incomingList.length);
+          return incomingList;
+        } catch (e) {
+          console.warn('incoming load failed', e);
+          incomingList = [];
+          setBadge('incoming-count', 0);
+          return incomingList;
+        }
+      }
+
+      async function loadActive() {
+        try {
+          const data = await api('/api/technician/requests?filter=active');
+          activeList = data.requests || [];
+          setBadge('active-count', activeList.length);
+          return activeList;
+        } catch (e) {
+          console.warn('active load failed', e);
+          activeList = [];
+          setBadge('active-count', 0);
+          return activeList;
+        }
+      }
+
+      async function loadHistory() {
+        try {
+          const data = await api('/api/technician/requests?filter=history');
+          historyList = data.requests || [];
+          return historyList;
+        } catch (e) {
+          console.warn('history load failed', e);
+          historyList = [];
+          return historyList;
+        }
+      }
+
+      // Badges are the count of live offers / live jobs, so they are only shown
+      // when non-zero. A "0" badge on the incoming tab would read as an error.
+      function setBadge(id, n) {
+        const el = document.getElementById(id);
+        el.textContent = n;
+        el.style.display = n > 0 ? '' : 'none';
+      }
+
+      function paintWalletChip(data) {
+        const w = data.wallet || {};
+        // The chip reports the debt pot, because that is the figure that gates work:
+        // a technician in the red needs to know before they open a tab, and credit
+        // only appears here once a withdrawal has actually been paid out.
+        const debt = Number(w.total_debt || 0);
+        const chip = document.getElementById('wallet-chip');
+        const inDebt = debt > 0;
+
+        chip.className = 'wallet-chip' + (inDebt ? ' negative' : ' positive');
+        // Plain text, not innerHTML: the label is built here rather than via
+        // Ui.el because it has to replace the chip's whole contents in one go.
+        Ui.clear(chip);
+        chip.appendChild(Ui.ic(inDebt ? 'fa-solid fa-arrow-trend-down' : 'fa-solid fa-wallet'));
+        chip.appendChild(
+          document.createTextNode(
+            inDebt ? ' مستحق للمنصة ' + debt.toFixed(2) + ' ج.م' : ' لا مديونية'
+          )
+        );
+
+        // canReceiveRequests is also false for an unapproved technician, so the
+        // banner is only shown when the wallet is actually the reason. Approval
+        // is already enforced at login, but a stale localStorage session could
+        // reach here, and a "you owe money" banner on an unapproved account
+        // would be misleading.
+        const warning = document.getElementById('debt-warning');
+        const isApproved = !profile || profile.approval_status !== 'pending';
+        if (!data.canReceiveRequests && isApproved) {
+          warning.style.display = 'flex';
+          document.getElementById('debt-limit-num').textContent = Number(data.debtLimit || 300);
+        } else {
+          warning.style.display = 'none';
+        }
+      }
+
+      // ============================================================
+      // Formatting helpers
+      // ============================================================
+      function money(n) {
+        return Number(n || 0).toFixed(2) + ' ج.م';
+      }
+
+      // SQLite datetime('now') is UTC with no zone marker, so the 'Z' is what
+      // makes the difference between "now" and "8 hours ago". Matches Ui.dateTime.
+      function parseStamp(s) {
+        if (!s) return NaN;
+        const str = String(s).trim();
+        const hasTz = str.includes('T') || /[+-]\d{2}:\d{2}$/.test(str) || str.endsWith('Z');
+        const d = new Date(hasTz ? str : str.replace(' ', 'T') + 'Z');
+        return d.getTime();
+      }
+
+      function timeAgo(iso) {
+        const then = parseStamp(iso);
+        if (isNaN(then)) return '';
+        const diff = Math.max(0, Date.now() - then);
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'الآن';
+        if (mins < 60) return 'منذ ' + mins + ' دقيقة';
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return 'منذ ' + hours + ' ساعة';
+        const days = Math.floor(hours / 24);
+        return 'منذ ' + days + ' يوم';
+      }
+
+      function serviceTitle(r) {
+        const m = Ui.meta(r.specialty);
+        const label =
+          r.specialty === 'other' && r.custom_specialty_text ? r.custom_specialty_text : m.label;
+        return { meta: m, label: label };
+      }
+
+      function specialtyIcon(m, sizeClass) {
+        return Ui.el('span', { class: 'rt-ic' + (sizeClass ? ' ' + sizeClass : '') }, [
+          Ui.ic(m.icon),
+        ]);
+      }
+
+      // Text goes in as a raw string: Ui.el writes children with textContent,
+      // which escapes on its own. Passing Ui.escapeHtml() here would double-encode
+      // and the technician would literally read "a&lt;b&gt;".
+      function para(cls, text) {
+        return Ui.el('div', { class: cls }, [String(text == null ? '' : text)]);
+      }
+
+      // ============================================================
+      // Card renderers
+      // ============================================================
+      function renderIncomingCard(r, isNew) {
+        const t = serviceTitle(r);
+        const card = Ui.el('div', { class: 'incoming-card' + (isNew ? ' new-offer' : '') });
+
+        card.appendChild(
+          Ui.el('div', { class: 'incoming-header' }, [
+            Ui.el('span', { class: 'incoming-badge' }, [Ui.ic('fa-solid fa-bolt'), ' طلب جديد']),
+            Ui.el('span', { class: 'incoming-time' }, [
+              Ui.ic('fa-regular fa-clock'),
+              ' ' + timeAgo(r.sent_at),
+            ]),
+          ])
+        );
+
+        card.appendChild(
+          Ui.el('div', { class: 'incoming-title' }, [
+            specialtyIcon(t.meta, 'incoming-ic'),
+            Ui.el('div', {}, [
+              Ui.el('div', { class: 'it-name' }, [t.label]),
+              Ui.el('div', { class: 'it-price' }, [
+                Ui.ic('fa-solid fa-money-bill-wave'),
+                ' ' + money(r.service_price) + ' — صافي النصيب يُثبَّت بعد القبول',
+              ]),
+            ]),
+          ])
+        );
+
+        card.appendChild(
+          Ui.el('div', { class: 'incoming-meta' }, [
+            Ui.el('span', {}, [Ui.ic('fa-solid fa-user'), ' ' + (r.customer_name || '—')]),
+            Ui.el('span', {}, [
+              Ui.ic('fa-solid fa-location-dot'),
+              ' ' + (r.customer_area || r.location_text || '—'),
+            ]),
+          ])
+        );
+
+        if (r.description) card.appendChild(para('incoming-desc', r.description));
+
+        card.appendChild(
+          Ui.el('div', { class: 'incoming-actions' }, [
+            Ui.el(
+              'button',
+              { class: 'btn btn-outline', attrs: { 'data-decline': r.broadcast_id } },
+              [Ui.ic('fa-solid fa-xmark'), 'تخطي']
+            ),
+            Ui.el(
+              'button',
+              { class: 'btn btn-accent btn-lg', attrs: { 'data-accept': r.broadcast_id } },
+              [Ui.ic('fa-solid fa-check'), 'قبول الطلب']
+            ),
+          ])
+        );
+
+        return card;
+      }
+
+      function renderActiveCard(r) {
+        const t = serviceTitle(r);
+        const card = Ui.el('div', { class: 'req-card' });
+
+        card.appendChild(
+          Ui.el('div', { class: 'req-top' }, [
+            Ui.el('div', { class: 'req-title' }, [
+              specialtyIcon(t.meta),
+              t.label + ' — طلب #' + r.id,
+            ]),
+            Ui.statusBadge(r.status),
+          ])
+        );
+
+        card.appendChild(
+          Ui.el('div', { class: 'req-meta' }, [
+            Ui.el('span', {}, [Ui.ic('fa-solid fa-user'), ' ' + (r.customer_name || '—')]),
+            r.customer_phone
+              ? Ui.el('span', {}, [
+                  Ui.el('a', { attrs: { href: 'tel:' + r.customer_phone, dir: 'ltr' } }, [
+                    Ui.ic('fa-solid fa-phone'),
+                    ' ' + r.customer_phone,
+                  ]),
+                ])
+              : null,
+            Ui.el('span', {}, [
+              Ui.ic('fa-solid fa-location-dot'),
+              ' ' + (r.customer_location || r.location_text || '—'),
+            ]),
+          ])
+        );
+
+        // Once assigned the money is final, so show the real split rather than the
+        // "confirmed after acceptance" placeholder used on an unaccepted offer.
+        if (Number(r.service_price || 0) > 0) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-meta earn-line' }, [
+              Ui.el('span', {}, [Ui.ic('fa-solid fa-receipt'), ' ' + money(r.service_price)]),
+              Ui.el('span', {}, [
+                Ui.ic('fa-solid fa-hand-holding-dollar'),
+                ' صافي لك ' + money(r.technician_earning),
+              ]),
+            ])
+          );
+        }
+
+        if (r.description) card.appendChild(para('req-desc', r.description));
+
+        // Chat, while the job is live. A finished job keeps its transcript reachable,
+        // so the button stays (as "سجل المحادثة") rather than vanishing.
+        const chatBtn = Ui.el(
+          'a',
+          {
+            class: 'chat-button',
+            attrs: {
+              href: '/chat.html?id=' + r.id,
+              title: ['assigned', 'in_progress'].includes(r.status)
+                ? 'محادثة العميل'
+                : 'سجل المحادثة',
+            },
+          },
+          [
+            Ui.ic('fa-solid fa-comments'),
+            ['assigned', 'in_progress'].includes(r.status) ? ' شات' : ' سجل المحادثة',
+          ]
+        );
+
+        if (r.status === 'assigned') {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot' }, [
+              Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, ['جاهز تبدأ؟']),
+              chatBtn,
+              Ui.el('button', { class: 'btn btn-accent', attrs: { 'data-start': r.id } }, [
+                Ui.ic('fa-solid fa-play'),
+                'ابدأ المهمة',
+              ]),
+            ])
+          );
+        } else if (r.status === 'in_progress') {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot' }, [
+              Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, [
+                Ui.ic('fa-solid fa-screwdriver-wrench'),
+                ' الشغل جاري — خلص؟',
+              ]),
+              chatBtn,
+              Ui.el('button', { class: 'btn btn-brand', attrs: { 'data-complete': r.id } }, [
+                Ui.ic('fa-solid fa-circle-check'),
+                'إنهاء المهمة',
+              ]),
+            ])
+          );
+        } else if (r.status === 'completed' && r.amount_status == null) {
+          // The job is done but the cash amount was never reported, so the commission
+          // is unbooked and the customer is waiting. Flagged amber because it is the
+          // technician's own outstanding action, not something that will resolve.
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot' }, [
+              Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, [
+                Ui.ic('fa-solid fa-triangle-exclamation'),
+                ' المبلغ المستلم لم يُسجّل بعد',
+              ]),
+              chatBtn,
+              Ui.el('button', { class: 'btn btn-brand', attrs: { 'data-report': r.id } }, [
+                Ui.ic('fa-solid fa-money-bill-transfer'),
+                'تسجيل المبلغ المستلم',
+              ]),
+            ])
+          );
+        }
+
+        return card;
+      }
+
+      function renderHistoryCard(r) {
+        const t = serviceTitle(r);
+        const card = Ui.el('div', { class: 'req-card history-card' });
+
+        card.appendChild(
+          Ui.el('div', { class: 'req-top' }, [
+            Ui.el('div', { class: 'req-title' }, [
+              specialtyIcon(t.meta),
+              t.label + ' — طلب #' + r.id,
+            ]),
+            Ui.statusBadge(r.status),
+          ])
+        );
+
+        card.appendChild(
+          Ui.el('div', { class: 'req-meta' }, [
+            Ui.el('span', {}, [Ui.ic('fa-solid fa-user'), ' ' + (r.customer_name || '—')]),
+            Ui.el('span', {}, [Ui.ic('fa-regular fa-calendar'), ' ' + Ui.dateTime(r.completed_at)]),
+          ])
+        );
+
+        if (r.work_notes) {
+          card.appendChild(
+            Ui.el('div', { class: 'work-notes' }, [
+              Ui.el('b', {}, ['ما تم عمله:']),
+              Ui.el('p', {}, [String(r.work_notes)]),
+            ])
+          );
+        }
+
+        // The amount state machine, shown only once it has started. A request with no
+        // amount_status has not entered the confirmation flow at all, so saying
+        // "waiting for confirmation" there would be wrong.
+        if (r.status === 'completed' && r.amount_status == null) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot' }, [
+              Ui.el('span', { class: 'badge b-pending' }, [
+                Ui.ic('fa-solid fa-clock'),
+                'بانتظار تسجيل المبلغ',
+              ]),
+            ])
+          );
+        } else if (r.amount_status) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-meta' }, [
+              Ui.el('span', {}, [
+                Ui.ic('fa-solid fa-money-bill-transfer'),
+                ' استلمت ' + money(r.technician_reported_amount),
+              ]),
+              Ui.amountStatusBadge(r.amount_status),
+            ])
+          );
+          if (r.final_amount != null) {
+            card.appendChild(
+              Ui.el('div', { class: 'req-meta' }, [
+                Ui.el('span', { class: 'muted' }, [' المبلغ المعتمد: ' + money(r.final_amount)]),
+              ])
+            );
+          }
+        }
+
+        // The finished job's transcript stays reachable from history — sending
+        // is refused server-side, this is read-only.
+        if (r.technician_id) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot', style: 'margin-top:12px' }, [
+              Ui.el(
+                'a',
+                {
+                  class: 'chat-button',
+                  attrs: { href: '/chat.html?id=' + r.id, title: 'سجل المحادثة' },
+                },
+                [Ui.ic('fa-solid fa-comments'), ' سجل المحادثة']
+              ),
+            ])
+          );
+        }
+
+        return card;
+      }
+
+      // ============================================================
+      // Wallet tab
+      // ============================================================
+      function renderWalletTab() {
+        if (!walletData) {
+          return Ui.el('div', { class: 'empty' }, [
+            Ui.ic('fa-solid fa-wallet'),
+            Ui.el('b', {}, ['جاري التحميل...']),
+          ]);
+        }
+
+        const w = walletData.wallet || {};
+        // balance and total_debt are two separate pots and must never be collapsed
+        // into one "net" figure: a technician with 200 of credit and 90 of debt is
+        // not "worth 110", they are owed 200 and owe 90. Presenting the difference
+        // hides both facts, which is the single change that makes the wallet legible.
+        const balance = Number(w.balance || 0);
+        const debt = Number(w.total_debt || 0);
+        const earned = Number(w.total_earned || 0);
+        const owed = Number(w.total_owed || 0);
+        const paid = Number(w.total_paid_to_platform || 0);
+        const withdrawn = Number(w.total_withdrawn || 0);
+        const limit = Number(walletData.debtLimit || 300);
+
+        const wrap = Ui.el('div', {});
+
+        wrap.appendChild(
+          Ui.el('div', { class: 'wallet-stats' }, [
+            Ui.el('div', { class: 'wallet-stat' + (debt > 0 ? ' negative' : ' positive') }, [
+              Ui.el('span', { class: 'ws-icon' }, [Ui.ic('fa-solid fa-scale-balanced')]),
+              Ui.el('b', {}, [money(debt)]),
+              Ui.el('span', {}, ['المديونية الحالية']),
+            ]),
+            Ui.el('div', { class: 'wallet-stat positive' }, [
+              Ui.el('span', { class: 'ws-icon' }, [Ui.ic('fa-solid fa-arrow-trend-up')]),
+              Ui.el('b', {}, [money(earned)]),
+              Ui.el('span', {}, ['إجمالي الأرباح']),
+            ]),
+            Ui.el('div', { class: 'wallet-stat' }, [
+              Ui.el('span', { class: 'ws-icon' }, [Ui.ic('fa-solid fa-receipt')]),
+              Ui.el('b', {}, [money(owed)]),
+              Ui.el('span', {}, ['إجمالي العمولات']),
+            ]),
+            Ui.el('div', { class: 'wallet-stat' }, [
+              Ui.el('span', { class: 'ws-icon' }, [Ui.ic('fa-solid fa-hand-holding-dollar')]),
+              Ui.el('b', {}, [money(paid)]),
+              Ui.el('span', {}, ['إجمالي المسدّد']),
+            ]),
+          ])
+        );
+
+        // The credit side, below the headline four. With cash-only payments this is 0
+        // for most technicians — credit only arrives from a withdrawal being paid out —
+        // so it reads as a quiet secondary figure rather than a headline.
+        wrap.appendChild(
+          Ui.el('div', { class: 'wallet-stats' }, [
+            Ui.el('div', { class: 'wallet-stat' }, [
+              Ui.el('span', { class: 'ws-icon' }, [Ui.ic('fa-solid fa-wallet')]),
+              Ui.el('b', {}, [money(balance)]),
+              Ui.el('span', {}, ['رصيد متاح للسحب']),
+            ]),
+            Ui.el('div', { class: 'wallet-stat' }, [
+              Ui.el('span', { class: 'ws-icon' }, [Ui.ic('fa-solid fa-money-bill-transfer')]),
+              Ui.el('b', {}, [money(withdrawn)]),
+              Ui.el('span', {}, ['إجمالي المسحوب']),
+            ]),
+          ])
+        );
+
+        // How much headroom is left before the debt limit stops new offers. The limit
+        // is measured against the debt pot alone, so this reads debt, never balance.
+        if (debt > 0) {
+          wrap.appendChild(
+            Ui.el('div', { class: 'debt-meter' }, [
+              Ui.el('span', {}, [
+                'المتبقي قبل إيقاف استقبال الطلبات: ',
+                Ui.el('b', {}, [money(Math.max(0, limit - debt))]),
+              ]),
+            ])
+          );
+        }
+
+        const txs = walletData.transactions || [];
+        const listWrap = Ui.el('div', { class: 'card wallet-tx-card' }, [
+          Ui.el('h3', { class: 'card-title' }, [Ui.ic('fa-solid fa-list'), ' سجل الحركات']),
+        ]);
+
+        if (!txs.length) {
+          listWrap.appendChild(
+            Ui.el('div', { class: 'empty' }, [
+              Ui.ic('fa-regular fa-folder-open'),
+              Ui.el('b', {}, ['لا توجد حركات بعد']),
+              Ui.el('p', {}, ['ستظهر هنا كل العمليات على محفظتك.']),
+            ])
+          );
+        } else {
+          const list = Ui.el('div', { class: 'tx-list' });
+          txs.forEach((t) => {
+            // Sign comes from the ledger entry. A zero-amount entry is treated as
+            // a debit so it never renders as a credit with a bare "+0.00".
+            const isCredit = Number(t.amount || 0) > 0;
+            const amount = Number(t.amount || 0);
+            list.appendChild(
+              Ui.el('div', { class: 'tx-item' }, [
+                Ui.el('span', { class: 'tx-icon ' + (isCredit ? 'positive' : 'negative') }, [
+                  Ui.ic(isCredit ? 'fa-solid fa-plus' : 'fa-solid fa-minus'),
+                ]),
+                Ui.el('div', { class: 'tx-info' }, [
+                  Ui.el('b', {}, [String(t.note || t.type)]),
+                  Ui.el('span', {}, [Ui.dateTime(t.created_at)]),
+                ]),
+                Ui.el('span', { class: 'tx-amount ' + (isCredit ? 'positive' : 'negative') }, [
+                  (isCredit ? '+' : '−') + Math.abs(amount).toFixed(2) + ' ج.م',
+                ]),
+              ])
+            );
+          });
+          listWrap.appendChild(list);
+        }
+        wrap.appendChild(listWrap);
+
+        return wrap;
+      }
+
+      // ============================================================
+      // Empty states
+      // ============================================================
+      function emptyState(icon, title, body) {
+        return Ui.el('div', { class: 'empty' }, [
+          Ui.ic(icon),
+          Ui.el('b', {}, [title]),
+          Ui.el('p', {}, [body]),
+        ]);
+      }
+
+      // ============================================================
+      // Render
+      // ============================================================
+      // Builds the node for the active tab. Kept pure so the signature can be
+      // computed without touching the DOM.
+      function buildTab() {
+        if (currentTab === 'incoming') {
+          if (!incomingList.length) {
+            return emptyState(
+              'fa-regular fa-bell-slash',
+              'لا توجد طلبات جديدة حالياً',
+              'هتلاقي الطلبات الجديدة هنا فور وصولها — خليك متاح'
+            );
+          }
+          const grid = Ui.el('div', { class: 'incoming-grid' });
+          incomingList.forEach((r) => {
+            // knownBroadcastIds is null only on the very first paint, where
+            // nothing is "new" because nothing was there before.
+            const isNew = knownBroadcastIds !== null && !knownBroadcastIds.has(r.broadcast_id);
+            grid.appendChild(renderIncomingCard(r, isNew));
+          });
+          knownBroadcastIds = new Set(incomingList.map((r) => r.broadcast_id));
+          return grid;
+        }
+
+        if (currentTab === 'active') {
+          if (!activeList.length) {
+            return emptyState(
+              'fa-solid fa-bolt',
+              'لا توجد مهام جارية',
+              'اقبل طلباً من تبويب "الواردة" لتبدأ.'
+            );
+          }
+          const listEl = Ui.el('div', { class: 'req-list' });
+          activeList.forEach((r) => listEl.appendChild(renderActiveCard(r)));
+          return listEl;
+        }
+
+        if (currentTab === 'history') {
+          if (!historyList.length) {
+            return emptyState(
+              'fa-regular fa-folder-open',
+              'السجل فارغ',
+              'المهام المكتملة ستظهر هنا.'
+            );
+          }
+          const listEl = Ui.el('div', { class: 'req-list' });
+          historyList.forEach((r) => listEl.appendChild(renderHistoryCard(r)));
+          return listEl;
+        }
+
+        return renderWalletTab();
+      }
+
+      // Cheap identity for the current view: tab plus the fields that can change
+      // what is painted. Any transition the user can perceive changes one of
+      // these, so an equal signature means an identical render.
+      function signature() {
+        if (currentTab === 'incoming') {
+          return JSON.stringify([currentTab, incomingList.map((r) => [r.broadcast_id, r.sent_at])]);
+        }
+        if (currentTab === 'active') {
+          // amount_status is in the signature because a job moves IN and OUT of this
+          // list on it: reporting the cash amount takes it out, and a page left open
+          // across that moment would otherwise keep rendering a stale "report" button
+          // for a request that is already settled.
+          return JSON.stringify([
+            currentTab,
+            activeList.map((r) => [r.id, r.status, r.technician_earning, r.amount_status]),
+          ]);
+        }
+        if (currentTab === 'history') {
+          return JSON.stringify([
+            currentTab,
+            historyList.map((r) => [r.id, r.status, r.work_notes, r.amount_status, r.final_amount]),
+          ]);
+        }
+        const w = (walletData && walletData.wallet) || {};
+        return JSON.stringify([
+          currentTab,
+          w.balance,
+          w.total_debt,
+          w.total_earned,
+          w.total_owed,
+          w.total_paid_to_platform,
+          w.total_withdrawn,
+        ]);
+      }
+
+      function render(force) {
+        const sig = signature();
+        if (!force && sig === paintedSig) return;
+        paintedSig = sig;
+        Ui.clear(contentEl);
+        contentEl.appendChild(buildTab());
+      }
+
+      // How many poll cycles have run, used to stagger the slower reads.
+      let tick = 0;
+
+      // Refreshes what the page currently needs. Called on load, on the refresh
+      // button, on a tab switch, and by the poll.
+      //
+      // The request budget is a hard constraint, not a nicety: the API is capped
+      // at 300 requests per 15 minutes per IP (backend/app.js). Polling four
+      // endpoints every 3s is 48 req/min = 720 per 15 min, which exhausts that
+      // budget in about six minutes and leaves the dashboard silently 429ing.
+      // So the cadence is deliberate:
+      //   - incoming and active every cycle: their counts drive the tab badges,
+      //     and missing a broadcast is the whole point of the page;
+      //   - wallet every 3rd cycle (~45s): it only changes when an admin settles
+      //     a payment, and the server enforces the debt limit regardless, so a
+      //     stale banner can never let a blocked technician take work;
+      //   - history only while its tab is open, and then only every 3rd cycle.
+      // A dashboard left open all session costs roughly 130 requests per 15
+      // minutes, leaving headroom for the rest of the app behind the same IP.
+      //
+      // force = true (initial load, manual refresh, after a mutation, on showing
+      // a backgrounded tab) bypasses the stagger so the user never sees a stale
+      // view right after acting.
+      async function pollAll(force) {
+        // A pending accept/reject must not be re-rendered away underneath the
+        // technician's finger.
+        if (busy && !force) return;
+
+        const jobs = [loadIncoming(), loadActive()];
+        if (force || (currentTab === 'history' && tick % 3 === 0)) jobs.push(loadHistory());
+        if (force || tick % 3 === 0) jobs.push(loadWallet());
+
+        await Promise.all(jobs);
+        tick += 1;
+        render(force);
+      }
+
+      // ============================================================
+      // Actions
+      // ============================================================
+      // Shared failure path for the button mutations: restore the button and
+      // refresh from the server, because the reason for the failure (someone else
+      // took the job, the tech went over the debt limit) is server-side state.
+      async function actionFailed(btn, err) {
+        toast(err.message, 'error');
+        await pollAll(true);
+        if (btn && btn.isConnected) btn.disabled = false;
+      }
+
+      contentEl.addEventListener('click', async (e) => {
+        const target = e.target.closest(
+          '[data-accept],[data-decline],[data-start],[data-complete],[data-report]'
+        );
+        if (!target || target.disabled) return;
+
+        busy = true;
+
+        if (target.hasAttribute('data-accept')) {
+          const id = target.dataset.accept;
+          const original = target.innerHTML;
+          target.disabled = true;
+          target.innerHTML = '<span class="spin"></span> جاري القبول...';
+          try {
+            await api('/api/technician/broadcasts/' + id + '/accept', { method: 'POST' });
+            toast('تم قبول الطلب', 'success');
+            busy = false;
+            // Jump to the active tab so the new job is on screen instead of
+            // leaving the technician on an empty "incoming" list wondering what
+            // happened.
+            switchTab('active');
+            await pollAll(true);
+          } catch (err) {
+            target.innerHTML = original;
+            await actionFailed(target, err);
+          }
+          busy = false;
+          return;
+        }
+
+        if (target.hasAttribute('data-decline')) {
+          const id = target.dataset.decline;
+          target.disabled = true;
+          try {
+            // /decline is the canonical name; /reject is the same handler under the
+            // older one and stays valid server-side.
+            await api('/api/technician/broadcasts/' + id + '/decline', { method: 'POST' });
+            toast('تم تخطي الطلب', 'warn');
+            busy = false;
+            await pollAll(true);
+          } catch (err) {
+            await actionFailed(target, err);
+          }
+          busy = false;
+          return;
+        }
+
+        if (target.hasAttribute('data-start')) {
+          // The PIN modal owns the flow from here, so the poll guard is released
+          // before it opens — leaving busy=true would wedge every other action on
+          // the dashboard until the job was started.
+          busy = false;
+          openStartJobModal(target.dataset.start);
+          return;
+        }
+
+        if (target.hasAttribute('data-complete')) {
+          // The modal owns the flow from here; release the poll guard.
+          busy = false;
+          openCompleteModal(target.dataset.complete);
+          return;
+        }
+
+        if (target.hasAttribute('data-report')) {
+          // A job that is already completed but has no amount: same modal, amount
+          // only, so the work notes are not asked for a second time.
+          busy = false;
+          openCompleteModal(target.dataset.report, { amountOnly: true });
+          return;
+        }
+      });
+
+      // ============================================================
+      // Complete / report modal
+      //
+      // One modal for both halves of finishing a job. Finishing is two backend calls
+      // — POST /complete for the work notes, then POST /report-payment for the cash
+      // amount — and the amount is the one the technician must never be allowed to
+      // skip, because it is what the commission is computed from and the customer
+      // is asked to confirm it.
+      //
+      // `amountOnly` is the recovery path: a job that was completed before this flow
+      // existed (or whose report failed) has work_notes already stored server-side,
+      // so re-asking for them would be noise. The notes are then shown read-only so
+      // the technician can see what they are confirming against.
+      // ============================================================
+      let modalHandle = null;
+
+      // ============================================================
+      // Start PIN
+      //
+      // A job cannot be started from this screen without the customer's 4-digit code:
+      // the card's "ابدأ المهمة" button opens a modal, the technician types what the
+      // customer reads out at the door, and the server checks it. Five wrong tries lock
+      // the code for 15 minutes, so guessing is not an option.
+      // ============================================================
+      function openStartJobModal(requestId) {
+        const inputs = [];
+        const body = Ui.el('div', {}, [
+          Ui.el(
+            'p',
+            {
+              class: 'muted',
+              attrs: { style: 'text-align:center;margin-bottom:18px;line-height:1.7;' },
+            },
+            ['اسأل العميل عن الرقم السري المكوّن من 4 أرقام عشان تبدأ المهمة.']
+          ),
+          Ui.el(
+            'div',
+            { class: 'pin-inputs' },
+            Array.from({ length: 4 }).map((_, i) => {
+              const input = Ui.el('input', {
+                class: 'pin-input',
+                attrs: {
+                  type: 'tel',
+                  inputmode: 'numeric',
+                  maxlength: '1',
+                  autocomplete: 'off',
+                  'aria-label': 'رقم ' + (i + 1),
+                  'data-index': String(i),
+                },
+              });
+              inputs.push(input);
+              return input;
+            })
+          ),
+        ]);
+
+        const btn = Ui.el(
+          'button',
+          {
+            class: 'btn btn-brand btn-block',
+            on: {
+              click: async () => {
+                const digits = inputs.map((i) => i.value).join('');
+                if (digits.length !== 4) {
+                  toast('أدخل 4 أرقام', 'error');
+                  return;
+                }
+                Ui.btnLoading(btn, 'جاري التحقق...');
+                try {
+                  await api('/api/technician/requests/' + requestId + '/start', {
+                    method: 'POST',
+                    body: { pin: digits },
+                  });
+                  toast('بدأت المهمة 🚀', 'success');
+                  if (modalHandle) modalHandle.close();
+                  await loadActive();
+                  await pollAll(true);
+                } catch (err) {
+                  toast(err.message, 'error');
+                  Ui.btnReset(btn);
+                  // The server counts the attempt, so re-read the lock state and tell
+                  // the technician how long is left rather than letting them keep
+                  // tapping a code that is already refused.
+                  const job = activeList.find((r) => String(r.id) === String(requestId));
+                  if (job && job.start_pin_locked_until) {
+                    const until = new Date(String(job.start_pin_locked_until));
+                    if (!Number.isNaN(until.getTime()) && until > new Date()) {
+                      const mins = Math.max(1, Math.ceil((until - new Date()) / 60000));
+                      toast('المحاولات مقفلة لمدة ' + mins + ' دقيقة', 'warn');
+                    }
+                  }
+                  await loadActive();
+                }
+              },
+            },
+          },
+          [Ui.ic('fa-solid fa-play'), 'بدء المهمة']
+        );
+
+        modalHandle = Ui.openModal(
+          {
+            title: 'ابدأ المهمة',
+            icon: { cls: 'fa-solid fa-lock', bg: '#eef2ff', color: '#4f46e5' },
+          },
+          body,
+          btn
+        );
+
+        // Auto-advance as digits are typed, and step back on backspace in an empty box.
+        // Bound to this modal's own inputs rather than document.querySelectorAll, so a
+        // stale modal's handlers cannot fire against a newer one.
+        inputs.forEach((inp, i) => {
+          inp.addEventListener('input', () => {
+            inp.value = inp.value.replace(/\D/g, '').slice(0, 1);
+            if (inp.value && i < inputs.length - 1) inputs[i + 1].focus();
+          });
+          inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !inp.value && i > 0) inputs[i - 1].focus();
+          });
+        });
+
+        setTimeout(() => {
+          if (inputs[0]) inputs[0].focus();
+        }, 100);
+      }
+
+      function openCompleteModal(requestId, opts) {
+        const amountOnly = !!(opts && opts.amountOnly);
+        const request = activeList
+          .concat(historyList)
+          .find((r) => String(r.id) === String(requestId));
+
+        const textarea = Ui.el('textarea', {
+          class: 'input',
+          id: 'work-notes-input',
+          attrs: {
+            rows: '4',
+            maxlength: '2000',
+            placeholder: 'مثال: استبدلت الكابل، عدلت الإشارة، اختبرت القنوات',
+          },
+        });
+        textarea.value = (request && request.work_notes) || '';
+
+        const amountInput = Ui.el('input', {
+          class: 'input',
+          id: 'amount-received-input',
+          attrs: {
+            type: 'number',
+            min: '1',
+            step: '0.01',
+            placeholder: 'مثال: 150',
+            dir: 'ltr',
+            style: 'text-align:right;',
+            inputmode: 'decimal',
+          },
+        });
+
+        const body = Ui.el('div', {}, [
+          Ui.el('p', { class: 'muted', style: 'margin-bottom:14px; line-height:1.7;' }, [
+            amountOnly
+              ? 'الطلب مكتمل بالفعل — سجّل المبلغ الذي استلمته من العميل.'
+              : 'اكتب ملخصاً صغيراً عن اللي عملته، وسجّل المبلغ اللي استلمته نقداً.',
+          ]),
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label', attrs: { for: 'work-notes-input' } }, [
+              'ما تم إنجازه ',
+              Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+            ]),
+            textarea,
+            Ui.el('div', { class: 'form-hint' }, ['5 أحرف على الأقل']),
+          ]),
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label', attrs: { for: 'amount-received-input' } }, [
+              'المبلغ الذي استلمته من العميل (ج.م) ',
+              Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+            ]),
+            amountInput,
+            Ui.el('div', { class: 'form-hint' }, ['سيتم احتساب عمولة المنصة 20% من هذا المبلغ']),
+          ]),
+          Ui.el('div', { class: 'form-hint' }, [
+            'سيتم عرض هذا المبلغ على العميل للتأكيد — لو اختلف عن مبلغه هيتحوّل الطلب للمراجعة.',
+          ]),
+        ]);
+
+        const confirmBtn = Ui.el(
+          'button',
+          {
+            class: 'btn btn-brand btn-block',
+            on: {
+              click: async () => {
+                const notes = textarea.value.trim();
+                const amt = Number(amountInput.value);
+
+                // Matches the server rule; catching it here avoids a round trip and
+                // leaves the technician's text intact.
+                if (notes.length < 5) {
+                  toast('اكتب ما تم إنجازه (5 أحرف على الأقل)', 'error');
+                  textarea.classList.add('invalid');
+                  textarea.focus();
+                  return;
+                }
+                if (!isFinite(amt) || amt <= 0) {
+                  toast('اكتب المبلغ الذي استلمته', 'error');
+                  amountInput.classList.add('invalid');
+                  amountInput.focus();
+                  return;
+                }
+
+                Ui.btnLoading(confirmBtn, 'جاري الحفظ...');
+                try {
+                  // Complete first, report second. The order is not arbitrary: the
+                  // backend refuses a report on a request that is not completed, so
+                  // reporting first would fail. The notes are only sent when they
+                  // changed, which keeps a retry from re-completing a finished job.
+                  if (!amountOnly && notes !== ((request && request.work_notes) || '').trim()) {
+                    await api('/api/technician/requests/' + requestId + '/complete', {
+                      method: 'POST',
+                      body: { work_notes: notes },
+                    });
+                  }
+
+                  const report = await api(
+                    '/api/technician/requests/' + requestId + '/report-payment',
+                    {
+                      method: 'POST',
+                      body: { amount: amt },
+                    }
+                  );
+
+                  if (report && report.status === 'matched') {
+                    toast('تم تأكيد المبلغ — اتفق مع العميل', 'success');
+                  } else if (report && report.status === 'disputed') {
+                    toast('تم التسجيل — يوجد اختلاف في المبلغ وهيتحوّل للمراجعة', 'error');
+                  } else {
+                    toast('تم تسجيل المبلغ — بانتظار تأكيد العميل', 'success');
+                  }
+
+                  if (modalHandle) modalHandle.close();
+                  // Completion moves the job out of 'active' and the report changes
+                  // the wallet, so pull both.
+                  switchTab('active');
+                  await pollAll(true);
+                } catch (err) {
+                  toast(err.message, 'error');
+                  Ui.btnReset(confirmBtn);
+                }
+              },
+            },
+          },
+          [Ui.ic('fa-solid fa-check'), amountOnly ? 'تسجيل المبلغ' : 'تأكيد الإنهاء']
+        );
+
+        modalHandle = Ui.openModal(
+          {
+            title: amountOnly ? 'تسجيل المبلغ المستلم' : 'إنهاء المهمة',
+            icon: {
+              cls: 'fa-solid fa-circle-check',
+              bg: 'var(--success-50)',
+              color: 'var(--success-600)',
+            },
+          },
+          body,
+          confirmBtn,
+          {
+            // Focus the amount box, since that is the field with no default and the
+            // one the technician came here to supply. Deferred to the next frame:
+            // openModal invokes onOpen BEFORE the overlay enters the document, so
+            // focusing synchronously here would target a detached node and silently
+            // do nothing.
+            onOpen: () => requestAnimationFrame(() => amountInput.focus()),
+          }
+        );
+      }
+
+      // ============================================================
+      // Tabs
+      // ============================================================
+      function switchTab(name) {
+        currentTab = name;
+        document.querySelectorAll('.tab').forEach((x) => {
+          x.classList.toggle('active', x.dataset.tab === name);
+        });
+        // Paint immediately from cache so the tab feels instant, then pull fresh
+        // data. Rendering the cache alone would be wrong here: the wallet only
+        // changes when an admin settles a payment, and a technician who opens this
+        // tab is specifically asking what it says now. Same for history, which the
+        // throttled poll may not have read for a while.
+        render(true);
+        if (name === 'wallet' || name === 'history') pollAll(false);
+      }
+
+      document.querySelectorAll('.tab').forEach((t) => {
+        t.addEventListener('click', () => switchTab(t.dataset.tab));
+      });
+
+      document.getElementById('refresh-btn').addEventListener('click', () => {
+        pollAll(true);
+      });
+
+      // ============================================================
+      // Unread chat badges
+      // ============================================================
+      // Painted onto the .chat-button elements that are already on screen, so
+      // this reuses pollAll's redraw rather than fighting it: pollAll rebuilds
+      // the cards, which drops the badges, so they are re-applied right after.
+      async function pollUnread() {
+        if (document.hidden) return;
+        try {
+          const data = await api('/api/messages/unread-count');
+          const counts = {};
+          (data.byRequest || []).forEach((row) => {
+            counts[String(row.request_id)] = row.n;
+          });
+
+          document.querySelectorAll('.chat-button').forEach((btn) => {
+            const href = btn.getAttribute('href') || '';
+            const reqId = new URL(href, window.location.origin).searchParams.get('id');
+            const n = reqId ? counts[String(reqId)] || 0 : 0;
+
+            let badge = btn.querySelector('.chat-badge');
+            if (n > 0) {
+              if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'chat-badge';
+                btn.appendChild(badge);
+              }
+              badge.textContent = n > 9 ? '9+' : String(n);
+            } else if (badge) {
+              badge.remove();
+            }
+          });
+        } catch (e) {
+          /* silent — a missing badge must never break the dashboard */
+        }
+      }
+
+      async function paintCardsAndBadges() {
+        await pollAll(true);
+        await pollUnread();
+      }
+
+      // Init + polling.
+      paintCardsAndBadges();
+      // 15s keeps offers feeling live while staying inside the server's rate
+      // limit for a long-open tab. See pollAll for the arithmetic.
+      // Badges ride the same tick: every pollAll rebuilds the cards and drops
+      // them, so the two cannot drift apart.
+      setInterval(() => {
+        if (document.hidden) return;
+        pollAll(false);
+        pollUnread();
+      }, 15000);
+
+      // Stop polling while hidden: a backgrounded dashboard is pure wasted
+      // requests, and the tab being shown again triggers an immediate refresh.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) paintCardsAndBadges();
+      });
+    </script>
+    <script src="/js/pwa-install.js"></script>
+    <script src="/js/push.js"></script>
+  </body>
+</html>

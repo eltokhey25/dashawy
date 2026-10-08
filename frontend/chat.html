@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>المحادثة — دشاوي</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="chat-body">
+    <header class="chat-header">
+      <a href="javascript:history.back()" class="chat-back" aria-label="رجوع">
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
+      <div class="chat-peer">
+        <div class="chat-avatar" id="chat-avatar"></div>
+        <div class="chat-peer-text">
+          <b id="chat-name">…</b>
+          <span id="chat-status"></span>
+        </div>
+      </div>
+      <div class="chat-actions">
+        <a id="chat-call" class="chat-icon-btn" title="اتصال" aria-label="اتصال">
+          <i class="fa-solid fa-phone"></i>
+        </a>
+      </div>
+    </header>
+
+    <main class="chat-messages" id="chat-messages">
+      <div class="chat-loading" id="chat-loading">جاري تحميل المحادثة…</div>
+    </main>
+
+    <footer class="chat-input-bar" id="chat-input-bar">
+      <form id="chat-form">
+        <input
+          type="text"
+          id="chat-input"
+          class="chat-input"
+          placeholder="اكتب رسالة..."
+          autocomplete="off"
+          maxlength="2000"
+          aria-label="نص الرسالة"
+        />
+        <button type="submit" class="chat-send" id="chat-send" aria-label="إرسال">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </footer>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/push.js"></script>
+    <script>
+      /* ----------------------------------------------
+         Guards
+      ---------------------------------------------- */
+      if (!Auth.isAuthed()) {
+        window.location.replace('/login.html');
+        throw new Error('redirect');
+      }
+
+      const role = Auth.role();
+      if (role !== 'customer' && role !== 'technician') {
+        window.location.replace('/');
+        throw new Error('redirect');
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const requestId = Number(params.get('id'));
+      if (!requestId) {
+        document.body.innerHTML =
+          '<div style="padding:40px;text-align:center;font-family:sans-serif">رابط غير صالح</div>';
+        throw new Error('no id');
+      }
+
+      const messagesEl = document.getElementById('chat-messages');
+      const formEl = document.getElementById('chat-form');
+      const inputEl = document.getElementById('chat-input');
+      const sendBtn = document.getElementById('chat-send');
+      const statusEl = document.getElementById('chat-status');
+
+      const POLL_MS = 3000;
+      const READ_ONLY_STATES = ['completed', 'cancelled', 'no_technician'];
+
+      const myUserId = Auth.getUser().id;
+
+      // The thread is re-rendered only when its content actually changed, which
+      // keeps a 3s poll from making the scroll position jump under the reader's
+      // thumb every time.
+      let signature = null;
+      let isReadOnly = false;
+      let pollingTimer = null;
+      let sending = false;
+      let lastErrorAt = 0;
+
+      function setStatus(text) {
+        statusEl.textContent = text || '';
+      }
+
+      function lockComposer(why) {
+        isReadOnly = true;
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
+        inputEl.placeholder = why;
+      }
+
+      function unlockComposer() {
+        isReadOnly = false;
+        inputEl.disabled = false;
+        sendBtn.disabled = false;
+        inputEl.placeholder = 'اكتب رسالة...';
+      }
+
+      /* ----------------------------------------------
+         Peer info + request status
+      ---------------------------------------------- */
+      async function loadHeader() {
+        try {
+          let reqData = null;
+
+          if (role === 'customer') {
+            const data = await api('/api/customer/requests/' + requestId);
+            reqData = data.request;
+          } else {
+            // A finished job drops out of the active tab into history, and the
+            // chat stays readable there, so both lists are searched.
+            const [active, history] = await Promise.all([
+              api('/api/technician/requests?filter=active'),
+              api('/api/technician/requests?filter=history'),
+            ]);
+            const all = [].concat(active.requests || []).concat(history.requests || []);
+            reqData = all.find((r) => Number(r.id) === requestId) || null;
+          }
+
+          if (!reqData) {
+            setStatus('');
+            lockComposer('الطلب غير متاح');
+            return;
+          }
+
+          const peerName =
+            role === 'customer'
+              ? reqData.technician_name || 'الفني'
+              : reqData.customer_name || 'العميل';
+          const peerPhone = role === 'customer' ? reqData.technician_phone : reqData.customer_phone;
+
+          document.getElementById('chat-name').textContent = peerName;
+          document.getElementById('chat-avatar').textContent = Ui.initials(peerName);
+
+          const callBtn = document.getElementById('chat-call');
+          if (peerPhone) {
+            callBtn.href = 'tel:' + peerPhone;
+          } else {
+            callBtn.style.display = 'none';
+          }
+
+          if (reqData.status === 'in_progress') {
+            setStatus('جاري التنفيذ');
+            unlockComposer();
+          } else if (reqData.status === 'assigned') {
+            setStatus('في الطريق');
+            unlockComposer();
+          } else if (reqData.status === 'completed') {
+            setStatus('انتهت المهمة');
+            lockComposer('انتهت المهمة');
+          } else if (READ_ONLY_STATES.indexOf(reqData.status) !== -1) {
+            setStatus(reqData.status === 'cancelled' ? 'ملغي' : 'لا يوجد فني');
+            lockComposer('المحادثة مغلقة');
+          } else {
+            setStatus('');
+            lockComposer('المحادثة مغلقة');
+          }
+        } catch (e) {
+          // A 403 here means the user is not part of this conversation at all.
+          // Say so instead of leaving an empty screen that looks broken.
+          console.warn('header load failed', e);
+          if (e && /غير مصرح/.test(e.message)) {
+            messagesEl.innerHTML = '';
+            messagesEl.appendChild(
+              Ui.el('div', { class: 'chat-note' }, ['غير مصرح لك بالوصول لهذه المحادثة'])
+            );
+            lockComposer('');
+          } else {
+            lockComposer('تعذر تحميل المحادثة');
+          }
+        }
+      }
+
+      /* ----------------------------------------------
+         Render
+      ---------------------------------------------- */
+      // SQLite hands back 'YYYY-MM-DD HH:MM:SS' in UTC, which new Date() cannot
+      // parse on its own — same normalisation Ui.dateOnly does.
+      function parseSqlite(str) {
+        const d = new Date(
+          String(str || '')
+            .trim()
+            .replace(' ', 'T') + 'Z'
+        );
+        return isNaN(d.getTime()) ? null : d;
+      }
+
+      function dayLabel(day) {
+        const today = new Date();
+        const yday = new Date(today.getTime() - 86400000);
+        const key = today.toISOString().slice(0, 10);
+        const keyY = yday.toISOString().slice(0, 10);
+        if (day === key) return 'اليوم';
+        if (day === keyY) return 'أمس';
+        const d = new Date(day + 'T00:00:00Z');
+        return isNaN(d.getTime())
+          ? day
+          : d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+      }
+
+      function renderMessages(messages) {
+        const nextSignature =
+          messages.length + '|' + (messages.length ? messages[messages.length - 1].id : 0);
+        if (nextSignature === signature) return;
+        signature = nextSignature;
+
+        const wasAtBottom =
+          messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
+        Ui.clear(messagesEl);
+
+        if (messages.length === 0) {
+          messagesEl.appendChild(
+            Ui.el('div', { class: 'chat-note' }, ['ابدأ المحادثة — اكتب أول رسالة.'])
+          );
+          return;
+        }
+
+        // Group by calendar day so a long thread stays readable.
+        let lastDay = null;
+        messages.forEach((m) => {
+          const parsed = parseSqlite(m.created_at);
+          const day = parsed
+            ? parsed.toISOString().slice(0, 10)
+            : String(m.created_at || '').slice(0, 10);
+          if (day && day !== lastDay) {
+            lastDay = day;
+            messagesEl.appendChild(Ui.el('div', { class: 'chat-day' }, [dayLabel(day)]));
+          }
+
+          const isMine = Number(m.sender_id) === Number(myUserId);
+          messagesEl.appendChild(
+            Ui.el('div', { class: 'chat-bubble ' + (isMine ? 'mine' : 'theirs') }, [
+              // Passed as a RAW string: Ui.el turns string children into text
+              // nodes, which the DOM escapes by itself. Wrapping this in
+              // Ui.escapeHtml() would double-escape and the reader would see
+              // literal "&lt;b&gt;" in their own message.
+              Ui.el('div', { class: 'cb-body' }, [m.body]),
+              Ui.el('div', { class: 'cb-time' }, [Ui.dateTime(m.created_at)]),
+            ])
+          );
+        });
+
+        // Only auto-scroll when the reader was already at the bottom, so reading
+        // back through history is not yanked away by an arriving message.
+        if (wasAtBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      /* ----------------------------------------------
+         Load + poll
+      ---------------------------------------------- */
+      async function loadMessages() {
+        try {
+          const data = await api('/api/messages/' + requestId);
+
+          // The server is authoritative about whether this thread still accepts
+          // messages, so a job that completes while the page is open locks the
+          // composer on the very next poll without a reload.
+          if (data.canSend === false && !isReadOnly) {
+            lockComposer(data.requestStatus === 'completed' ? 'انتهت المهمة' : 'المحادثة مغلقة');
+            if (data.requestStatus === 'completed') setStatus('انتهت المهمة');
+          }
+
+          const loading = document.getElementById('chat-loading');
+          if (loading) loading.remove();
+
+          renderMessages(data.messages || []);
+        } catch (err) {
+          console.warn('load failed', err && err.message);
+          // Throttled: a dead server must not fill the console every 3 seconds.
+          const now = Date.now();
+          if (now - lastErrorAt > 30000) {
+            lastErrorAt = now;
+            const loading = document.getElementById('chat-loading');
+            if (loading) loading.textContent = 'تعذر تحميل المحادثة.';
+          }
+        }
+      }
+
+      function startPolling() {
+        if (pollingTimer) return;
+        pollingTimer = setInterval(() => {
+          // A hidden tab is not read; polling it would mark the other side's
+          // messages read while nobody is looking at them.
+          if (document.hidden || sending) return;
+          loadMessages();
+        }, POLL_MS);
+      }
+
+      /* ----------------------------------------------
+         Send
+      ---------------------------------------------- */
+      formEl.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text || sending) return;
+
+        if (isReadOnly) {
+          toast('انتهت المهمة — لا يمكن إرسال رسائل جديدة', 'warn');
+          return;
+        }
+
+        sending = true;
+        inputEl.value = '';
+        sendBtn.disabled = true;
+
+        try {
+          await api('/api/messages/' + requestId, { method: 'POST', body: { body: text } });
+          signature = null; // force a repaint of the thread we just appended to
+          await loadMessages();
+        } catch (err) {
+          toast(err.message, 'error');
+          // Give the text back only if the composer is still open — restoring it
+          // into a locked box would look like the message went through.
+          if (!isReadOnly) inputEl.value = text;
+        } finally {
+          sending = false;
+          if (!isReadOnly) {
+            sendBtn.disabled = false;
+            inputEl.focus();
+          }
+        }
+      });
+
+      // Enter sends, Shift+Enter is not a thing in a single-line input, so the
+      // form submit above is the only path. Keeping focus in the box between
+      // polls avoids the mobile keyboard closing on every message.
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          // requestSubmit() is Chrome 77+ / Safari 16+. On anything older the
+          // call would throw and take Enter-to-send down with it, so the
+          // button's own click is used as the fallback.
+          if (typeof formEl.requestSubmit === 'function') formEl.requestSubmit();
+          else sendBtn.click();
+        }
+      });
+
+      /* ----------------------------------------------
+         Lifecycle
+      ---------------------------------------------- */
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) loadMessages();
+      });
+
+      (async () => {
+        await loadHeader();
+        await loadMessages();
+        startPolling();
+      })();
+    </script>
+  </body>
+</html>

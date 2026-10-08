@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>طلباتي — دشاوي</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner">
+        <a class="brand" href="/customer/dashboard.html">
+          <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+          <span>دشاوي</span>
+        </a>
+
+        <div class="nav-menu">
+          <a href="/customer/dashboard.html"> <i class="fa-solid fa-house"></i> الرئيسية </a>
+          <a href="/customer/my-requests.html" class="active">
+            <i class="fa-solid fa-list-check"></i> طلباتي
+          </a>
+        </div>
+
+        <div class="nav-actions">
+          <span id="nav-user"></span>
+          <button class="nav-toggle" aria-label="القائمة">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container page">
+      <header class="page-head">
+        <div>
+          <h1>طلباتي</h1>
+          <p class="sub">تحديث تلقائي كل 5 ثوانٍ</p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap">
+          <div class="tabs">
+            <button class="tab active" data-tab="active">
+              <i class="fa-solid fa-bolt"></i> الحالية
+            </button>
+            <button class="tab" data-tab="history">
+              <i class="fa-solid fa-clock-rotate-left"></i> السجل
+            </button>
+          </div>
+          <button class="btn btn-outline btn-sm" id="refresh-btn">
+            <i class="fa-solid fa-rotate"></i> تحديث
+          </button>
+        </div>
+      </header>
+
+      <div class="req-list" id="request-list"></div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script>
+      if (!Auth.requireRole('customer')) throw new Error('redirect');
+      Ui.renderNavUser(document.getElementById('nav-user'));
+      Ui.initNav();
+
+      let currentTab = 'active';
+      let allRequests = [];
+      const listEl = document.getElementById('request-list');
+
+      // Map: requestId -> review object
+      let reviewsByRequest = {};
+
+      // "منذ ساعتين" for a queued request. SQLite's datetime('now') is UTC with no
+      // zone marker, so the 'Z' is what makes the difference between "now" and
+      // "2 hours ago" — same fix as Ui.dateTime.
+      function waitingSince(stamp) {
+        if (!stamp) return '';
+        const parsed = new Date(String(stamp).replace(' ', 'T') + 'Z').getTime();
+        if (isNaN(parsed)) return '';
+        const mins = Math.floor(Math.max(0, Date.now() - parsed) / 60000);
+        if (mins < 1) return 'منذ شوية';
+        if (mins < 60) return 'منذ ' + mins + ' دقيقة';
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return 'منذ ' + hours + ' ساعة';
+        return 'منذ ' + Math.floor(hours / 24) + ' يوم';
+      }
+
+      const PAYMENT_STATUS = {
+        unpaid: { label: 'بانتظار الدفع', icon: 'fa-solid fa-hourglass-half' },
+        pending_verification: { label: 'بانتظار تأكيد المنصة', icon: 'fa-solid fa-clock' },
+        confirmed: { label: 'تم الدفع', icon: 'fa-solid fa-circle-check' },
+        refunded: { label: 'تم الاسترداد', icon: 'fa-solid fa-rotate-left' },
+      };
+
+      function money(n) {
+        return Number(n || 0).toFixed(2) + ' ج.م';
+      }
+
+      async function loadMyReviews() {
+        try {
+          // Fetch all reviews for this customer's requests in one call
+          const data = await api('/api/customer/my-reviews');
+          const map = {};
+          (data.reviews || []).forEach((rv) => {
+            map[rv.request_id] = rv;
+          });
+          reviewsByRequest = map;
+        } catch (e) {
+          // Fail silently: the rate button must never block the list itself
+          reviewsByRequest = {};
+        }
+      }
+
+      // The customer's half of the two-sided cash confirmation.
+      //
+      // The technician says what they took; the customer says what they paid. Three
+      // states matter to the customer, and the banner is the only place the
+      // technician's figure is shown — the whole point is that they can compare it
+      // against what they remember handing over.
+      function amountConfirmBox(r) {
+        const box = Ui.el('div', {
+          class: 'pay-box pay-' + (r.amount_status === 'disputed' ? 'unpaid' : 'pending'),
+        });
+        const waitingOnCustomer =
+          r.amount_status === 'pending' && r.customer_reported_amount == null;
+
+        box.appendChild(
+          Ui.el('div', { class: 'pay-head' }, [
+            Ui.ic('fa-solid fa-money-bill-transfer'),
+            Ui.el('span', {}, ['المبلغ المدفوع نقداً']),
+            Ui.el('b', { class: 'pay-amount' }, [money(r.service_price)]),
+          ])
+        );
+
+        if (waitingOnCustomer) {
+          // Amber rather than neutral: this is an action the customer still owes, and
+          // it is the only thing standing between the technician and their commission
+          // being booked.
+          box.appendChild(
+            Ui.el('p', { class: 'pay-hint', attrs: { style: 'font-weight:600' } }, [
+              'الفني سجّل أنه استلم ' +
+                money(r.technician_reported_amount) +
+                ' — أكّد المبلغ الذي دفعته',
+            ])
+          );
+          box.appendChild(
+            Ui.el('div', { class: 'pay-actions' }, [
+              Ui.el(
+                'button',
+                {
+                  class: 'btn btn-accent btn-sm',
+                  attrs: {
+                    'data-report-paid': r.id,
+                    'data-tech-amount': String(r.technician_reported_amount),
+                  },
+                },
+                [Ui.ic('fa-solid fa-circle-check'), 'تأكيد المبلغ المدفوع']
+              ),
+            ])
+          );
+          return box;
+        }
+
+        // Already answered: show the outcome, and the agreed figure when there is one.
+        box.appendChild(
+          Ui.el('p', { class: 'pay-hint' }, [
+            r.amount_status === 'disputed'
+              ? 'سجّلتَ ' +
+                money(r.customer_reported_amount) +
+                ' والفني سجّل ' +
+                money(r.technician_reported_amount) +
+                ' — الطلب قيد المراجعة عند الإدارة.'
+              : 'أكّدتَ ' + money(r.customer_reported_amount) + ' — المبلغ اتأكد.',
+          ])
+        );
+        box.appendChild(
+          Ui.el('div', { class: 'pay-hint' }, [Ui.amountStatusBadge(r.amount_status)])
+        );
+        if (r.final_amount != null) {
+          box.appendChild(
+            Ui.el('p', { class: 'pay-hint' }, ['المبلغ المعتمد: ' + money(r.final_amount)])
+          );
+        }
+        return box;
+      }
+
+      // Confirmation sheet. The technician's figure is shown above the input on
+      // purpose: asking for a number with nothing to compare against is how an
+      // honest customer ends up confirming whatever the platform says.
+      function openReportPaymentModal(requestId, techAmount) {
+        const amountInput = Ui.el('input', {
+          class: 'input',
+          id: 'amount-paid-input',
+          attrs: {
+            type: 'number',
+            min: '1',
+            step: '0.01',
+            placeholder: 'مثال: 150',
+            dir: 'ltr',
+            style: 'text-align:right;',
+            inputmode: 'decimal',
+          },
+        });
+
+        const body = Ui.el('div', {}, [
+          Ui.el('p', { class: 'muted', style: 'margin-bottom:14px; line-height:1.7;' }, [
+            'ادفعت المبلغ نقداً للفني — اكتب هنا المبلغ اللي دفعته بالظبط. لو المبلغ يختلف عن اللي سجّله الفني، الطلب هيتحوّل للإدارة للمراجعة.',
+          ]),
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label', attrs: { for: 'amount-paid-input' } }, [
+              'المبلغ الذي دفعته للفني (ج.م) ',
+              Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+            ]),
+            amountInput,
+            Ui.el('div', { class: 'form-hint' }, [
+              'الفني سجّل: ',
+              Ui.el('span', { id: 'tech-reported-amount' }, [money(techAmount)]),
+              ' ج.م',
+            ]),
+          ]),
+        ]);
+
+        const confirmBtn = Ui.el(
+          'button',
+          {
+            class: 'btn btn-brand btn-block',
+            on: {
+              click: async () => {
+                const amt = Number(amountInput.value);
+                if (!isFinite(amt) || amt <= 0) {
+                  toast('اكتب المبلغ الذي دفعته', 'error');
+                  amountInput.classList.add('invalid');
+                  amountInput.focus();
+                  return;
+                }
+                Ui.btnLoading(confirmBtn, 'جاري الإرسال...');
+                try {
+                  const result = await api(
+                    '/api/customer/requests/' + requestId + '/report-payment',
+                    {
+                      method: 'POST',
+                      body: { amount: amt },
+                    }
+                  );
+                  if (handle) handle.close();
+
+                  if (result.status === 'matched') {
+                    toast('تم تأكيد الدفع بنجاح ✅', 'success');
+                  } else if (result.status === 'disputed') {
+                    toast('يوجد اختلاف في المبلغ، تم إحالة الطلب للمراجعة', 'error');
+                  } else {
+                    toast('تم تسجيل المبلغ', 'success');
+                  }
+                  await load();
+                } catch (err) {
+                  toast(err.message, 'error');
+                  Ui.btnReset(confirmBtn);
+                }
+              },
+            },
+          },
+          [Ui.ic('fa-solid fa-check'), 'تأكيد المبلغ']
+        );
+
+        const handle = Ui.openModal(
+          {
+            title: 'تأكيد المبلغ المدفوع',
+            icon: {
+              cls: 'fa-solid fa-money-bill-transfer',
+              bg: 'var(--warning-50,#fffbeb)',
+              color: 'var(--warning-600,#d97706)',
+            },
+          },
+          body,
+          confirmBtn,
+          {
+            onOpen: () => requestAnimationFrame(() => amountInput.focus()),
+          }
+        );
+      }
+
+      function cardFor(r) {
+        const m = Ui.meta(r.specialty);
+        const displayLabel =
+          r.specialty === 'other' && r.custom_specialty_text ? r.custom_specialty_text : m.label;
+        const card = Ui.el('div', { class: 'req-card' });
+        card.appendChild(
+          Ui.el('div', { class: 'req-top' }, [
+            Ui.el('div', { class: 'req-title' }, [
+              Ui.el(
+                'span',
+                { class: 'rt-ic', attrs: { style: 'background:' + m.bg + ';color:' + m.color } },
+                [Ui.ic(m.icon)]
+              ),
+              displayLabel + ' — طلب #' + r.id,
+            ]),
+            Ui.statusBadge(r.status),
+          ])
+        );
+        const meta = [
+          Ui.el('span', {}, [
+            Ui.ic('fa-regular fa-calendar'),
+            'أُنشئ: ' + Ui.dateTime(r.created_at),
+          ]),
+        ];
+        if (r.technician_name)
+          meta.push(
+            Ui.el('span', {}, [
+              Ui.ic('fa-solid fa-user-gear'),
+              'الفني: ' +
+                r.technician_name +
+                (r.technician_phone ? ' · ' + r.technician_phone : ''),
+            ])
+          );
+        if (r.status === 'completed' && r.completed_at)
+          meta.push(
+            Ui.el('span', { class: 'muted' }, [
+              Ui.ic('fa-solid fa-circle-check', ''),
+              'أُنجز: ' + Ui.dateTime(r.completed_at),
+            ])
+          );
+        if (['pending', 'assigned'].includes(r.status) && !r.technician_name)
+          meta.push(
+            Ui.el('span', {}, [Ui.ic('fa-solid fa-magnifying-glass'), 'جارٍ البحث عن فني…'])
+          );
+        card.appendChild(Ui.el('div', { class: 'req-meta' }, meta));
+
+        if (r.description)
+          card.appendChild(Ui.el('div', { class: 'req-desc' }, [Ui.escapeHtml(r.description)]));
+
+        // On the waiting queue: nothing has gone wrong, the request is simply
+        // waiting for a technician to become free. Saying so — and for how long —
+        // is the difference between a customer who waits and one who rebooks.
+        if (r.status === 'pending' && r.is_queued) {
+          const since = waitingSince(r.queued_at);
+          card.appendChild(
+            Ui.el('div', { class: 'queued-hint' }, [
+              Ui.ic('fa-solid fa-clock'),
+              ' طلبك في قائمة الانتظار' +
+                (since ? ' ' + since : '') +
+                ' — بنحاول نوصّله لفني تاني أول ما يتفرّغ.',
+            ])
+          );
+        }
+
+        // A request the queue gave up on, or an admin-closed one, says why. A bare
+        // "ملغي" a day later reads as a bug to the customer.
+        if (r.status === 'cancelled' && r.cancel_reason) {
+          card.appendChild(
+            Ui.el(
+              'div',
+              {
+                class: 'queued-hint',
+                attrs: {
+                  style: 'background:var(--danger-50,#fef2f2);border-color:#fca5a5;color:#991b1b',
+                },
+              },
+              [Ui.ic('fa-solid fa-circle-info'), ' ' + r.cancel_reason]
+            )
+          );
+        }
+
+        card.appendChild(
+          Ui.el('div', { class: 'detail-row' }, [
+            Ui.el('span', { class: 'dk' }, ['الموقع']),
+            Ui.el('span', { class: 'dv' }, [
+              Ui.escapeHtml(r.location_text || r.customer_location || '—'),
+            ]),
+          ])
+        );
+
+        // The badge now says "لا يوجد فني متاح", which tells the customer the state
+        // but not what happens next. One line of plain Arabic, because a request
+        // that silently sits here is exactly the dead end this feature is meant to
+        // avoid.
+        if (r.status === 'no_technician') {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot', style: 'margin-top:12px' }, [
+              Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, [
+                Ui.ic('fa-solid fa-circle-info'),
+                ' مفيش فني متاح في التخصص ده دلوقتي — بنحاول نوصّله لفني تاني، ولو عايز تغيّر التخصص أنشئ طلب جديد',
+              ]),
+            ])
+          );
+        }
+
+        if (['pending', 'assigned'].includes(r.status)) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot', style: 'margin-top:12px' }, [
+              Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, [
+                Ui.ic('fa-solid fa-circle-info'),
+                ' يمكنك إلغاء الطلب قبل بدء التنفيذ',
+              ]),
+              Ui.el(
+                'button',
+                { class: 'btn btn-soft-danger btn-sm', attrs: { 'data-cancel': r.id } },
+                [Ui.ic('fa-solid fa-xmark'), 'إلغاء الطلب']
+              ),
+            ])
+          );
+        }
+
+        // Payment for finished work. A job in the two-sided cash flow is settled by
+        // the customer CONFIRMING what they handed over — they already paid the
+        // technician in cash, so the old "ادفع الآن" sheet (which recorded a claim to
+        // send money to the platform) is the wrong action and would dead-end.
+        if (r.status === 'completed' && r.amount_status) {
+          card.appendChild(amountConfirmBox(r));
+        } else if (r.status === 'completed') {
+          // A completed request that never entered the confirmation flow: a pre-cash
+          // record, or one where no amount has been reported yet. Kept on the old
+          // sheet so it is not left with no path at all.
+          card.appendChild(
+            Ui.el('div', { class: 'pay-box pay-' + (r.payment_status || 'unpaid') }, [
+              Ui.el('div', { class: 'pay-head' }, [
+                Ui.ic((PAYMENT_STATUS[r.payment_status] || PAYMENT_STATUS.unpaid).icon),
+                Ui.el('span', {}, [
+                  (PAYMENT_STATUS[r.payment_status] || PAYMENT_STATUS.unpaid).label,
+                ]),
+                Ui.el('b', { class: 'pay-amount' }, [money(r.service_price)]),
+              ]),
+              r.payment_status === 'pending_verification'
+                ? Ui.el('p', { class: 'pay-hint' }, [
+                    r.payment_reference
+                      ? 'حوّلت رقم ' + r.payment_reference + ' — بنأكده خلال وقت قصير.'
+                      : 'استلمنا تسجيل دفعك وبنأكده خلال وقت قصير.',
+                  ])
+                : null,
+              r.payment_status === 'confirmed' && r.payment_reference
+                ? Ui.el('p', { class: 'pay-hint' }, ['رقم العملية: ' + r.payment_reference])
+                : null,
+              r.payment_status === 'confirmed' || r.payment_status === 'refunded'
+                ? null
+                : Ui.el('div', { class: 'pay-actions' }, [
+                    Ui.el(
+                      'button',
+                      { class: 'btn btn-accent btn-sm', attrs: { 'data-pay': r.id } },
+                      [
+                        Ui.ic('fa-solid fa-wallet'),
+                        r.payment_status === 'pending_verification'
+                          ? 'تعديل بيانات الدفع'
+                          : 'ادفع الآن',
+                      ]
+                    ),
+                  ]),
+            ])
+          );
+        }
+
+        // Review state for a finished job: show what was already submitted, or
+        // offer the rating button. Text is passed raw because Ui.el creates text
+        // nodes, which are already escaped by the DOM.
+        if (r.status === 'completed' && r.technician_id) {
+          const existingReview = reviewsByRequest[r.id];
+
+          if (existingReview) {
+            const stars = [];
+            for (let i = 1; i <= 5; i++) {
+              stars.push(
+                Ui.ic(i <= existingReview.rating ? 'fa-solid fa-star' : 'fa-regular fa-star')
+              );
+            }
+            card.appendChild(
+              Ui.el('div', { class: 'my-review-box' }, [
+                Ui.el('div', { class: 'mrb-head' }, [
+                  Ui.ic('fa-solid fa-circle-check'),
+                  ' تقييمك للفني',
+                ]),
+                Ui.el('div', { class: 'mrb-stars' }, stars),
+                existingReview.comment
+                  ? Ui.el('p', { class: 'mrb-comment' }, [existingReview.comment])
+                  : null,
+                existingReview.technician_reply
+                  ? Ui.el('div', { class: 'mrb-reply' }, [
+                      Ui.el('b', {}, ['رد الفني: ']),
+                      existingReview.technician_reply,
+                    ])
+                  : null,
+              ])
+            );
+          } else {
+            const rateBtn = Ui.el(
+              'button',
+              {
+                class: 'btn btn-accent btn-sm',
+                attrs: { 'data-review': r.id, 'data-tech-name': r.technician_name || '' },
+              },
+              [Ui.ic('fa-solid fa-star'), 'قيّم الفني']
+            );
+            card.appendChild(
+              Ui.el('div', { class: 'req-foot', style: 'margin-top:12px' }, [
+                Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, [
+                  Ui.ic('fa-solid fa-bell'),
+                  ' ساعدنا بتقييمك — رأيك مهم للفنيين الآخرين',
+                ]),
+                rateBtn,
+              ])
+            );
+          }
+        }
+        // Chat, while a technician is on the job. Once it is finished the thread is
+        // still readable from the card, but there is nothing to send.
+        if (r.technician_id && ['assigned', 'in_progress'].includes(r.status)) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot', style: 'margin-top:12px' }, [
+              Ui.el('a', { class: 'chat-button', attrs: { href: '/chat.html?id=' + r.id } }, [
+                Ui.ic('fa-solid fa-comments'),
+                ' شات',
+              ]),
+            ])
+          );
+        } else if (r.technician_id && ['completed', 'cancelled'].includes(r.status)) {
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot', style: 'margin-top:12px' }, [
+              Ui.el(
+                'a',
+                {
+                  class: 'chat-button',
+                  attrs: { href: '/chat.html?id=' + r.id, title: 'سجل المحادثة' },
+                },
+                [Ui.ic('fa-solid fa-comments'), ' سجل المحادثة']
+              ),
+            ])
+          );
+        }
+
+        return card;
+      }
+
+      listEl.addEventListener('click', async (e) => {
+        const b = e.target.closest('[data-cancel]');
+        if (!b) return;
+        if (!confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) return;
+        b.disabled = true;
+        try {
+          const data = await api('/api/customer/requests/' + b.dataset.cancel + '/cancel', {
+            method: 'POST',
+          });
+          toast(data.message, 'success');
+          load();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      document.querySelectorAll('.tab').forEach((t) => {
+        t.addEventListener('click', () => {
+          document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
+          t.classList.add('active');
+          currentTab = t.dataset.tab;
+          render();
+        });
+      });
+
+      function visible() {
+        // 'no_technician' belongs with the live requests, not the history: nothing
+        // has been done yet and the request is still waiting for a technician.
+        const activeStatuses = ['pending', 'assigned', 'in_progress', 'no_technician'];
+        return allRequests.filter((r) =>
+          currentTab === 'history'
+            ? !activeStatuses.includes(r.status)
+            : activeStatuses.includes(r.status)
+        );
+      }
+
+      function render() {
+        Ui.clear(listEl);
+        const rows = visible();
+        if (!rows.length) {
+          listEl.appendChild(
+            Ui.el('div', { class: 'empty' }, [
+              Ui.ic(currentTab === 'active' ? 'fa-solid fa-bolt' : 'fa-regular fa-folder-open'),
+              Ui.el('b', {}, [currentTab === 'active' ? 'لا توجد طلبات نشطة' : 'السجل فارغ']),
+              Ui.el('p', {}, [
+                currentTab === 'active'
+                  ? 'جاهز تطلب خدمة جديدة؟'
+                  : 'الطلبات المكتملة أو الملغاة هتظهر هنا.',
+              ]),
+            ])
+          );
+          return;
+        }
+        rows.forEach((r) => listEl.appendChild(cardFor(r)));
+      }
+
+      async function load() {
+        try {
+          const data = await api('/api/customer/requests');
+          allRequests = data.requests || [];
+          // Reviews are fetched alongside the list so a card can never render a
+          // "rate now" button for a request that was already reviewed.
+          await loadMyReviews();
+          render();
+        } catch (e) {
+          toast(e.message, 'error');
+        }
+      }
+
+      listEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-review]');
+        if (!btn) return;
+        openReviewModal(Number(btn.dataset.review), btn.dataset.techName);
+      });
+
+      listEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-pay]');
+        if (!btn) return;
+        openPayModal(Number(btn.dataset.pay));
+      });
+
+      listEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-report-paid]');
+        if (!btn) return;
+        openReportPaymentModal(Number(btn.dataset.reportPaid), Number(btn.dataset.techAmount));
+      });
+
+      // Payment sheet: where to send the money and how to tell us afterwards.
+      //
+      // Nothing here confirms anything — it records the customer's claim and puts
+      // the request in the admin's settlement queue, which is what releases the
+      // technician's earning.
+      async function openPayModal(requestId) {
+        const r = allRequests.find((x) => x.id === requestId);
+        if (!r) return;
+
+        // CASH ONLY. This sheet is the legacy path — a completed request that never
+        // entered the two-sided confirmation — and the platform has no gateway, so
+        // there is no destination to show but the technician. The method picker and
+        // the transfer-number field went with it: leaving a picker whose only other
+        // option sends money nowhere is how a customer ends up paying into a void.
+        const destBox = Ui.el('div', { class: 'pay-dest' });
+        function paintDest() {
+          Ui.clear(destBox);
+          destBox.appendChild(
+            Ui.el('b', {}, [
+              'ادفع المبلغ كاش للفنّي' + (r.technician_name ? ' ' + r.technician_name : '') + '.',
+            ])
+          );
+          if (r.technician_phone) {
+            destBox.appendChild(
+              Ui.el('div', {}, [
+                Ui.el('a', { attrs: { href: 'tel:' + r.technician_phone, dir: 'ltr' } }, [
+                  r.technician_phone,
+                ]),
+              ])
+            );
+          }
+          destBox.appendChild(
+            Ui.el('span', { class: 'pay-dest-note' }, [
+              'سجّل الدفع هنا عشان نتأكد ونحرّر نصيب الفني.',
+            ])
+          );
+        }
+        paintDest();
+
+        const body = Ui.el('div', {}, [
+          Ui.el('div', { class: 'pay-total' }, [
+            Ui.el('span', {}, ['إجمالي المطلوب']),
+            Ui.el('b', {}, [money(r.service_price)]),
+          ]),
+          destBox,
+          Ui.el('div', { class: 'form-hint' }, [
+            Ui.ic('fa-solid fa-circle-info'),
+            document.createTextNode(
+              ' الدفع مش بيتأكد أوتوماتيك — بنراجعه يدوياً وبعدها تتأكد حالة الطلب هنا.'
+            ),
+          ]),
+        ]);
+        paintDest();
+
+        const submitBtn = Ui.el(
+          'button',
+          { class: 'btn btn-brand btn-block', attrs: { type: 'button' } },
+          [Ui.ic('fa-solid fa-paper-plane'), 'سجّلت الدفع']
+        );
+
+        const handle = Ui.openModal(
+          {
+            title: 'دفع الطلب #' + r.id,
+            icon: { cls: 'fa-solid fa-wallet', bg: 'var(--brand-soft)', color: 'var(--brand)' },
+          },
+          body,
+          submitBtn
+        );
+
+        submitBtn.addEventListener('click', async () => {
+          Ui.btnLoading(submitBtn, 'جارٍ التسجيل…');
+          try {
+            await api('/api/customer/requests/' + requestId + '/pay', {
+              method: 'POST',
+              // Hard-coded rather than read from a picker: cash is the only method
+              // the platform accepts, and the server rejects anything else anyway.
+              body: { method: 'cash' },
+            });
+            toast('تم تسجيل الدفع — بنأكده خلال وقت قصير', 'success');
+            handle.close();
+            await load();
+          } catch (err) {
+            toast(err.message, 'error');
+            Ui.btnReset(submitBtn);
+          }
+        });
+      }
+
+      // Interactive 1-5 star picker inside a modal.
+      function openReviewModal(requestId, techName) {
+        let selectedRating = 0;
+
+        const starsWrap = Ui.el('div', {
+          class: 'rating-stars',
+          id: 'rating-stars',
+          attrs: { role: 'radiogroup', 'aria-label': 'التقييم' },
+        });
+        for (let i = 1; i <= 5; i++) {
+          const star = Ui.el(
+            'button',
+            {
+              class: 'rating-star',
+              attrs: { type: 'button', 'data-value': i, 'aria-label': i + ' نجوم' },
+            },
+            [Ui.ic('fa-regular fa-star')]
+          );
+          star.addEventListener('click', () => {
+            selectedRating = i;
+            updateStars(i);
+          });
+          star.addEventListener('mouseenter', () => updateStars(i));
+          star.addEventListener('mouseleave', () => updateStars(selectedRating));
+          starsWrap.appendChild(star);
+        }
+
+        function updateStars(n) {
+          starsWrap.querySelectorAll('.rating-star').forEach((s, idx) => {
+            const on = idx + 1 <= n;
+            s.classList.toggle('on', on);
+            s.setAttribute('aria-checked', on && idx + 1 === n ? 'true' : 'false');
+            s.innerHTML = '';
+            s.appendChild(Ui.ic(on ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+          });
+        }
+        updateStars(0);
+
+        const commentInput = Ui.el('textarea', {
+          class: 'input',
+          id: 'review-comment',
+          attrs: {
+            maxlength: '1000',
+            rows: '3',
+            placeholder: 'مثال: شغل نظيف، في الموعد، سعر معقول…',
+          },
+        });
+
+        const body = Ui.el('div', {}, [
+          Ui.el('p', { class: 'muted', attrs: { style: 'text-align:center;margin-bottom:14px' } }, [
+            'كيف كانت تجربتك مع ',
+            Ui.el('b', { attrs: { style: 'color:var(--ink)' } }, [techName || 'الفني']),
+            '؟',
+          ]),
+          Ui.el('div', { attrs: { style: 'text-align:center;margin-bottom:18px' } }, [starsWrap]),
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label', attrs: { for: 'review-comment' } }, [
+              'تعليقك (اختياري)',
+            ]),
+            commentInput,
+          ]),
+        ]);
+
+        const submitBtn = Ui.el(
+          'button',
+          {
+            class: 'btn btn-brand btn-block',
+            attrs: { type: 'button' },
+          },
+          [Ui.ic('fa-solid fa-paper-plane'), 'إرسال التقييم']
+        );
+
+        // Hold the handle so the modal can be closed explicitly on success.
+        const handle = Ui.openModal(
+          {
+            title: 'قيّم الفني',
+            icon: { cls: 'fa-solid fa-star', bg: '#fffbeb', color: '#f59e0b' },
+          },
+          body,
+          submitBtn
+        );
+
+        submitBtn.addEventListener('click', async () => {
+          if (selectedRating === 0) {
+            toast('اختر عدد النجوم أولاً', 'warn');
+            return;
+          }
+          const comment = commentInput.value.trim();
+          Ui.btnLoading(submitBtn, 'جارٍ الإرسال…');
+          try {
+            await api('/api/customer/requests/' + requestId + '/review', {
+              method: 'POST',
+              body: { rating: selectedRating, comment },
+            });
+            toast('شكرًا لتقييمك! 🌟', 'success');
+            handle.close();
+            await load();
+          } catch (err) {
+            toast(err.message, 'error');
+            Ui.btnReset(submitBtn);
+          }
+        });
+      }
+
+      // ============================================================
+      // Unread chat badges
+      // ============================================================
+      // Painted onto the .chat-button elements already on screen. load() rebuilds
+      // the cards, so the badges are re-applied after every refresh rather than
+      // living on a timer of their own.
+      async function paintCardsAndBadges() {
+        await load();
+        if (document.hidden) return;
+        try {
+          const data = await api('/api/messages/unread-count');
+          const counts = {};
+          (data.byRequest || []).forEach((row) => {
+            counts[String(row.request_id)] = row.n;
+          });
+
+          document.querySelectorAll('.chat-button').forEach((btn) => {
+            const href = btn.getAttribute('href') || '';
+            const reqId = new URL(href, window.location.origin).searchParams.get('id');
+            const n = reqId ? counts[String(reqId)] || 0 : 0;
+
+            let badge = btn.querySelector('.chat-badge');
+            if (n > 0) {
+              if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'chat-badge';
+                btn.appendChild(badge);
+              }
+              badge.textContent = n > 9 ? '9+' : String(n);
+            } else if (badge) {
+              badge.remove();
+            }
+          });
+        } catch (e) {
+          /* silent — a missing badge must never break the list */
+        }
+      }
+
+      document.getElementById('refresh-btn').addEventListener('click', paintCardsAndBadges);
+      paintCardsAndBadges();
+      setInterval(paintCardsAndBadges, 15000);
+    </script>
+    <script src="/js/pwa-install.js"></script>
+    <script src="/js/push.js"></script>
+    <script src="/js/force-review.js"></script>
+  </body>
+</html>

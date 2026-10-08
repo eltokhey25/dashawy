@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة العميل — دشاوي</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/customer/dashboard.html">
+        <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+
+      <div class="nav-menu">
+        <a href="/customer/dashboard.html" class="active">
+          <i class="fa-solid fa-house"></i> الرئيسية
+        </a>
+        <a href="/customer/my-requests.html">
+          <i class="fa-solid fa-list-check"></i> طلباتي
+        </a>
+      </div>
+
+      <div class="nav-actions">
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="القائمة">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container page">
+    <div id="pending-review-banner" style="display:none" class="pending-banner">
+      <i class="fa-solid fa-star"></i>
+      <span>لديك <b id="pending-count">0</b> طلب بانتظار تقييمك</span>
+      <a href="/customer/my-requests.html" class="btn btn-sm btn-brand">قيّم الآن</a>
+    </div>
+
+    <header class="customer-hero">
+      <div class="ch-text">
+        <h1>أهلًا يا <span id="greeting">…</span> 👋</h1>
+        <p class="ch-sub">محتاج فني دش؟ اطلب خدمتك في دقيقة واحدة</p>
+      </div>
+      <a class="btn btn-brand btn-lg" href="/request" id="hero-request-btn">
+        <i class="fa-solid fa-bolt"></i> اطلب الخدمة الآن
+      </a>
+      <div class="ch-decoration" aria-hidden="true">
+        <i class="fa-solid fa-satellite-dish"></i>
+      </div>
+    </header>
+
+    <div class="stat-grid cols-3" style="margin-bottom: 26px;">
+      <div class="stat-card">
+        <span class="st-ic ic-brand"><i class="fa-solid fa-rectangle-list"></i></span>
+        <div class="st-info">
+          <b id="st-total">—</b>
+          <span>إجمالي الطلبات</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="st-ic ic-info"><i class="fa-solid fa-list-check"></i></span>
+        <div class="st-info">
+          <b id="st-active">—</b>
+          <span>طلبات نشطة</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="st-ic ic-accent"><i class="fa-solid fa-circle-check"></i></span>
+        <div class="st-info">
+          <b id="st-completed">—</b>
+          <span>مكتملة</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-between" style="margin-bottom: 14px;">
+      <h2 style="font-size: 1.15rem; font-weight: 800; color: var(--ink);">أحدث الطلبات</h2>
+      <a href="/customer/my-requests.html" class="btn btn-ghost btn-sm">
+        عرض الكل <i class="fa-solid fa-arrow-left"></i>
+      </a>
+    </div>
+
+    <div class="req-list" id="recent-list"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    if (!Auth.requireRole('customer')) throw new Error('redirect');
+    const profile = Auth.getProfile();
+    document.getElementById('greeting').textContent = (profile && profile.name ? profile.name.split(' ')[0] : '') || '';
+
+    Ui.renderNavUser(document.getElementById('nav-user'));
+    Ui.initNav();
+
+    // Nudge the customer to rate finished jobs. Runs once on load; failures are
+    // ignored so a missing endpoint never blocks the dashboard.
+    async function checkPendingReviews() {
+      try {
+        const data = await api('/api/customer/pending-reviews');
+        if (data.count > 0) {
+          document.getElementById('pending-count').textContent = data.count;
+          document.getElementById('pending-review-banner').style.display = 'flex';
+        }
+      } catch (e) { /* silently ignore */ }
+    }
+    checkPendingReviews();
+
+    function reqCard(r) {
+      const m = Ui.meta(r.specialty);
+      const displayLabel = (r.specialty === 'other' && r.custom_specialty_text)
+          ? r.custom_specialty_text : m.label;
+      const card = Ui.el('div', { class: 'req-card' });
+      card.appendChild(Ui.el('div', { class: 'req-top' }, [
+        Ui.el('div', { class: 'req-title' }, [
+          Ui.el('span', { class: 'rt-ic', attrs: { style: 'background:' + m.bg + ';color:' + m.color } }, [Ui.ic(m.icon)]),
+          displayLabel + ' — طلب #' + r.id
+        ]),
+        Ui.statusBadge(r.status)
+      ]));
+      card.appendChild(Ui.el('div', { class: 'req-meta' }, [
+        Ui.el('span', {}, [Ui.ic('fa-regular fa-calendar'), Ui.dateTime(r.created_at)]),
+        r.technician_name
+          ? Ui.el('span', {}, [Ui.ic('fa-solid fa-user-gear'), r.technician_name + (r.technician_phone ? ' · ' + r.technician_phone : '')])
+          : Ui.el('span', {}, [Ui.ic('fa-solid fa-magnifying-glass'), 'جارٍ البحث عن فني متاح…'])
+      ]));
+      if (r.description) card.appendChild(Ui.el('div', { class: 'req-desc' }, [Ui.escapeHtml(r.description)]));
+      card.appendChild(Ui.el('a', { class: 'btn btn-ghost btn-sm', attrs: { href: '/customer/my-requests.html' } }, ['تفاصيل ومتابعة']));
+      return card;
+    }
+
+    async function load() {
+      const list = document.getElementById('recent-list');
+      Ui.clear(list);
+      list.appendChild(Ui.skeletonList(2));
+      try {
+        const data = await api('/api/customer/requests');
+        const reqs = data.requests || [];
+        document.getElementById('st-total').textContent = reqs.length;
+        document.getElementById('st-active').textContent = reqs.filter((r) => ['pending', 'assigned', 'in_progress', 'no_technician'].includes(r.status)).length;
+        document.getElementById('st-completed').textContent = reqs.filter((r) => r.status === 'completed').length;
+
+        Ui.clear(list);
+        const recent = reqs.slice(0, 4);
+        if (!recent.length) {
+          list.appendChild(Ui.el('div', { class: 'empty' }, [
+            Ui.ic('fa-regular fa-folder-open'),
+            Ui.el('b', {}, ['لا توجد طلبات بعد']),
+            Ui.el('p', {}, ['ابدأ بطلب خدمة جديدة وسنوافيك بأقرب فني دش.'])
+          ]));
+        } else {
+          recent.forEach((r) => list.appendChild(reqCard(r)));
+        }
+      } catch (e) { toast(e.message, 'error'); }
+    }
+    load();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+  <script src="/js/push.js"></script>
+  <script src="/js/force-review.js"></script>
+</body>
+</html>

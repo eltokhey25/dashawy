@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>المراجعات — دشاوي</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/admin/_admin.css">
+  <style>
+    /* Four stat cards here, not the six the shared .adm-stat-row grid assumes. */
+    #review-stats-row { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 1100px) { #review-stats-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px)  { #review-stats-row { grid-template-columns: 1fr; } }
+
+    /* The filter row is a plain grid in the markup; make it collapse on mobile
+       and give the search box room on desktop. */
+    .rev-filters { grid-template-columns: 2fr 1fr 1fr auto !important; }
+    .rev-filters .input { width: 100%; }
+    @media (max-width: 700px) { .rev-filters { grid-template-columns: 1fr !important; } }
+
+    .rev-row-hidden { opacity: 0.55; }
+    .rev-stars { color: #f59e0b; white-space: nowrap; }
+    .rev-comment { max-width: 280px; }
+    .rev-actions { display: flex; gap: 6px; justify-content: flex-start; }
+  </style>
+</head>
+<body class="adm-body">
+  <div class="adm-shell">
+    <aside class="adm-sidebar" id="sidebar">
+      <div class="adm-sidebar-brand">
+        <span class="asb-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <div class="asb-info">
+          <b>دشاوي</b>
+          <span>لوحة إدارة المنصة</span>
+        </div>
+      </div>
+
+      <nav class="adm-sidebar-nav">
+        <div class="adm-nav-section">عام</div>
+        <a class="adm-nav-item" id="nav-stats" href="/admin/dashboard"><i class="fa-solid fa-gauge-high"></i> الإحصائيات</a>
+        <a class="adm-nav-item" id="nav-requests" href="/admin/requests"><i class="fa-solid fa-list-check"></i> الطلبات<span class="badge" id="side-pending-count" style="margin-inline-start:auto;font-size:0.68rem;padding:2px 8px;border-radius:10px">0</span></a>
+        <a class="adm-nav-item" id="nav-technicians" href="/admin/technicians"><i class="fa-solid fa-users-gear"></i> الفنيون</a>
+
+        <div class="adm-nav-section">المالية</div>
+        <a class="adm-nav-item" id="nav-finance" href="/admin/finance"><i class="fa-solid fa-file-invoice-dollar"></i> المالية<span class="badge" id="nav-finance-count" style="margin-inline-start:auto;font-size:0.68rem;padding:2px 8px;border-radius:10px;display:none">0</span></a>
+        <a class="adm-nav-item" id="nav-wallets" href="/admin/wallets"><i class="fa-solid fa-wallet"></i> المحافظ</a>
+
+        <div class="adm-nav-section">المحتوى</div>
+        <a class="adm-nav-item active" id="nav-reviews" href="/admin/reviews"><i class="fa-solid fa-star"></i> المراجعات</a>
+        <a class="adm-nav-item" id="nav-customers" href="/admin/customers"><i class="fa-solid fa-people-group"></i> العملاء</a>
+        <a class="adm-nav-item" id="nav-specialties" href="/admin/specialties"><i class="fa-solid fa-tags"></i> التخصصات</a>
+        <a class="adm-nav-item" id="nav-data-requests" href="/admin/data-requests"><i class="fa-solid fa-scale-balanced"></i> طلبات البيانات</a>
+
+        <div class="adm-nav-section">النظام</div>
+        <a class="adm-nav-item" id="nav-settings" href="/admin/settings"><i class="fa-solid fa-gear"></i> الإعدادات</a>
+        <a class="adm-nav-item" href="/admin/admins" id="nav-admins" style="display:none;">
+          <i class="fa-solid fa-user-shield"></i> المسؤولون
+        </a>
+      </nav>
+
+      <div class="adm-sidebar-user">
+        <span class="asu-avatar" id="side-avatar">إ</span>
+        <div class="asu-info">
+          <b id="side-name">مدير</b>
+          <span>إدارة النظام</span>
+        </div>
+        <a class="btn btn-soft btn-sm" href="/change-password.html" title="تغيير كلمة المرور">
+          <i class="fa-solid fa-key"></i>
+        </a>
+        <button class="btn btn-soft-danger btn-sm" onclick="Auth.logout('/admin')" title="تسجيل الخروج"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+      </div>
+    </aside>
+    <div class="adm-backdrop" id="sidebar-backdrop"></div>
+
+    <div class="adm-main">
+      <header class="adm-topbar">
+        <button class="adm-mobile-toggle" id="sidebar-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
+        <div class="atb-title" id="tb-title">المراجعات</div>
+        <div class="atb-spacer"></div>
+        <button class="atb-btn" id="topbar-refresh" title="تحديث"><i class="fa-solid fa-rotate"></i></button>
+        <a class="atb-btn" href="/" target="_blank" title="الموقع"><i class="fa-solid fa-globe"></i></a>
+      </header>
+
+      <main class="adm-content">
+        <div class="page-head">
+          <div>
+            <h1>المراجعات</h1>
+            <div class="sub">إخفاء أو إظهار أو حذف مراجعات العملاء لكل الفنيين</div>
+          </div>
+        </div>
+
+        <div class="adm-stat-row" id="review-stats-row" style="margin-bottom: 20px;"></div>
+
+        <div class="adm-card" style="margin-bottom: 18px;">
+          <div class="adm-card-head">
+            <h3>كل المراجعات</h3>
+            <div class="ach-actions">
+              <button class="adm-btn" id="refresh-btn">
+                <i class="fa-solid fa-rotate"></i> تحديث
+              </button>
+            </div>
+          </div>
+
+          <div class="rev-filters" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px;">
+            <input type="search" id="filter-search" class="input" placeholder="ابحث في التعليقات أو الأسماء…">
+            <select id="filter-rating" class="input">
+              <option value="">كل التقييمات</option>
+              <option value="5">5 نجوم</option>
+              <option value="4">4 نجوم</option>
+              <option value="3">3 نجوم</option>
+              <option value="2">2 نجوم</option>
+              <option value="1">نجمة</option>
+            </select>
+            <select id="filter-hidden" class="input">
+              <option value="">الكل (ظاهرة ومخفية)</option>
+              <option value="0">الظاهرة فقط</option>
+              <option value="1">المخفية فقط</option>
+            </select>
+            <button class="adm-btn" id="reset-filters">
+              <i class="fa-solid fa-filter-circle-xmark"></i> مسح
+            </button>
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-table-wrap">
+            <table class="adm-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>العميل</th><th>الفني</th><th>التقييم</th>
+                  <th>التعليق</th><th>الحالة</th><th>التاريخ</th>
+                  <th style="text-align:left">إجراء</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+          <div class="pager" id="pager"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Hide reason modal -->
+  <div id="hide-modal" style="display:none; position:fixed; inset:0; z-index:200; align-items:center; justify-content:center; padding:20px; background:rgba(15,23,42,0.5);">
+    <div style="background:#fff; border-radius:16px; padding:24px; max-width:480px; width:100%; box-shadow:0 24px 48px rgba(0,0,0,0.2);">
+      <h3 style="margin:0 0 14px; font-size:1.05rem; font-weight:800;">إخفاء المراجعة</h3>
+      <p style="color:#64748b; font-size:0.85rem; margin-bottom:16px; line-height:1.6;">
+        المراجعة ستختفي من بروفايل الفني، لكنها ستبقى محفوظة في قاعدة البيانات. يمكنك إظهارها مرة أخرى في أي وقت.
+      </p>
+      <label style="display:block; font-size:0.82rem; font-weight:700; margin-bottom:6px; color:#0f172a;">سبب الإخفاء (اختياري)</label>
+      <textarea id="hide-reason" class="input" rows="3" maxlength="500" placeholder="مثال: محتوى مسيء، سبام، معلومات خاطئة…" style="resize:vertical;"></textarea>
+      <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+        <button class="adm-btn" id="hide-cancel">إلغاء</button>
+        <button class="adm-btn primary" id="hide-confirm">تأكيد الإخفاء</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/admin.js"></script>
+  <script>
+    (async () => {
+      if (!(await Admin.init())) throw new Error('redirect');
+
+      Admin.hideUnauthorizedNav();
+      const me = Auth.getUser();
+      if (me && me.is_super_admin) {
+        const el = document.getElementById('nav-admins');
+        if (el) el.style.display = '';
+      }
+      const user = Auth.getUser();
+      document.getElementById('side-name').textContent = user.email;
+      document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
+      document.getElementById('tb-title').textContent = 'المراجعات';
+
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      const sbtn = document.getElementById('sidebar-toggle');
+      if (backdrop && sbtn) {
+        backdrop.addEventListener('click', () => { sidebar.classList.remove('open'); backdrop.classList.remove('show'); });
+        sbtn.addEventListener('click', () => { sidebar.classList.add('open'); backdrop.classList.add('show'); });
+        const mq = window.matchMedia('(max-width:1024px)');
+        mq.addEventListener('change', (e) => { sbtn.style.display = e.matches ? '' : 'none'; });
+        sbtn.style.display = mq.matches ? '' : 'none';
+      }
+
+      let currentPage = 1;
+      const PAGE_SIZE = 20;
+      let pendingHideId = null;
+
+      const tbody = document.getElementById('tbody');
+      const pagerEl = document.getElementById('pager');
+      const searchEl = document.getElementById('filter-search');
+      const ratingEl = document.getElementById('filter-rating');
+      const hiddenEl = document.getElementById('filter-hidden');
+      const hideModal = document.getElementById('hide-modal');
+
+      async function loadStats() {
+        try {
+          const s = await api('/api/admin/reviews/stats');
+          const row = document.getElementById('review-stats-row');
+          Ui.clear(row);
+          const mk = (v, l, color, icon) => Ui.el('div', { class: 'adm-stat accent-' + color }, [
+            Ui.el('div', { class: 'as-info' }, [Ui.el('b', {}, [String(v)]), Ui.el('span', {}, [l])]),
+            Ui.el('span', { class: 'as-icon' }, [Ui.ic(icon)])
+          ]);
+          row.appendChild(mk(s.total, 'إجمالي المراجعات', 'blue', 'fa-solid fa-star'));
+          row.appendChild(mk(s.avgRating.toFixed(2), 'متوسط التقييم', 'green', 'fa-solid fa-chart-line'));
+          row.appendChild(mk(s.byRating[5] + s.byRating[4], 'تقييمات إيجابية (4-5)', 'purple', 'fa-solid fa-thumbs-up'));
+          row.appendChild(mk(s.hidden, 'مراجعات مخفية', 'red', 'fa-solid fa-eye-slash'));
+        } catch (e) { console.error('stats failed', e); }
+      }
+
+      async function loadReviews() {
+        Ui.clear(tbody);
+        tbody.appendChild(Ui.skeletonTable(8, 8));
+        const params = new URLSearchParams();
+        if (searchEl.value.trim()) params.set('search', searchEl.value.trim());
+        if (ratingEl.value) params.set('rating', ratingEl.value);
+        if (hiddenEl.value !== '') params.set('hidden', hiddenEl.value);
+        params.set('limit', String(PAGE_SIZE));
+        params.set('offset', String((currentPage - 1) * PAGE_SIZE));
+        try {
+          const data = await api('/api/admin/reviews?' + params.toString());
+          render(data.reviews || [], data.total || 0);
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      function render(reviews, total) {
+        Ui.clear(tbody);
+        if (!reviews.length) {
+          tbody.appendChild(Ui.el('tr', {}, [Ui.el('td', { attrs: { colspan: '8' } }, [
+            Ui.el('div', { class: 'adm-empty' }, [
+              Ui.ic('fa-regular fa-star'),
+              Ui.el('b', {}, ['لا توجد مراجعات مطابقة']),
+              Ui.el('p', {}, ['جرب تغيير الفلاتر.'])
+            ])
+          ])]));
+          Ui.clear(pagerEl);
+          return;
+        }
+        reviews.forEach((rv) => {
+          const stars = [];
+          for (let i = 1; i <= 5; i++) stars.push(Ui.ic(i <= rv.rating ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+          const isHidden = rv.hidden === 1;
+          const raw = rv.comment || '—';
+          const comment = raw.length > 80 ? raw.slice(0, 80) + '…' : raw;
+          const tr = Ui.el('tr', { class: isHidden ? 'rev-row-hidden' : '' }, [
+            Ui.el('td', {}, ['#' + rv.id]),
+            Ui.el('td', {}, [
+              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(rv.customer_name)]),
+              Ui.el('div', { class: 'tbl-sub' }, [Ui.escapeHtml(rv.customer_email || '')])
+            ]),
+            Ui.el('td', {}, [
+              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(rv.technician_name)]),
+              Ui.el('div', { class: 'tbl-sub' }, ['ID #' + rv.technician_id])
+            ]),
+            Ui.el('td', {}, [Ui.el('span', { class: 'rev-stars' }, stars)]),
+            Ui.el('td', { class: 'rev-comment' }, [Ui.el('span', { attrs: { title: raw } }, [Ui.escapeHtml(comment)])]),
+            Ui.el('td', {}, [
+              isHidden
+                ? Ui.el('span', { class: 'adm-badge red' }, [Ui.ic('fa-solid fa-eye-slash'), ' مخفية'])
+                : Ui.el('span', { class: 'adm-badge green' }, [Ui.ic('fa-solid fa-eye'), ' ظاهرة'])
+            ]),
+            Ui.el('td', {}, [Ui.dateTime(rv.created_at)]),
+            Ui.el('td', {}, [Ui.el('div', { class: 'rev-actions' }, [
+              isHidden
+                ? Ui.el('button', { class: 'adm-btn sm', attrs: { 'data-unhide': rv.id, title: 'إظهار' } }, [Ui.ic('fa-solid fa-eye')])
+                : Ui.el('button', { class: 'adm-btn sm', attrs: { 'data-hide': rv.id, title: 'إخفاء' } }, [Ui.ic('fa-solid fa-eye-slash')]),
+              Ui.el('button', { class: 'adm-btn sm danger', attrs: { 'data-delete': rv.id, title: 'حذف نهائي' } }, [Ui.ic('fa-solid fa-trash')])
+            ])])
+          ]);
+          tbody.appendChild(tr);
+        });
+
+        // Ui.paginate() *returns* the pager element; it does not take a container.
+        Ui.clear(pagerEl);
+        pagerEl.appendChild(Ui.paginate(total, currentPage, PAGE_SIZE, (p) => {
+          currentPage = p;
+          loadReviews();
+        }));
+      }
+
+      tbody.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-hide],[data-unhide],[data-delete]');
+        if (!btn) return;
+        if (btn.hasAttribute('data-hide')) {
+          pendingHideId = Number(btn.dataset.hide);
+          document.getElementById('hide-reason').value = '';
+          hideModal.style.display = 'flex';
+          return;
+        }
+        if (btn.hasAttribute('data-unhide')) {
+          if (!confirm('إظهار هذه المراجعة مرة أخرى؟')) return;
+          btn.disabled = true;
+          try {
+            const d = await api('/api/admin/reviews/' + btn.dataset.unhide + '/unhide', { method: 'POST' });
+            toast(d.message, 'success');
+            loadReviews(); loadStats();
+          } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
+          return;
+        }
+        if (btn.hasAttribute('data-delete')) {
+          if (!confirm('حذف هذه المراجعة نهائياً؟')) return;
+          if (!confirm('تأكيد أخير — لا يمكن التراجع.')) return;
+          btn.disabled = true;
+          try {
+            const d = await api('/api/admin/reviews/' + btn.dataset.delete, { method: 'DELETE' });
+            toast(d.message, 'success');
+            loadReviews(); loadStats();
+          } catch (err) { toast(err.message, 'error'); btn.disabled = false; }
+        }
+      });
+
+      document.getElementById('hide-cancel').addEventListener('click', () => {
+        hideModal.style.display = 'none';
+        pendingHideId = null;
+      });
+
+      hideModal.addEventListener('click', (e) => { if (e.target === hideModal) { hideModal.style.display = 'none'; pendingHideId = null; } });
+
+      document.getElementById('hide-confirm').addEventListener('click', async () => {
+        if (!pendingHideId) return;
+        const reason = document.getElementById('hide-reason').value.trim();
+        const btn = document.getElementById('hide-confirm');
+        Ui.btnLoading(btn, 'جارٍ الإخفاء…');
+        try {
+          const d = await api('/api/admin/reviews/' + pendingHideId + '/hide', { method: 'POST', body: { reason } });
+          toast(d.message, 'success');
+          hideModal.style.display = 'none';
+          pendingHideId = null;
+          loadReviews(); loadStats();
+        } catch (err) { toast(err.message, 'error'); }
+        Ui.btnReset(btn);
+      });
+
+      let searchTimer;
+      searchEl.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => { currentPage = 1; loadReviews(); }, 300);
+      });
+      ratingEl.addEventListener('change', () => { currentPage = 1; loadReviews(); });
+      hiddenEl.addEventListener('change', () => { currentPage = 1; loadReviews(); });
+      document.getElementById('reset-filters').addEventListener('click', () => {
+        searchEl.value = ''; ratingEl.value = ''; hiddenEl.value = '';
+        currentPage = 1; loadReviews();
+      });
+      const reloadAll = () => { loadStats(); loadReviews(); };
+      document.getElementById('refresh-btn').addEventListener('click', reloadAll);
+      document.getElementById('topbar-refresh').addEventListener('click', reloadAll);
+
+      loadStats();
+      loadReviews();
+    })();
+  </script>
+</body>
+</html>

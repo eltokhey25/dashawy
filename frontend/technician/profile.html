@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بروفايلي — دشاوي</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/technician/dashboard.html">
+        <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+
+      <div class="nav-menu">
+        <a href="/technician/dashboard.html">
+          <i class="fa-solid fa-briefcase"></i> الطلبات
+        </a>
+        <a href="/technician/profile.html" class="active">
+          <i class="fa-solid fa-user"></i> بروفايلي
+        </a>
+      </div>
+
+      <div class="nav-actions">
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="القائمة">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container page" style="max-width:1000px;">
+
+    <!-- PROFILE HEADER -->
+    <div class="profile-header-card">
+      <div class="ph-avatar-wrap">
+        <img id="profile-image" class="ph-avatar is-fallback" src="/icons/icon-96x96.png" alt="صورة الفني">
+        <label for="profile-image-input" class="ph-avatar-edit" title="تغيير الصورة">
+          <i class="fa-solid fa-camera"></i>
+        </label>
+        <input type="file" id="profile-image-input" hidden
+               accept="image/jpeg,image/png,image/webp">
+      </div>
+      <div class="ph-info">
+        <h1 id="profile-name">…</h1>
+        <div class="ph-meta">
+          <span><i class="fa-solid fa-location-dot"></i> <span id="profile-area">…</span></span>
+          <span><i class="fa-solid fa-calendar"></i> انضم في <span id="profile-joined">…</span></span>
+        </div>
+        <div class="ph-stats">
+          <div><b id="stat-completed">0</b><span>طلب مكتمل</span></div>
+          <div><b id="stat-rating">—</b><span>متوسط التقييم ⭐</span></div>
+          <div><b id="stat-reviews">0</b><span>مراجعة</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABOUT ME (editable) -->
+    <div class="card" style="margin-top:18px;">
+      <h2 class="card-title"><i class="fa-solid fa-user-pen" style="color:var(--brand-600);"></i> نبذة عني</h2>
+      <form id="bio-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="bio-input">نبذة قصيرة (تظهر للعملاء)</label>
+          <textarea id="bio-input" class="input" maxlength="1000"
+                    placeholder="مثال: فني دش بخبرة 10 سنوات متخصص في تركيب الأطباق وصيانة الرسيفرات…"></textarea>
+          <div class="form-hint"><span id="bio-chars">0</span> / 1000 حرف</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="years-input">سنوات الخبرة</label>
+          <input type="number" id="years-input" class="input" min="0" max="60" step="1"
+                 style="max-width:140px;" placeholder="0">
+        </div>
+        <button type="submit" class="btn btn-brand" id="save-bio-btn">
+          <i class="fa-solid fa-check"></i> حفظ التغييرات
+        </button>
+        <!-- Security settings live next to the other editable profile fields:
+             this is where a technician already goes to manage their account. -->
+        <a href="/change-password.html" class="btn btn-outline btn-sm" style="margin-inline-start:8px;">
+          <i class="fa-solid fa-key"></i> تغيير كلمة المرور
+        </a>
+      </form>
+    </div>
+
+    <!-- PORTFOLIO -->
+    <div class="card" style="margin-top:18px;">
+      <div class="row-between" style="margin-bottom:14px;">
+        <div>
+          <h2 class="card-title" style="margin:0;"><i class="fa-solid fa-images" style="color:var(--brand-600);"></i> صور أعمالي</h2>
+          <div class="card-sub" style="margin:4px 0 0;" id="portfolio-sub">اعرض للعملاء أفضل شغلك السابق</div>
+        </div>
+        <label for="portfolio-input" class="btn btn-brand">
+          <i class="fa-solid fa-cloud-arrow-up"></i> رفع صور
+          <input type="file" id="portfolio-input" hidden multiple
+                 accept="image/jpeg,image/png,image/webp">
+        </label>
+      </div>
+      <div id="portfolio-grid" class="portfolio-grid"></div>
+      <div id="portfolio-empty" class="empty" style="display:none;">
+        <i class="fa-regular fa-images"></i>
+        <b>لا توجد صور بعد</b>
+        <p>ارفع صور لأعمالك السابقة لتزيد فرص قبولك.</p>
+      </div>
+    </div>
+
+    <!-- REVIEWS -->
+    <div class="card" style="margin-top:18px;">
+      <h2 class="card-title"><i class="fa-solid fa-star" style="color:#f59e0b;"></i> تقييمات العملاء</h2>
+      <div class="card-sub" id="reviews-sub">لا توجد مراجعات بعد</div>
+      <div id="reviews-list" class="reviews-list"></div>
+    </div>
+
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    if (!Auth.requireRole('technician')) throw new Error('redirect');
+    Ui.renderNavUser(document.getElementById('nav-user'));
+    Ui.initNav();
+
+    // Mirrors the server-side limits so the user gets a clear message
+    // instead of an opaque HTTP error.
+    const MAX_BIO = 1000;
+    const MAX_YEARS = 60;
+    const MAX_PORTFOLIO = 5;          // technician_portfolio cap enforced server-side
+    const MAX_PORTFOLIO_PER_UPLOAD = 5;
+    const MAX_PROFILE_BYTES = 3 * 1024 * 1024;
+    const MAX_PORTFOLIO_BYTES = 5 * 1024 * 1024;
+    const MAX_REPLY = 500;
+    const FALLBACK_AVATAR = '/icons/icon-96x96.png';
+
+    let currentProfile = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    // Neutral inline placeholder, used when an image fails to load (deleted
+    // file, stale cache, corrupted upload). Avoids the browser's raw alt text.
+    const BROKEN_IMAGE =
+      'data:image/svg+xml;charset=utf-8,' +
+      encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160">' +
+        '<rect width="160" height="160" fill="#eef0f4"/>' +
+        '<path d="M60 96l18-22 14 16 12-12 20 24H60z" fill="#c2c8d4"/>' +
+        '<circle cx="70" cy="66" r="9" fill="#c2c8d4"/>' +
+        '<rect x="48" y="44" width="64" height="64" rx="6" fill="none" stroke="#c2c8d4" stroke-width="3"/>' +
+        '</svg>');
+
+    // Swap a failed <img> for the placeholder exactly once.
+    function usePlaceholder(img) {
+      if (img.dataset.broken === '1') return;
+      img.dataset.broken = '1';
+      img.src = BROKEN_IMAGE;
+      img.classList.add('is-broken');
+    }
+
+    // Attach the guard to a thumbnail/avatar image element.
+    function guardImage(img) {
+      img.addEventListener('error', () => usePlaceholder(img));
+      if (img.complete && img.naturalWidth === 0) usePlaceholder(img);
+      return img;
+    }
+
+    // A missing/corrupt avatar falls back to the app icon rather than a broken
+    // image. Guarded once so the fallback itself is never re-triggered.
+    $('profile-image').addEventListener('error', function () {
+      if (this.dataset.broken === '1') return;
+      this.dataset.broken = '1';
+      this.classList.add('is-fallback');
+      this.src = FALLBACK_AVATAR;
+    });
+
+    // ============================================================
+    // Load profile data
+    // ============================================================
+    async function loadProfile() {
+      try {
+        const data = await api('/api/technician/profile-details');
+        currentProfile = data;
+
+        const t = data.technician || {};
+        // The profile row is created lazily, so it can legitimately be null
+        // for a technician who has never saved anything.
+        const profile = data.profile || {};
+        const stats = data.stats || {};
+
+        $('profile-name').textContent = t.name || '—';
+        $('profile-area').textContent = t.location_text || '—';
+        $('profile-joined').textContent = Ui.dateOnly(t.created_at);
+
+        // Header avatar
+        const img = $('profile-image');
+        if (profile.profile_image_path) {
+          img.classList.remove('is-fallback');
+          // Cache-bust so a freshly uploaded image is never served from cache.
+          img.src = profile.profile_image_path + '?t=' + Date.now();
+        } else {
+          img.classList.add('is-fallback');
+          img.src = FALLBACK_AVATAR;
+        }
+        // Stats: avg_rating is null until the first review arrives.
+        $('stat-completed').textContent = stats.completed_count != null ? stats.completed_count : 0;
+        $('stat-rating').textContent = stats.avg_rating != null ? Number(stats.avg_rating).toFixed(1) : '—';
+        $('stat-reviews').textContent = stats.review_count != null ? stats.review_count : 0;
+
+        // Bio form
+        $('bio-input').value = profile.bio || '';
+        $('years-input').value = profile.years_experience != null ? profile.years_experience : 0;
+        updateBioChars();
+
+        renderPortfolio(data.portfolio || []);
+        renderReviews(data.recentReviews || []);
+      } catch (e) {
+        toast(e.message, 'error');
+      }
+    }
+
+    // ============================================================
+    // Bio character counter
+    // ============================================================
+    function updateBioChars() {
+      $('bio-chars').textContent = $('bio-input').value.length;
+    }
+    $('bio-input').addEventListener('input', updateBioChars);
+
+    // ============================================================
+    // Save bio + years
+    // ============================================================
+    $('bio-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearFormErrors(document);
+
+      const bio = $('bio-input').value.trim();
+      const yearsRaw = $('years-input').value;
+      const years = yearsRaw === '' ? 0 : Number(yearsRaw);
+      const btn = $('save-bio-btn');
+
+      if (!Number.isInteger(years) || years < 0 || years > MAX_YEARS) {
+        setFieldError($('years-input'), 'اكتب عدداً بين 0 و ' + MAX_YEARS);
+        return;
+      }
+
+      // The API rejects an empty bio (it requires at least one character), so
+      // an emptied textarea is reported rather than sent as a silent failure.
+      if (!bio) {
+        toast('النبذة لا يمكن تركها فارغة — لم يتم تعديلها', 'warn');
+      }
+
+      const payload = { years_experience: years };
+      if (bio) payload.bio = bio;
+
+      Ui.btnLoading(btn, 'جارٍ الحفظ…');
+      try {
+        await api('/api/technician/profile-details', { method: 'PUT', body: payload });
+        toast('تم حفظ التغييرات', 'success');
+        await loadProfile();
+      } catch (err) {
+        toast(err.message, 'error');
+        Ui.btnReset(btn);
+      }
+    });
+
+    // ============================================================
+    // Profile image upload
+    // ============================================================
+    $('profile-image-input').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.size > MAX_PROFILE_BYTES) {
+        toast('الصورة أكبر من 3 ميجا', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('profile_image', file);
+
+      const img = $('profile-image');
+      img.classList.add('is-loading');
+
+      try {
+        const res = await fetch('/api/technician/profile-image', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + Auth.getToken() },
+          body: fd
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'فشل الرفع');
+        // Response shape: { message, profile: { profile_image_path, ... } }
+        const newPath = data.profile && data.profile.profile_image_path;
+        if (newPath) {
+          img.classList.remove('is-fallback');
+          img.src = newPath + '?t=' + Date.now();
+        }
+        toast('تم تحديث الصورة', 'success');
+      } catch (err) {
+        toast(err.message, 'error');
+        img.src = (currentProfile && currentProfile.profile && currentProfile.profile.profile_image_path)
+          || FALLBACK_AVATAR;
+      } finally {
+        img.classList.remove('is-loading');
+        e.target.value = '';
+      }
+    });
+
+    // ============================================================
+    // Portfolio
+    // ============================================================
+    function renderPortfolio(images) {
+      const grid = $('portfolio-grid');
+      const empty = $('portfolio-empty');
+      const sub = $('portfolio-sub');
+      Ui.clear(grid);
+
+      if (!images.length) {
+        grid.style.display = 'none';
+        empty.style.display = '';
+        sub.textContent = 'اعرض للعملاء أفضل شغلك السابق (حتى ' + MAX_PORTFOLIO + ' صور)';
+        return;
+      }
+
+      grid.style.display = '';
+      empty.style.display = 'none';
+      sub.textContent = ' ' + images.length + ' من ' + MAX_PORTFOLIO + ' صور';
+
+      images.forEach((item) => {
+        const del = Ui.el('button', {
+          class: 'portfolio-delete',
+          attrs: { title: 'حذف الصورة', 'aria-label': 'حذف الصورة', type: 'button', 'data-id': item.id },
+          on: {
+            click: async (ev) => {
+              ev.preventDefault();
+              if (!confirm('حذف هذه الصورة؟')) return;
+              del.disabled = true;
+              try {
+                await api('/api/technician/portfolio/' + item.id, { method: 'DELETE' });
+                toast('تم حذف الصورة', 'success');
+                await loadProfile();
+              } catch (err) {
+                toast(err.message, 'error');
+                del.disabled = false;
+              }
+            }
+          }
+        }, [Ui.ic('fa-solid fa-trash')]);
+
+        const card = Ui.el('div', { class: 'portfolio-item' }, [
+          guardImage(Ui.el('img', { attrs: { src: item.image_path, alt: item.caption || 'عمل سابق', loading: 'lazy' } })),
+          item.caption ? Ui.el('div', { class: 'portfolio-caption' }, [item.caption]) : null,
+          del
+        ]);
+        grid.appendChild(card);
+      });
+    }
+
+    $('portfolio-input').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+
+      if (files.length > MAX_PORTFOLIO_PER_UPLOAD) {
+        toast('يمكنك رفع ' + MAX_PORTFOLIO_PER_UPLOAD + ' صور كحد أقصى في المرة', 'error');
+        e.target.value = '';
+        return;
+      }
+      const tooBig = files.find((f) => f.size > MAX_PORTFOLIO_BYTES);
+      if (tooBig) {
+        toast('إحدى الصور أكبر من 5 ميجا', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      const fd = new FormData();
+      files.forEach((f) => fd.append('portfolio_images', f));
+
+      toast('جارٍ الرفع…', '');
+      try {
+        const res = await fetch('/api/technician/portfolio', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + Auth.getToken() },
+          body: fd
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'فشل الرفع');
+
+        // The server caps the gallery by dropping the oldest images, so warn
+        // instead of silently losing an upload.
+        const kept = (data.portfolio || []).length;
+        if (kept < files.length) {
+          toast('تم الرفع — المسموح ' + MAX_PORTFOLIO + ' صور فقط، تم حذف الأقدم', 'warn');
+        } else {
+          toast('تم رفع الصور', 'success');
+        }
+        await loadProfile();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      e.target.value = '';
+    });
+
+    // ============================================================
+    // Reviews
+    // ============================================================
+    function renderReviews(reviews) {
+      const list = $('reviews-list');
+      const sub = $('reviews-sub');
+      Ui.clear(list);
+
+      if (!reviews.length) {
+        sub.textContent = 'لم يستقبل الفني أي مراجعات بعد';
+        list.appendChild(Ui.el('div', { class: 'empty' }, [
+          Ui.ic('fa-regular fa-star'),
+          Ui.el('b', {}, ['لا توجد مراجعات']),
+          Ui.el('p', {}, ['ستظهر تقييمات العملاء هنا بعد إكمال أول طلب.'])
+        ]));
+        return;
+      }
+
+      sub.textContent = reviews.length + ' مراجعة';
+
+      reviews.forEach((r) => {
+        const card = Ui.el('div', { class: 'review-item' });
+
+        // Header: avatar + name/date + stars
+        const stars = Ui.el('div', { class: 'review-stars' });
+        for (let i = 1; i <= 5; i++) {
+          stars.appendChild(Ui.ic(i <= r.rating ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+        }
+
+        card.appendChild(Ui.el('div', { class: 'review-head' }, [
+          Ui.el('span', { class: 'avatar', attrs: { style: 'width:38px;height:38px;font-size:0.85rem;flex-shrink:0' } }, [Ui.initials(r.customer_name)]),
+          Ui.el('div', { attrs: { style: 'flex:1;min-width:0' } }, [
+            // Text nodes are escaped by the DOM, so the raw value is passed here.
+            Ui.el('b', { attrs: { style: 'display:block;font-size:0.9rem;color:var(--ink)' } }, [r.customer_name || 'عميل']),
+            Ui.el('span', { class: 'tbl-sub' }, [Ui.dateTime(r.created_at)])
+          ]),
+          stars
+        ]));
+
+        if (r.comment) {
+          card.appendChild(Ui.el('p', { class: 'review-comment' }, [r.comment]));
+        }
+
+        // Reply section
+        if (r.technician_reply) {
+          card.appendChild(Ui.el('div', { class: 'review-reply' }, [
+            Ui.el('div', { class: 'rr-head' }, [
+              Ui.ic('fa-solid fa-reply'),
+              ' ردك (' + Ui.dateTime(r.replied_at) + ')'
+            ]),
+            Ui.el('div', { class: 'rr-body' }, [r.technician_reply])
+          ]));
+        } else {
+          const input = Ui.el('input', {
+            class: 'input',
+            attrs: {
+              type: 'text',
+              placeholder: 'اكتب ردًا على التقييم (اختياري)…',
+              maxlength: String(MAX_REPLY),
+              'aria-label': 'رد على التقييم'
+            }
+          });
+          const submit = Ui.el('button', {
+            class: 'btn btn-sm btn-brand',
+            attrs: { type: 'submit' }
+          }, [Ui.ic('fa-solid fa-paper-plane'), 'رد']);
+
+          const replyForm = Ui.el('form', { class: 'review-reply-form' }, [input, submit]);
+
+          replyForm.addEventListener('submit', async (ev) => {
+            ev.preventDefault();
+            const reply = input.value.trim();
+            if (!reply) {
+              input.focus();
+              return;
+            }
+            Ui.btnLoading(submit, 'جارٍ الإرسال…');
+            try {
+              await api('/api/technician/reviews/' + r.id + '/reply', {
+                method: 'POST',
+                body: { reply: reply }
+              });
+              toast('تم إرسال الرد', 'success');
+              await loadProfile();
+            } catch (err) {
+              toast(err.message, 'error');
+              Ui.btnReset(submit);
+            }
+          });
+
+          card.appendChild(replyForm);
+        }
+
+        list.appendChild(card);
+      });
+    }
+
+    // ============================================================
+    // Initialize
+    // ============================================================
+    loadProfile();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+  <script src="/js/push.js"></script>
+</body>
+</html>

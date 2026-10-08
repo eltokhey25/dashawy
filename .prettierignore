@@ -1,0 +1,7 @@
+node_modules
+uploads
+database
+*.min.js
+*.min.css
+.env
+package-lock.json

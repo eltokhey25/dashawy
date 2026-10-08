@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>حساب عميل جديد — دشاوي</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="دشاوي">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <!-- iOS splash screen (universal fallback) -->
+  <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
+  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+
+  <!-- Brand visual -->
+  <aside class="auth-visual-side">
+    <div class="auth-visual-inner">
+
+      <a href="/" class="auth-brand">
+        <span class="auth-brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+
+      <div class="auth-visual-content">
+        <h2 class="auth-visual-title">
+          فني دش متخصص<br>
+          <span class="grad">يوصلك في دقايق</span>
+        </h2>
+        <p class="auth-visual-desc">
+          خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات
+          في محافظة الإسكندرية.
+        </p>
+
+        <ul class="auth-features">
+          <li><i class="fa-solid fa-bolt"></i> تعيين تلقائي لأقرب فني في ثوانٍ</li>
+          <li><i class="fa-solid fa-shield-halved"></i> فنيون معتمدون — الإدارة تراجع كل حساب</li>
+          <li><i class="fa-solid fa-star"></i> تقييمات حقيقية من العملاء السابقين</li>
+          <li><i class="fa-solid fa-location-dot"></i> متاحون في جميع مناطق الإسكندرية</li>
+        </ul>
+      </div>
+
+      <div class="auth-visual-footer">
+        <span>© 2026 دشاوي</span>
+        <span>صُنع في مصر 🇪🇬</span>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Form -->
+  <main class="auth-form-side">
+    <div class="auth-form-inner">
+
+      <div class="auth-form-header">
+        <a href="/" class="auth-back-link">
+          <i class="fa-solid fa-arrow-right"></i> العودة للرئيسية
+        </a>
+        <h1 class="auth-form-title">أنشئ حسابك 🚀</h1>
+      </div>
+
+      <div class="auth-wizard">
+
+        <!-- Progress -->
+        <div class="auth-progress">
+          <div class="ap-step active" data-step="1">
+            <span class="ap-num">1</span>
+            <span class="ap-label">البيانات</span>
+          </div>
+          <div class="ap-step" data-step="2">
+            <span class="ap-num">2</span>
+            <span class="ap-label">الدخول</span>
+          </div>
+          <div class="ap-step" data-step="3">
+            <span class="ap-num">3</span>
+            <span class="ap-label">الموقع</span>
+          </div>
+        </div>
+
+        <form id="register-form" novalidate>
+
+          <!-- STEP 1 — who you are -->
+          <div class="auth-step" data-step="1">
+            <h2 class="auth-title">أهلًا بيك 👋</h2>
+            <p class="auth-sub">هنسجّلك في أقل من دقيقة</p>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-name">الاسم الكامل</label>
+              <input type="text" id="reg-name" class="input" placeholder="مثال: أحمد محمد" autocomplete="name">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-phone">رقم الهاتف</label>
+              <input type="tel" id="reg-phone" class="input" dir="ltr" style="text-align:right"
+                     placeholder="+20 100 000 0000" autocomplete="tel" maxlength="20">
+              <div class="form-hint">رقمك للتواصل + تسجيل الدخول — لا يمكن استخدامه في أكثر من حساب</div>
+            </div>
+          </div>
+
+          <!-- STEP 2 — how you log in -->
+          <div class="auth-step" data-step="2" style="display:none;">
+            <h2 class="auth-title">إيميلك وكلمة السر</h2>
+            <p class="auth-sub">هتستخدمهم في تسجيل الدخول</p>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-email">البريد الإلكتروني</label>
+              <input type="email" id="reg-email" class="input" placeholder="you@example.com" autocomplete="email">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-password">كلمة المرور</label>
+              <input type="password" id="reg-password" class="input" placeholder="6 أحرف على الأقل" autocomplete="new-password">
+            </div>
+          </div>
+
+          <!-- STEP 3 — where you are -->
+          <div class="auth-step" data-step="3" style="display:none;">
+            <h2 class="auth-title">فين مكانك؟</h2>
+            <p class="auth-sub">عشان نوصلك بأقرب فني</p>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-area">المنطقة في الإسكندرية</label>
+              <select id="reg-area" class="input">
+                <option value="">اختر منطقتك…</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-location">العنوان بالتفصيل <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+              <input type="text" id="reg-location" class="input" maxlength="300" placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-geo">موقعك الحالي <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+              <div class="geo-bar" style="display:flex;gap:10px;align-items:flex-end">
+                <input type="text" id="reg-geo" class="input" readonly placeholder="حدد موقعك الحالي">
+                <button type="button" class="btn btn-outline btn-sm" id="reg-geo-btn" style="flex-shrink:0">
+                  <i class="fa-solid fa-location-crosshairs"></i> تحديد
+                </button>
+              </div>
+              <div class="form-hint" id="reg-geo-status">يفضّل تحديد موقعك حتى يصل الفني بسرعة</div>
+              <input type="hidden" id="reg-lat">
+              <input type="hidden" id="reg-lng">
+            </div>
+
+            <div class="auth-notice">
+              <i class="fa-solid fa-location-dot"></i>
+              الخدمة متاحة حالياً في محافظة الإسكندرية فقط
+            </div>
+
+            <div class="form-group" style="margin-top:14px;margin-bottom:6px">
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;line-height:1.7">
+                <input type="checkbox" id="reg-consent" style="margin-top:5px;width:auto;flex-shrink:0">
+                <span>
+                  أوافق على <a href="/privacy.html" target="_blank" style="font-weight:700">سياسة الخصوصية</a>
+                  وعلى معالجة بياناتي الشخصية لغرض تقديم خدمة طلب الفنيين.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="auth-nav">
+            <button type="button" class="btn btn-outline" id="auth-back" style="display:none;">
+              <i class="fa-solid fa-arrow-right"></i> السابق
+            </button>
+            <button type="button" class="btn btn-brand" id="auth-next">
+              التالي <i class="fa-solid fa-arrow-left"></i>
+            </button>
+          </div>
+
+        </form>
+
+        <div class="auth-divider">أو</div>
+
+        <div class="auth-footer">
+          <div>عندك حساب؟ <a href="/login.html">سجّل دخول</a></div>
+          <div>عايز تشتغل فني؟ <a href="/register-tech.html">سجّل كفني</a></div>
+        </div>
+
+        <ul class="auth-trust">
+          <li><i class="fa-solid fa-lock"></i> بياناتك مشفرة ومحمية</li>
+          <li><i class="fa-solid fa-bolt"></i> التسجيل مجاني بالكامل</li>
+          <li><i class="fa-solid fa-circle-check"></i> بدون رسوم خفية</li>
+        </ul>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    // Guests only — a signed-in user has nothing to register.
+    if (Auth.isAuthed()) window.location.replace(Auth.homePath());
+
+    const LAST_STEP = 3;
+    const state = { step: 1, submitting: false };
+
+    const $ = (id) => document.getElementById(id);
+
+    // Load Alexandria neighborhoods into the registration area select.
+    async function fillAreas(selectEl) {
+      try {
+        const data = await api('/api/alexandria-areas');
+        Ui.clear(selectEl);
+        selectEl.appendChild(Ui.el('option', { text: 'اختر منطقتك…', attrs: { value: '' } }));
+        (data.areas || []).forEach((a) => {
+          selectEl.appendChild(Ui.el('option', { text: a.label, attrs: { value: a.key } }));
+        });
+      } catch (e) {
+        console.error('Failed to load areas', e);
+      }
+    }
+    fillAreas($('reg-area'));
+
+    // Validation mirrors the server's own rules so a step is never passed with a
+    // value the API would reject anyway.
+    const PHONE_RE = /^[+()\-\s\d]{6,20}$/;
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    function stepErrors() {
+      const errors = [];
+      if (state.step === 1) {
+        if ($('reg-name').value.trim().length < 2) errors.push(['reg-name', 'أدخل اسماً صحيحاً']);
+        if (!PHONE_RE.test($('reg-phone').value.trim())) errors.push(['reg-phone', 'رقم الهاتف غير صالح']);
+      }
+      if (state.step === 2) {
+        if (!EMAIL_RE.test($('reg-email').value.trim())) errors.push(['reg-email', 'بريد إلكتروني غير صالح']);
+        if ($('reg-password').value.length < 6) errors.push(['reg-password', 'كلمة المرور 6 أحرف على الأقل']);
+      }
+      if (state.step === 3) {
+        if (!$('reg-area').value) errors.push(['reg-area', 'اختر منطقتك']);
+        // The consent checkbox gets a toast as well: it has no input box to
+        // attach the error line to, so the message has to travel with the tap.
+        if (!$('reg-consent').checked) {
+          errors.push(['reg-consent', 'يجب الموافقة على سياسة الخصوصية']);
+          toast('لازم توافق على سياسة الخصوصية للانضمام', 'error');
+        }
+      }
+      return errors;
+    }
+
+    // Marks every field on the step at once.
+    //
+    // ui.js's setFieldError() clears all form errors before it adds one, so
+    // calling it in a loop leaves only the LAST message standing — which turns a
+    // step with two bad fields into two round-trips. The whole point of this
+    // flow is fewer round-trips, so the error markup is reproduced here without
+    // the blanket clear.
+    function markFieldError(input, message) {
+      input.classList.add('invalid');
+      const wrap = input.closest('.form-group') || input.parentElement;
+      wrap.appendChild(
+        Ui.el('div', { class: 'form-error' }, [Ui.ic('fa-solid fa-circle-exclamation'), message])
+      );
+    }
+
+    function renderStep() {
+      document.querySelectorAll('.auth-step').forEach((s) => {
+        s.style.display = Number(s.dataset.step) === state.step ? '' : 'none';
+      });
+      document.querySelectorAll('.ap-step').forEach((s) => {
+        const n = Number(s.dataset.step);
+        s.classList.toggle('active', n === state.step);
+        s.classList.toggle('done', n < state.step);
+      });
+
+      $('auth-back').style.display = state.step === 1 ? 'none' : '';
+
+      const nextBtn = $('auth-next');
+      nextBtn.innerHTML =
+        state.step === LAST_STEP
+          ? '<i class="fa-solid fa-user-plus"></i> إنشاء الحساب'
+          : 'التالي <i class="fa-solid fa-arrow-left"></i>';
+    }
+
+    function goToStep(step) {
+      state.step = step;
+      renderStep();
+      // On a phone the step heading can sit under the sticky browser chrome, so
+      // every transition starts at the top of the form.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const heading = document.querySelector('.auth-step[data-step="' + step + '"] .auth-title');
+      if (heading) heading.setAttribute('tabindex', '-1');
+    }
+
+    $('auth-back').addEventListener('click', () => {
+      if (state.step > 1) goToStep(state.step - 1);
+    });
+
+    $('auth-next').addEventListener('click', async () => {
+      if (state.submitting) return;
+      clearFormErrors(document);
+
+      const errors = stepErrors();
+      if (errors.length) {
+        errors.forEach(([id, msg]) => markFieldError($(id), msg));
+        // Focus the first thing that needs fixing, so the fix does not require
+        // hunting for the red text.
+        const first = $(errors[0][0]);
+        if (first && first.focus) first.focus();
+        return;
+      }
+
+      if (state.step < LAST_STEP) {
+        goToStep(state.step + 1);
+        return;
+      }
+
+      // Final step: create the account.
+      const btn = $('auth-next');
+      state.submitting = true;
+      Ui.btnLoading(btn, 'جاري الإنشاء...');
+
+      try {
+        const body = {
+          name: $('reg-name').value.trim(),
+          phone: $('reg-phone').value.trim(),
+          email: $('reg-email').value.trim(),
+          password: $('reg-password').value,
+          area_key: $('reg-area').value
+        };
+        const loc = $('reg-location').value.trim();
+        if (loc) body.location_text = loc;
+        const lat = $('reg-lat').value;
+        const lng = $('reg-lng').value;
+        if (lat && lng) { body.latitude = Number(lat); body.longitude = Number(lng); }
+
+        const data = await api('/api/auth/register', { method: 'POST', body });
+        Auth.setSession(data);
+        // Record explicit consent for personal-data processing (Law 151/2020).
+        try {
+          await api('/api/consent', { method: 'POST', body: { consent_type: 'privacy_policy', policy_version: 'v1.0' } });
+        } catch (err) { console.warn('Consent recording failed', err); }
+        toast('تم إنشاء حسابك بنجاح 🎉', 'success');
+        setTimeout(() => { window.location.href = Auth.homePath('customer'); }, 500);
+      } catch (err) {
+        // The phone is a unique identity now, so a collision is a field-level
+        // problem the user can fix without reading a transient toast — and it
+        // belongs on step 1, so send them there.
+        if (err.message && err.message.includes('مسجّل بالفعل')) {
+          clearFormErrors(document);
+          goToStep(1);
+          setFieldError($('reg-phone'), err.message);
+          $('reg-phone').focus();
+        }
+        toast(err.message, 'error');
+        Ui.btnReset(btn);
+        state.submitting = false;
+      }
+    });
+
+    // Enter advances the wizard instead of doing nothing: there is no submit
+    // button in the form, so the key would otherwise fall through.
+    document.getElementById('register-form').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      $('auth-next').click();
+    });
+
+    // Geolocation on register.
+    $('reg-geo-btn').addEventListener('click', () => {
+      if (!navigator.geolocation) { toast('المتصفح لا يدعم تحديد الموقع', 'warn'); return; }
+      const btn = $('reg-geo-btn');
+      btn.disabled = true;
+      $('reg-geo-status').textContent = 'جارٍ تحديد الموقع…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          $('reg-lat').value = pos.coords.latitude.toFixed(6);
+          $('reg-lng').value = pos.coords.longitude.toFixed(6);
+          $('reg-geo').value = 'خط العرض ' + pos.coords.latitude.toFixed(4) + ' · خط الطول ' + pos.coords.longitude.toFixed(4);
+          $('reg-geo-status').textContent = 'تم تحديد موقعك ✓';
+          btn.disabled = false;
+        },
+        () => {
+          $('reg-geo-status').textContent = 'تعذر التحديد — يمكنك المتابعة بالوصف النصي';
+          btn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    renderStep();
+    Ui.initNav();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>

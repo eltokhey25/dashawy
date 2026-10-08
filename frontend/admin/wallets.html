@@ -1,0 +1,1604 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>المحافظ — دشاوي</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/admin/_admin.css" />
+  </head>
+  <body class="adm-body">
+    <div class="adm-shell">
+      <aside class="adm-sidebar" id="sidebar">
+        <div class="adm-sidebar-brand">
+          <span class="asb-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+          <div class="asb-info">
+            <b>دشاوي</b>
+            <span>لوحة إدارة المنصة</span>
+          </div>
+        </div>
+
+        <nav class="adm-sidebar-nav">
+          <div class="adm-nav-section">عام</div>
+          <a class="adm-nav-item" id="nav-stats" href="/admin/dashboard"
+            ><i class="fa-solid fa-gauge-high"></i> الإحصائيات</a
+          >
+          <a class="adm-nav-item" id="nav-requests" href="/admin/requests"
+            ><i class="fa-solid fa-list-check"></i> الطلبات</a
+          >
+          <a class="adm-nav-item" id="nav-technicians" href="/admin/technicians"
+            ><i class="fa-solid fa-users-gear"></i> الفنيون</a
+          >
+
+          <div class="adm-nav-section">المالية</div>
+          <a class="adm-nav-item" id="nav-finance" href="/admin/finance"
+            ><i class="fa-solid fa-file-invoice-dollar"></i> المالية</a
+          >
+          <a class="adm-nav-item active" id="nav-wallets" href="/admin/wallets"
+            ><i class="fa-solid fa-wallet"></i> المحافظ</a
+          >
+
+          <div class="adm-nav-section">المحتوى</div>
+          <a class="adm-nav-item" id="nav-reviews" href="/admin/reviews"
+            ><i class="fa-solid fa-star"></i> المراجعات</a
+          >
+          <a class="adm-nav-item" id="nav-customers" href="/admin/customers"
+            ><i class="fa-solid fa-people-group"></i> العملاء</a
+          >
+          <a class="adm-nav-item" id="nav-specialties" href="/admin/specialties"
+            ><i class="fa-solid fa-tags"></i> التخصصات</a
+          >
+          <a class="adm-nav-item" id="nav-data-requests" href="/admin/data-requests"
+            ><i class="fa-solid fa-scale-balanced"></i> طلبات البيانات</a
+          >
+
+          <div class="adm-nav-section">النظام</div>
+          <a class="adm-nav-item" id="nav-settings" href="/admin/settings"
+            ><i class="fa-solid fa-gear"></i> الإعدادات</a
+          >
+          <a class="adm-nav-item" href="/admin/admins" id="nav-admins" style="display: none">
+            <i class="fa-solid fa-user-shield"></i> المسؤولون
+          </a>
+        </nav>
+
+        <div class="adm-sidebar-user">
+          <span class="asu-avatar" id="side-avatar">إ</span>
+          <div class="asu-info">
+            <b id="side-name">مدير</b>
+            <span>إدارة النظام</span>
+          </div>
+          <a class="btn btn-soft btn-sm" href="/change-password.html" title="تغيير كلمة المرور">
+            <i class="fa-solid fa-key"></i>
+          </a>
+          <button
+            class="btn btn-soft-danger btn-sm"
+            onclick="Auth.logout('/admin')"
+            title="تسجيل الخروج"
+          >
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </aside>
+      <div class="adm-backdrop" id="sidebar-backdrop"></div>
+
+      <div class="adm-main">
+        <header class="adm-topbar">
+          <button class="adm-mobile-toggle" id="sidebar-toggle" aria-label="القائمة">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="atb-title" id="tb-title">المحافظ</div>
+          <div class="atb-spacer"></div>
+          <button class="atb-btn" id="refresh-btn-top" title="تحديث">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <a class="atb-btn" href="/" target="_blank" title="الموقع"
+            ><i class="fa-solid fa-globe"></i
+          ></a>
+        </header>
+
+        <main class="adm-content">
+          <div class="page-head">
+            <div>
+              <h1>محافظ الفنيين</h1>
+              <div class="sub">أرصدة الفنيين وتسجيل الدفعات اللي رجعت للمنصة</div>
+            </div>
+          </div>
+
+          <!-- Summary stats: the same figures for all three tabs, because the debt
+               and credit totals are the reason an admin opens this page regardless
+               of which queue they came for. -->
+          <div class="adm-stat-row" id="stats-row" style="margin-bottom: 20px"></div>
+
+          <!-- Tab switcher -->
+          <div class="adm-tabs" style="margin-bottom: 16px">
+            <button class="adm-tab active" data-tab="wallets" type="button">
+              <i class="fa-solid fa-wallet"></i> المحافظ
+            </button>
+            <button class="adm-tab" data-tab="withdrawals" type="button">
+              <i class="fa-solid fa-hand-holding-dollar"></i> طلبات السحب
+              <span id="withdrawals-badge" class="adm-tab-badge" style="display: none">0</span>
+            </button>
+            <button class="adm-tab" data-tab="pending-payments" type="button">
+              <i class="fa-solid fa-clock"></i> مدفوعات معلقة
+              <span id="pending-payments-badge" class="adm-tab-badge" style="display: none">
+                0
+              </span>
+            </button>
+          </div>
+
+          <!-- Every tab renders into this one container, so a tab switch is a single
+               replace rather than three show/hide blocks to keep in sync. -->
+          <div id="tab-content"></div>
+        </main>
+      </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/admin.js"></script>
+    <script>
+      (async () => {
+        if (!(await Admin.init())) throw new Error('redirect');
+
+        Admin.hideUnauthorizedNav();
+        const me = Auth.getUser();
+        if (me && me.is_super_admin) {
+          const el = document.getElementById('nav-admins');
+          if (el) el.style.display = '';
+        }
+        document.getElementById('side-name').textContent = me.email;
+        document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
+        document.getElementById('tb-title').textContent = 'المحافظ';
+
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const sbtn = document.getElementById('sidebar-toggle');
+        if (backdrop && sbtn) {
+          backdrop.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('show');
+          });
+          sbtn.addEventListener('click', () => {
+            sidebar.classList.add('open');
+            backdrop.classList.add('show');
+          });
+          const mq = window.matchMedia('(max-width:1024px)');
+          mq.addEventListener('change', (e) => {
+            sbtn.style.display = e.matches ? '' : 'none';
+          });
+          sbtn.style.display = mq.matches ? '' : 'none';
+        }
+
+        let currentTab = 'wallets';
+        let allWallets = [];
+        let allWithdrawals = [];
+        // The endpoint's own aggregate over pending+approved, i.e. money already
+        // promised to technicians but not yet sent. Shown above the queue because
+        // it is the figure that has to reconcile against the bank.
+        let awaitingTotal = 0;
+        let pendingPayments = [];
+        let payoutTarget = null;
+        let page = 1;
+        const PAGE_SIZE = 12;
+
+        // The wallets tab owns two inputs, and a background poll rebuilding the tab
+        // would otherwise wipe whatever was half-typed in them every 30 seconds.
+        // Holding the values here (rather than reading them off the DOM) is what
+        // makes the rebuilt inputs come back carrying the same filter.
+        const filters = { search: '', status: '' };
+
+        // Only re-render when something actually changed. Without this the 30s poll
+        // rebuilds an identical table, which resets scroll position and steals focus
+        // from an admin reading a row.
+        let lastSignature = '';
+
+        function dataSignature() {
+          return JSON.stringify([
+            allWallets.map((w) => [w.technician_id, w.balance, w.total_debt, w.total_withdrawn]),
+            allWithdrawals.map((w) => [w.id, w.status, w.amount]),
+            pendingPayments.map((p) => [p.id, p.amount_status, p.final_amount]),
+          ]);
+        }
+
+        // POST /payout reduces the technician's DEBT: the money moved from them to
+        // the platform. The opposite direction — platform pays technician — is a
+        // withdrawal, and that is the "طلبات السحب" tab rather than this one.
+
+        function money(n) {
+          return Number(n || 0).toFixed(2) + ' ج.م';
+        }
+
+        // ============================================================
+        // Stats
+        // ============================================================
+        function statCard(label, value, icon, accent) {
+          return Ui.el('div', { class: 'adm-stat accent-' + accent }, [
+            Ui.el('div', { class: 'as-info' }, [
+              Ui.el('b', {}, [String(value)]),
+              Ui.el('span', {}, [label]),
+            ]),
+            Ui.el('span', { class: 'as-icon' }, [Ui.ic(icon)]),
+          ]);
+        }
+
+        // Debt and credit are separate pots. Deriving debt from a negative balance is
+        // the pre-split model and silently reports zero forever now that balance is
+        // clamped non-negative — so the debt column is read straight off total_debt.
+        function renderStats(wallets) {
+          const totalDebt = wallets.reduce((s, w) => s + Number(w.total_debt || 0), 0);
+          const totalCredit = wallets.reduce((s, w) => s + Number(w.balance || 0), 0);
+          const debtors = wallets.filter((w) => Number(w.total_debt || 0) > 0).length;
+          const totalPaid = wallets.reduce((s, w) => s + Number(w.total_paid_to_platform || 0), 0);
+          const totalWithdrawn = wallets.reduce((s, w) => s + Number(w.total_withdrawn || 0), 0);
+
+          const row = document.getElementById('stats-row');
+          Ui.clear(row);
+          row.appendChild(
+            statCard(money(totalDebt), 'إجمالي الديون', 'fa-solid fa-arrow-trend-down', 'red')
+          );
+          row.appendChild(statCard(debtors, 'عدد المديونين', 'fa-solid fa-user-clock', 'orange'));
+          row.appendChild(
+            statCard(money(totalCredit), 'إجمالي الأرصدة المتاحة', 'fa-solid fa-wallet', 'green')
+          );
+          row.appendChild(
+            statCard(money(totalPaid), 'إجمالي المسدّد', 'fa-solid fa-hand-holding-dollar', 'blue')
+          );
+          row.appendChild(
+            statCard(
+              money(totalWithdrawn),
+              'إجمالي المسحوب',
+              'fa-solid fa-money-bill-transfer',
+              'blue'
+            )
+          );
+        }
+
+        // ============================================================
+        // Load
+        // ============================================================
+        // ============================================================
+        // Load — all three queues in parallel
+        // ============================================================
+        // Each request is individually guarded. A failing queue must still render
+        // the other two tabs: without the catch, one failing endpoint rejects the
+        // whole Promise.all and the admin sees an empty page and an error, with no
+        // clue which of the three was at fault.
+        async function loadAll(force) {
+          const [walletsRes, withdrawalsRes, pendingRes] = await Promise.all([
+            api('/api/admin/wallets').catch((e) => {
+              toast('تعذّر تحميل المحافظ: ' + e.message, 'error');
+              return { wallets: [] };
+            }),
+            api('/api/admin/withdrawals').catch(() => ({ withdrawals: [] })),
+            api('/api/admin/payments/pending').catch(() => ({ payments: [] })),
+          ]);
+
+          allWallets = walletsRes.wallets || [];
+          allWithdrawals = withdrawalsRes.withdrawals || [];
+          awaitingTotal = Number(withdrawalsRes.awaiting_total || 0);
+          pendingPayments = pendingRes.payments || [];
+
+          renderStats(allWallets);
+          updateBadges();
+
+          const sig = dataSignature();
+          // A forced reload always repaints, so the refresh button visibly does
+          // something even when the data is identical.
+          if (force || sig !== lastSignature) {
+            lastSignature = sig;
+            renderTab();
+          }
+        }
+
+        // A tab switch must always repaint even if the signature is unchanged,
+        // because the container now holds a different view.
+        function switchTab(name) {
+          currentTab = name;
+          document.querySelectorAll('.adm-tab').forEach((x) => {
+            x.classList.toggle('active', x.dataset.tab === name);
+          });
+          renderTab();
+        }
+
+        function updateBadges() {
+          const pendingW = allWithdrawals.filter((w) => w.status === 'pending').length;
+          const approvedW = allWithdrawals.filter((w) => w.status === 'approved').length;
+          // "Needs you" is pending plus approved-but-unpaid: an approved request is
+          // money the technician is owed but has not received, so it is as much of
+          // an open task as a pending one. Counting only pending would let a
+          // half-finished withdrawal sit with no badge.
+          const pendingP = pendingPayments.filter(
+            (p) => p.amount_status === 'pending' || p.amount_status === 'disputed'
+          ).length;
+
+          const wBadge = document.getElementById('withdrawals-badge');
+          const pBadge = document.getElementById('pending-payments-badge');
+          wBadge.textContent = pendingW + approvedW;
+          wBadge.style.display = pendingW + approvedW > 0 ? '' : 'none';
+          pBadge.textContent = pendingP;
+          pBadge.style.display = pendingP > 0 ? '' : 'none';
+        }
+
+        function renderTab() {
+          const content = document.getElementById('tab-content');
+          Ui.clear(content);
+          if (currentTab === 'withdrawals') renderWithdrawalsTab(content);
+          else if (currentTab === 'pending-payments') renderPendingPaymentsTab(content);
+          else renderWalletsTab(content);
+        }
+
+        // ============================================================
+        // Tab 1 — wallets
+        // ============================================================
+        function filtered() {
+          const q = filters.search.trim().toLowerCase();
+          const status = filters.status;
+          return allWallets.filter((w) => {
+            // 'debt' is about total_debt now. Reading it from a negative balance
+            // would match nobody, since the column is clamped at zero.
+            const debt = Number(w.total_debt || 0);
+            const balance = Number(w.balance || 0);
+            if (q && !((w.name || '') + ' ' + (w.phone || '')).toLowerCase().includes(q))
+              return false;
+            if (status === 'debt' && !(debt > 0)) return false;
+            if (status === 'credit' && !(balance > 0)) return false;
+            if (status === 'zero' && debt > 0.001) return false;
+            return true;
+          });
+        }
+
+        function renderWalletsTab(container) {
+          const searchInput = Ui.el('input', {
+            class: 'input',
+            attrs: {
+              type: 'search',
+              id: 'filter-search',
+              placeholder: 'ابحث بالاسم أو الهاتف…',
+              value: filters.search,
+            },
+          });
+          const statusSel = Ui.el('select', { class: 'input', attrs: { id: 'filter-status' } }, [
+            Ui.el('option', { text: 'كل الحالات', attrs: { value: '' } }),
+            Ui.el('option', { text: 'مدين فقط', attrs: { value: 'debt' } }),
+            Ui.el('option', { text: 'له رصيد', attrs: { value: 'credit' } }),
+            Ui.el('option', { text: 'بدون مديونية', attrs: { value: 'zero' } }),
+          ]);
+          statusSel.value = filters.status;
+
+          const filterCard = Ui.el(
+            'div',
+            { class: 'adm-card', attrs: { style: 'margin-bottom:18px' } },
+            [
+              Ui.el('div', { class: 'adm-card-head' }, [
+                Ui.el('h3', {}, [Ui.ic('fa-solid fa-filter'), ' تصفية']),
+              ]),
+              Ui.el(
+                'div',
+                { attrs: { style: 'display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px' } },
+                [
+                  searchInput,
+                  statusSel,
+                  Ui.el(
+                    'button',
+                    { class: 'adm-btn', attrs: { id: 'reset-filters', type: 'button' } },
+                    [Ui.ic('fa-solid fa-filter-circle-xmark'), ' مسح']
+                  ),
+                ]
+              ),
+              Ui.el('div', { class: 'form-hint', attrs: { style: 'margin-top:10px' } }, [
+                Ui.ic('fa-solid fa-circle-info'),
+                ' ترتيب الجدول يجعل المدينون في الأعلى تلقائياً — دي القائمة اللي بتشتغل عليها.',
+              ]),
+            ]
+          );
+          container.appendChild(filterCard);
+
+          const rows = filtered();
+          const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+          if (page > pages) page = pages;
+          const start = (page - 1) * PAGE_SIZE;
+          const slice = rows.slice(start, start + PAGE_SIZE);
+
+          const countEl = Ui.el('span', { class: 'muted' }, [
+            'عدد المحافظ: ',
+            Ui.el('b', { attrs: { style: 'color:var(--adm-ink)' } }, [String(rows.length)]),
+          ]);
+          const pageInfo = Ui.el('span', {
+            class: 'tbl-sub',
+            attrs: { style: 'text-align:left' },
+            text:
+              (rows.length ? start + 1 : 0) + '–' + (start + slice.length) + ' من ' + rows.length,
+          });
+
+          const tbody = Ui.el('tbody');
+          const table = Ui.el('table', { class: 'adm-table' }, [
+            Ui.el('thead', {}, [
+              Ui.el('tr', {}, [
+                Ui.el('th', {}, ['الفني']),
+                Ui.el('th', {}, ['المديونية']),
+                Ui.el('th', {}, ['الرصيد المتاح']),
+                Ui.el('th', {}, ['إجمالي الأرباح']),
+                Ui.el('th', {}, ['إجمالي العمولات']),
+                Ui.el('th', {}, ['إجمالي المسدّد']),
+                Ui.el('th', { attrs: { style: 'text-align:left' } }, ['إجراءات']),
+              ]),
+            ]),
+            tbody,
+          ]);
+
+          const pager = Ui.el('div', { class: 'pager' });
+          const card = Ui.el('div', { class: 'adm-card' }, [
+            Ui.el('div', { class: 'row-between', attrs: { style: '0 2px 10px' } }, [
+              countEl,
+              pageInfo,
+            ]),
+            Ui.el('div', { class: 'adm-table-wrap' }, [table]),
+            pager,
+          ]);
+          container.appendChild(card);
+
+          if (!rows.length) {
+            tbody.appendChild(
+              Ui.el('tr', {}, [
+                Ui.el('td', { attrs: { colspan: '7' } }, [
+                  Ui.el('div', { class: 'adm-empty' }, [
+                    Ui.ic('fa-solid fa-wallet'),
+                    Ui.el('b', {}, ['لا توجد محافظ مطابقة']),
+                    Ui.el('span', {}, ['جرب تغيير الفلاتر أو مسح البحث.']),
+                  ]),
+                ]),
+              ])
+            );
+          } else {
+            slice.forEach((w) => {
+              const debt = Number(w.total_debt || 0);
+              const balance = Number(w.balance || 0);
+              const badge = debt > 0 ? 'red' : 'gray';
+              const creditBadge = balance > 0 ? 'green' : 'gray';
+              tbody.appendChild(
+                Ui.el('tr', {}, [
+                  Ui.el('td', {}, [
+                    Ui.el('div', { class: 'tbl-user' }, [
+                      Ui.el(
+                        'span',
+                        {
+                          class: 'avatar',
+                          attrs: { style: 'width:30px;height:30px;font-size:0.7rem' },
+                        },
+                        [Ui.initials(w.name)]
+                      ),
+                      Ui.el('div', {}, [
+                        Ui.el('div', { class: 'tbl-main' }, [String(w.name || '—')]),
+                        Ui.el(
+                          'div',
+                          {
+                            class: 'tbl-sub',
+                            attrs: { dir: 'ltr', style: 'text-align:right' },
+                          },
+                          [String(w.phone || '—')]
+                        ),
+                      ]),
+                    ]),
+                  ]),
+                  Ui.el('td', {}, [
+                    Ui.el(
+                      'span',
+                      {
+                        class: 'adm-badge ' + badge,
+                        attrs: { style: 'font-size:0.85rem;padding:5px 11px' },
+                      },
+                      [
+                        Ui.ic(debt > 0 ? 'fa-solid fa-arrow-trend-down' : 'fa-solid fa-check'),
+                        ' ' + money(debt),
+                      ]
+                    ),
+                  ]),
+                  Ui.el('td', {}, [
+                    Ui.el(
+                      'span',
+                      {
+                        class: 'adm-badge ' + creditBadge,
+                        attrs: { style: 'font-size:0.85rem;padding:5px 11px' },
+                      },
+                      [Ui.ic('fa-solid fa-wallet'), ' ' + money(balance)]
+                    ),
+                  ]),
+                  Ui.el('td', {}, [money(w.total_earned)]),
+                  Ui.el('td', {}, [money(w.total_owed)]),
+                  Ui.el('td', {}, [money(w.total_paid_to_platform)]),
+                  Ui.el('td', {}, [rowActions(w, debt)]),
+                ])
+              );
+            });
+          }
+
+          if (pages > 1) {
+            Ui.paginate(pager, rows.length, page, PAGE_SIZE, (p) => {
+              page = p;
+              renderTab();
+            });
+          }
+
+          // Filters are debounced, and they write to the module-level `filters`
+          // object rather than to the DOM, so a poll rebuilding this tab mid-typing
+          // cannot discard the query.
+          let searchTimer;
+          searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+              filters.search = searchInput.value;
+              page = 1;
+              renderTab();
+            }, 200);
+          });
+          statusSel.addEventListener('change', () => {
+            filters.status = statusSel.value;
+            page = 1;
+            renderTab();
+          });
+          container.querySelector('#reset-filters').addEventListener('click', () => {
+            filters.search = '';
+            filters.status = '';
+            page = 1;
+            renderTab();
+          });
+        }
+
+        // ============================================================
+        // Tab 2 — withdrawal requests
+        // ============================================================
+        const WITHDRAWAL_STATUS = {
+          pending: { label: 'قيد المراجعة', badge: 'yellow', icon: 'fa-solid fa-clock' },
+          approved: {
+            label: 'معتمد — بانتظار التحويل',
+            badge: 'blue',
+            icon: 'fa-solid fa-check-double',
+          },
+          paid: { label: 'تم التحويل', badge: 'green', icon: 'fa-solid fa-circle-check' },
+          rejected: { label: 'مرفوض', badge: 'red', icon: 'fa-solid fa-xmark' },
+        };
+
+        function renderWithdrawalsTab(container) {
+          const card = Ui.el('div', { class: 'adm-card' }, [
+            Ui.el('div', { class: 'adm-card-head' }, [Ui.el('h3', {}, ['طلبات السحب'])]),
+          ]);
+
+          if (awaitingTotal > 0) {
+            card.appendChild(
+              Ui.el('div', { class: 'form-hint', attrs: { style: 'margin-bottom:12px' } }, [
+                Ui.ic('fa-solid fa-money-bill-transfer'),
+                ' إجمالي المبالغ المعتمدة وغير المحوّلة: ',
+                Ui.el('b', {}, [money(awaitingTotal)]),
+              ])
+            );
+          }
+
+          if (!allWithdrawals.length) {
+            card.appendChild(
+              Ui.el('div', { class: 'adm-empty' }, [
+                Ui.ic('fa-solid fa-hand-holding-dollar'),
+                Ui.el('b', {}, ['لا توجد طلبات سحب']),
+                Ui.el('p', {}, ['ستظهر هنا طلبات سحب الفنيين لأرباحهم.']),
+              ])
+            );
+            container.appendChild(card);
+            return;
+          }
+
+          const tbody = Ui.el('tbody');
+          allWithdrawals.forEach((w) => {
+            const meta = WITHDRAWAL_STATUS[w.status] || {
+              label: w.status,
+              badge: 'gray',
+              icon: 'fa-regular fa-circle',
+            };
+            const actions = Ui.el('div', {
+              attrs: { style: 'display:flex;gap:6px;flex-wrap:wrap' },
+            });
+
+            if (w.status === 'pending') {
+              actions.appendChild(
+                Ui.el(
+                  'button',
+                  {
+                    class: 'adm-btn sm primary',
+                    attrs: { 'data-approve-withdrawal': w.id, type: 'button' },
+                  },
+                  [Ui.ic('fa-solid fa-check'), 'اعتماد']
+                )
+              );
+              actions.appendChild(
+                Ui.el(
+                  'button',
+                  {
+                    class: 'adm-btn sm danger',
+                    attrs: { 'data-reject-withdrawal': w.id, type: 'button' },
+                  },
+                  [Ui.ic('fa-solid fa-xmark'), 'رفض']
+                )
+              );
+            } else if (w.status === 'approved') {
+              actions.appendChild(
+                Ui.el(
+                  'button',
+                  {
+                    class: 'adm-btn sm primary',
+                    attrs: { 'data-paid-withdrawal': w.id, type: 'button' },
+                  },
+                  [Ui.ic('fa-solid fa-money-bill-transfer'), 'تم التحويل']
+                )
+              );
+            }
+
+            tbody.appendChild(
+              Ui.el('tr', {}, [
+                Ui.el('td', {}, ['#' + w.id]),
+                Ui.el('td', {}, [
+                  Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(w.technician_name || '—')]),
+                  Ui.el(
+                    'div',
+                    {
+                      class: 'tbl-sub',
+                      attrs: { dir: 'ltr', style: 'text-align:right' },
+                    },
+                    [Ui.escapeHtml(w.technician_phone || '—')]
+                  ),
+                ]),
+                Ui.el('td', {}, [Ui.el('b', {}, [money(w.amount)])]),
+                Ui.el('td', {}, [
+                  Ui.el('span', { class: 'adm-badge ' + meta.badge }, [
+                    Ui.ic(meta.icon),
+                    meta.label,
+                  ]),
+                ]),
+                Ui.el('td', {}, [Ui.dateTime(w.requested_at)]),
+                Ui.el('td', {}, [actions]),
+              ])
+            );
+
+            // The note an admin typed on reject/paid is only visible here, so it is
+            // shown under the row rather than dropped on the floor.
+            if (w.note) {
+              tbody.appendChild(
+                Ui.el('tr', {}, [
+                  Ui.el('td', { attrs: { colspan: '6' } }, [
+                    Ui.el('div', { class: 'form-hint' }, [
+                      Ui.ic('fa-solid fa-note-sticky'),
+                      ' ملاحظة: ',
+                      Ui.escapeHtml(w.note),
+                    ]),
+                  ]),
+                ])
+              );
+            }
+          });
+
+          card.appendChild(
+            Ui.el('div', { class: 'adm-table-wrap' }, [
+              Ui.el('table', { class: 'adm-table' }, [
+                Ui.el('thead', {}, [
+                  Ui.el('tr', {}, [
+                    Ui.el('th', {}, ['#']),
+                    Ui.el('th', {}, ['الفني']),
+                    Ui.el('th', {}, ['المبلغ']),
+                    Ui.el('th', {}, ['الحالة']),
+                    Ui.el('th', {}, ['التاريخ']),
+                    Ui.el('th', { attrs: { style: 'text-align:left' } }, ['إجراءات']),
+                  ]),
+                ]),
+                tbody,
+              ]),
+            ])
+          );
+          container.appendChild(card);
+        }
+
+        // ============================================================
+        // Tab 3 — cash confirmations still in flight
+        // ============================================================
+        function renderPendingPaymentsTab(container) {
+          const card = Ui.el('div', { class: 'adm-card' }, [
+            Ui.el('div', { class: 'adm-card-head' }, [
+              Ui.el('h3', {}, ['مدفوعات بانتظار التأكيد']),
+            ]),
+          ]);
+
+          if (!pendingPayments.length) {
+            card.appendChild(
+              Ui.el('div', { class: 'adm-empty' }, [
+                Ui.ic('fa-solid fa-circle-check'),
+                Ui.el('b', {}, ['لا توجد مدفوعات معلقة']),
+                Ui.el('p', {}, ['كل الطلبات تم تأكيد دفعها.']),
+              ])
+            );
+            container.appendChild(card);
+            return;
+          }
+
+          const tbody = Ui.el('tbody');
+          pendingPayments.forEach((p) => {
+            const m = AMOUNT_BADGE[p.amount_status] || {
+              label: p.amount_status || '—',
+              badge: 'gray',
+              icon: 'fa-regular fa-circle',
+            };
+            // One affordance per open state, and nothing at all for matched/resolved.
+            // Both decisions end at the same endpoint, so they share a handler and
+            // differ only in copy: "تأكيد" is standing in for a confirmation the
+            // customer never gave, "حل النزاع" is picking between two figures.
+            const actions = Ui.el('div', {
+              attrs: { style: 'display:flex;gap:6px;flex-wrap:wrap' },
+            });
+            if (p.amount_status === 'pending') {
+              actions.appendChild(
+                Ui.el(
+                  'button',
+                  {
+                    class: 'adm-btn sm primary',
+                    attrs: { 'data-confirm-amount': p.id, type: 'button', title: 'تأكيد المبلغ' },
+                  },
+                  [Ui.ic('fa-solid fa-check'), 'تأكيد المبلغ']
+                )
+              );
+            } else if (p.amount_status === 'disputed') {
+              actions.appendChild(
+                Ui.el(
+                  'button',
+                  {
+                    class: 'adm-btn sm primary',
+                    attrs: { 'data-confirm-amount': p.id, type: 'button', title: 'حل النزاع' },
+                  },
+                  [Ui.ic('fa-solid fa-scale-balanced'), 'حل النزاع']
+                )
+              );
+            }
+            // The details link is only useful where there is a status to filter on.
+            if (p.amount_status) {
+              actions.appendChild(
+                Ui.el(
+                  'a',
+                  {
+                    class: 'adm-btn sm',
+                    attrs: {
+                      href: '/admin/requests?amount=' + encodeURIComponent(p.amount_status),
+                      title: 'التفاصيل',
+                    },
+                  },
+                  [Ui.ic('fa-regular fa-eye')]
+                )
+              );
+            }
+
+            tbody.appendChild(
+              Ui.el('tr', {}, [
+                Ui.el('td', {}, ['#' + p.id]),
+                Ui.el('td', {}, [Ui.escapeHtml(p.customer_name || '—')]),
+                Ui.el('td', {}, [Ui.escapeHtml(p.technician_name || '—')]),
+                Ui.el('td', {}, [
+                  p.technician_reported_amount != null ? money(p.technician_reported_amount) : '—',
+                ]),
+                Ui.el('td', {}, [
+                  p.customer_reported_amount != null ? money(p.customer_reported_amount) : '—',
+                ]),
+                Ui.el('td', {}, [Ui.el('span', { class: 'adm-badge ' + m.badge }, [m.label])]),
+                Ui.el('td', {}, [actions]),
+              ])
+            );
+          });
+
+          card.appendChild(
+            Ui.el('div', { class: 'adm-table-wrap' }, [
+              Ui.el('table', { class: 'adm-table' }, [
+                Ui.el('thead', {}, [
+                  Ui.el('tr', {}, [
+                    Ui.el('th', {}, ['#']),
+                    Ui.el('th', {}, ['العميل']),
+                    Ui.el('th', {}, ['الفني']),
+                    Ui.el('th', {}, ['مبلغ الفني']),
+                    Ui.el('th', {}, ['مبلغ العميل']),
+                    Ui.el('th', {}, ['الحالة']),
+                    Ui.el('th', { attrs: { style: 'text-align:left' } }, ['إجراء']),
+                  ]),
+                ]),
+                tbody,
+              ]),
+            ])
+          );
+          container.appendChild(card);
+        }
+
+        // Label/badge per amount_status, mirroring Ui.amountStatusBadge but against
+        // the admin stylesheet's own .adm-badge palette.
+        const AMOUNT_BADGE = {
+          pending: { label: 'بانتظار العميل', badge: 'yellow' },
+          disputed: { label: 'نزاع', badge: 'red' },
+          matched: { label: 'مؤكد', badge: 'green' },
+          resolved: { label: 'تم الحل', badge: 'green' },
+        };
+
+        // ============================================================
+        // Payout modal
+        // ============================================================
+        // Built with Ui.openModal rather than a hand-rolled overlay: every other admin
+        // dialog uses it, and it is what supplies Escape-to-close, the fade-in and a
+        // single overlay to close. A second, parallel overlay system would need its
+        // own copy of all three.
+        function openPayoutModal(technicianId) {
+          const w = allWallets.find((x) => x.technician_id === technicianId);
+          if (!w) return;
+          payoutTarget = w;
+
+          // The payout reduces the DEBT pot, so the modal is built on total_debt.
+          // Previewing against balance would show a technician going "more positive"
+          // as they pay off what they owe — the opposite of what happens.
+          const debtAmount = Number(w.total_debt || 0);
+          const balance = Number(w.balance || 0);
+
+          const amountInput = Ui.el('input', {
+            class: 'input',
+            attrs: {
+              id: 'payout-amount',
+              type: 'number',
+              min: '0.01',
+              step: '0.01',
+              inputmode: 'decimal',
+              placeholder: 'مثال: 50',
+            },
+          });
+          const noteInput = Ui.el('textarea', {
+            class: 'input',
+            attrs: {
+              id: 'payout-note',
+              rows: '2',
+              maxlength: '200',
+              placeholder: 'مثال: تحويل فودافون كاش',
+            },
+          });
+          const previewBox = Ui.el('div', {
+            class: 'assign-box',
+            attrs: { style: 'display:none' },
+          });
+          const newBalanceEl = Ui.el('b', {}, ['0.00 ج.م']);
+          const remainingEl = Ui.el('b', {}, ['0.00 ج.م']);
+          previewBox.appendChild(
+            Ui.el('div', { class: 'detail-row' }, [
+              Ui.el('span', { class: 'dk' }, ['المديونية بعد العملية']),
+              Ui.el('span', { class: 'dv' }, [newBalanceEl]),
+            ])
+          );
+          previewBox.appendChild(
+            Ui.el('div', { class: 'detail-row' }, [
+              Ui.el('span', { class: 'dk' }, ['المتبقي عليه من الدين']),
+              Ui.el('span', { class: 'dv' }, [remainingEl]),
+            ])
+          );
+
+          // States the consequence in words, so the operator never has to infer the
+          // direction from the sign of a number.
+          const directionWarning = Ui.el(
+            'div',
+            { class: 'form-hint', attrs: { style: 'margin-top:14px' } },
+            [
+              Ui.ic('fa-solid fa-circle-info'),
+              ' المبلغ بيخصم من مديونية الفني. لو أكبر من الدين هيتقلّل الصفر ومش هيولّد رصيد.',
+            ]
+          );
+
+          function updatePreview() {
+            const amt = Number(amountInput.value) || 0;
+            // Floors at 0 rather than going negative: the backend caps the debt pot,
+            // so the preview has to show the same cap or the operator sees a number
+            // the server will never produce.
+            const next = Math.max(0, debtAmount - amt);
+            newBalanceEl.textContent = money(next);
+            remainingEl.textContent = money(next);
+            previewBox.style.display = amt > 0 ? '' : 'none';
+          }
+          amountInput.addEventListener('input', updatePreview);
+
+          const body = Ui.el('div', {}, [
+            Ui.el('div', { class: 'detail-grid', style: 'margin-bottom:16px' }, [
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['الفني']),
+                Ui.el('span', { class: 'dv' }, [
+                  String(w.name || '—') + (w.phone ? ' · ' + w.phone : ''),
+                ]),
+              ]),
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['المديونية الحالية']),
+                Ui.el(
+                  'span',
+                  {
+                    class: 'dv',
+                    style:
+                      'font-weight:800; color:' +
+                      (debtAmount > 0 ? 'var(--danger-700)' : 'var(--success-700)'),
+                  },
+                  [money(debtAmount)]
+                ),
+              ]),
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['الرصيد المتاح']),
+                Ui.el('span', { class: 'dv' }, [money(balance)]),
+              ]),
+            ]),
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'payout-amount' } }, [
+                'المبلغ المدفوع (ج.م) ',
+                Ui.el('span', { attrs: { style: 'color:var(--danger-500)' } }, ['*']),
+              ]),
+              amountInput,
+              quickAmountRow(debtAmount, amountInput, updatePreview),
+            ]),
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'payout-note' } }, [
+                'ملاحظة (اختياري)',
+              ]),
+              noteInput,
+            ]),
+            previewBox,
+            directionWarning,
+          ]);
+
+          const confirmBtn = Ui.el(
+            'button',
+            { class: 'adm-btn primary', attrs: { id: 'payout-confirm', type: 'button' } },
+            [Ui.ic('fa-solid fa-check'), ' تأكيد الدفعة']
+          );
+
+          const handle = Ui.openModal(
+            {
+              title: 'تسجيل دفعة من الفني',
+              icon: {
+                cls: 'fa-solid fa-hand-holding-dollar',
+                bg: 'var(--success-50)',
+                color: 'var(--success-700)',
+              },
+            },
+            body,
+            [
+              Ui.el(
+                'button',
+                {
+                  class: 'adm-btn',
+                  attrs: { type: 'button' },
+                  on: { click: () => handle.close() },
+                },
+                ['إلغاء']
+              ),
+              confirmBtn,
+            ],
+            {
+              // openModal fires onOpen BEFORE the overlay is in the document, so the
+              // focus call has to wait a frame or it targets a detached node.
+              onOpen: () => requestAnimationFrame(() => amountInput.focus()),
+              onClose: () => {
+                payoutTarget = null;
+              },
+            }
+          );
+
+          confirmBtn.addEventListener('click', async () => {
+            if (!payoutTarget) return;
+            const amt = Number(amountInput.value);
+            if (!amt || isNaN(amt) || amt <= 0) {
+              toast('أدخل مبلغ صحيح أكبر من صفر', 'error');
+              amountInput.classList.add('invalid');
+              amountInput.focus();
+              return;
+            }
+            Ui.btnLoading(confirmBtn, 'جاري التسجيل…');
+            try {
+              const d = await api('/api/admin/wallets/' + payoutTarget.technician_id + '/payout', {
+                method: 'POST',
+                body: { amount: amt, note: noteInput.value.trim() || undefined },
+              });
+              toast(d.message || 'تم تسجيل الدفعة بنجاح', 'success');
+              handle.close();
+              await load();
+            } catch (err) {
+              toast(err.message, 'error');
+              Ui.btnReset(confirmBtn);
+            }
+          });
+        }
+
+        // "30 / 50 / 100", plus a one-tap settle-the-whole-debt amount.
+        function quickAmountRow(debtAmount, amountInput, updatePreview) {
+          const row = Ui.el('div', {
+            class: 'ach-actions',
+            attrs: { style: 'margin-top:8px; flex-wrap:wrap' },
+          });
+          const options = [30, 50, 100].map((amt) => ({ value: amt, label: amt + ' ج.م' }));
+          if (debtAmount > 0) {
+            options.push({ value: debtAmount, label: 'سداد كامل (' + debtAmount.toFixed(0) + ')' });
+          }
+          const seen = new Set();
+          options.forEach((opt) => {
+            if (seen.has(opt.value)) return;
+            seen.add(opt.value);
+            row.appendChild(
+              Ui.el(
+                'button',
+                {
+                  class: 'adm-btn sm',
+                  attrs: { type: 'button' },
+                  on: {
+                    click: () => {
+                      amountInput.value = String(opt.value);
+                      updatePreview();
+                    },
+                  },
+                },
+                [opt.label]
+              )
+            );
+          });
+          return row;
+        }
+
+        // ============================================================
+        // History modal
+        // ============================================================
+        // Rendered with the admin stylesheet's own primitives. The technician wallet
+        // page styles its ledger with .tx-*, but those live in /css/style.css, which
+        // admin pages do not load — reusing the class names here would produce an
+        // unstyled list.
+        async function openHistoryModal(technicianId) {
+          const w = allWallets.find((x) => x.technician_id === technicianId);
+          if (!w) return;
+
+          try {
+            const data = await api('/api/admin/wallets/' + technicianId + '/transactions');
+            const txs = data.transactions || [];
+            // Debt, not balance. balance is clamped non-negative now, so colouring
+            // it on `balance < 0` would render every technician as permanently
+            // solvent and hide the debt they actually owe.
+            const debt = Number(w.total_debt || 0);
+            const balance = Number(w.balance || 0);
+
+            const body = Ui.el('div', {}, [
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['المديونية الحالية']),
+                Ui.el(
+                  'span',
+                  {
+                    class: 'dv',
+                    style:
+                      'font-weight:800; color:' +
+                      (debt > 0 ? 'var(--danger-700)' : 'var(--success-700)'),
+                  },
+                  [money(debt)]
+                ),
+              ]),
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['الرصيد المتاح']),
+                Ui.el('span', { class: 'dv' }, [money(balance)]),
+              ]),
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['عدد الحركات']),
+                Ui.el('span', { class: 'dv' }, [String(txs.length)]),
+              ]),
+            ]);
+
+            if (!txs.length) {
+              body.appendChild(
+                Ui.el('div', { class: 'adm-empty' }, [
+                  Ui.ic('fa-regular fa-folder-open'),
+                  Ui.el('b', {}, ['لا توجد حركات على هذه المحفظة']),
+                ])
+              );
+            } else {
+              const grid = Ui.el('div', { class: 'detail-grid', style: 'margin-top:14px' });
+              txs.forEach((t) => {
+                const amount = Number(t.amount || 0);
+                const credit = amount > 0;
+                grid.appendChild(
+                  Ui.el('div', { class: 'detail-row' }, [
+                    Ui.el('span', { class: 'dk', attrs: { style: 'width:auto' } }, [
+                      Ui.el('span', { class: 'adm-badge ' + (credit ? 'green' : 'red') }, [
+                        Ui.ic(credit ? 'fa-solid fa-plus' : 'fa-solid fa-minus'),
+                        ' ' + Math.abs(amount).toFixed(2) + ' ج.م',
+                      ]),
+                    ]),
+                    Ui.el('span', { class: 'dv' }, [
+                      Ui.el('div', {}, [String(t.note || t.type)]),
+                      Ui.el('div', { class: 'tbl-sub' }, [
+                        Ui.dateTime(t.created_at) +
+                          (t.request_id ? ' · طلب #' + t.request_id : '') +
+                          ' · الرصيد بعدها: ' +
+                          money(t.balance_after),
+                      ]),
+                    ]),
+                  ])
+                );
+              });
+              body.appendChild(grid);
+            }
+
+            Ui.openModal(
+              {
+                title: 'سجل حركات: ' + (w.name || ''),
+                icon: { cls: 'fa-solid fa-list', bg: 'var(--brand-50)', color: 'var(--brand-700)' },
+              },
+              body,
+              [
+                Ui.el(
+                  'button',
+                  { class: 'adm-btn', attrs: { type: 'button', onclick: 'closeModal()' } },
+                  ['إغلاق']
+                ),
+              ]
+            );
+          } catch (e) {
+            toast(e.message, 'error');
+          }
+        }
+
+        // ============================================================
+        // Event handlers
+        // ============================================================
+        // One delegated listener on the tab container, because the container is the
+        // only element that survives a re-render. Listeners bound to rows or to
+        // tables thrown away by the poll would silently stop firing.
+        document.getElementById('tab-content').addEventListener('click', async (e) => {
+          const t = e.target;
+
+          const payoutBtn = t.closest('[data-payout]');
+          if (payoutBtn) return openPayoutModal(Number(payoutBtn.dataset.payout));
+
+          const historyBtn = t.closest('[data-history]');
+          if (historyBtn) return openHistoryModal(Number(historyBtn.dataset.history));
+
+          const approveBtn = t.closest('[data-approve-withdrawal]');
+          if (approveBtn) {
+            return approveWithdrawal(approveBtn);
+          }
+
+          const rejectBtn = t.closest('[data-reject-withdrawal]');
+          if (rejectBtn) {
+            return rejectWithdrawal(rejectBtn);
+          }
+
+          const paidBtn = t.closest('[data-paid-withdrawal]');
+          if (paidBtn) {
+            return markWithdrawalPaid(paidBtn);
+          }
+
+          // Both "تأكيد المبلغ" and "حل النزاع" land here; the modal adapts to the
+          // row's amount_status.
+          const confirmBtn = t.closest('[data-confirm-amount]');
+          if (confirmBtn) {
+            return openConfirmAmountModal(Number(confirmBtn.dataset.confirmAmount));
+          }
+        });
+
+        // Approving is a one-click no-money-moves step, so a plain modal
+        // confirmation is the right weight: it names the amount and the technician
+        // so the click is not made blind, and the confirm button is disabled until
+        // the modal closes so it cannot be double-fired.
+        function approveWithdrawal(btn) {
+          const id = Number(btn.dataset.approveWithdrawal);
+          const w = allWithdrawals.find((x) => x.id === id);
+          if (!w) return;
+
+          const body = Ui.el('div', {}, [
+            Ui.el('div', { class: 'detail-grid', style: 'margin-bottom:16px' }, [
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['الفني']),
+                Ui.el('span', { class: 'dv' }, [
+                  String(w.technician_name || '—') +
+                    (w.technician_phone ? ' · ' + w.technician_phone : ''),
+                ]),
+              ]),
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['المبلغ']),
+                Ui.el('span', { class: 'dv' }, [money(w.amount)]),
+              ]),
+            ]),
+            Ui.el('div', { class: 'form-hint' }, [
+              Ui.ic('fa-solid fa-circle-info'),
+              ' الاعتماد لا يحرّك أموالاً — بيحوّل الطلب لحالة "بانتظار التحويل". اضغط "تم التحويل" بعد ما حوّلت المبلغ فعلاً.',
+            ]),
+          ]);
+
+          const confirmBtn = Ui.el(
+            'button',
+            {
+              class: 'btn btn-brand',
+              attrs: { type: 'button' },
+              on: {
+                click: async () => {
+                  Ui.btnLoading(confirmBtn, 'جارٍ الاعتماد...');
+                  try {
+                    const d = await api('/api/admin/withdrawals/' + id + '/approve', {
+                      method: 'POST',
+                    });
+                    window.closeModal();
+                    toast(d.message, 'success');
+                    await loadAll(true);
+                  } catch (err) {
+                    toast(err.message, 'error');
+                    Ui.btnReset(confirmBtn);
+                  }
+                },
+              },
+            },
+            [Ui.ic('fa-solid fa-check'), 'اعتماد الطلب']
+          );
+
+          Ui.openModal(
+            'اعتماد طلب سحب #' + id,
+            body,
+            Ui.el(
+              'div',
+              { attrs: { style: 'display:flex;gap:8px;justify-content:flex-end;width:100%' } },
+              [
+                Ui.el(
+                  'button',
+                  { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                  ['إلغاء']
+                ),
+                confirmBtn,
+              ]
+            )
+          );
+        }
+
+        // Rejecting needs a reason: the technician is told the request was refused
+        // and a bare "مرفوض" with nothing behind it generates a support ticket. The
+        // reason is required, and the note is stored on the request.
+        function rejectWithdrawal(btn) {
+          const id = Number(btn.dataset.rejectWithdrawal);
+          const w = allWithdrawals.find((x) => x.id === id);
+          if (!w) return;
+
+          const noteInput = Ui.el('textarea', {
+            class: 'input',
+            attrs: {
+              id: 'reject-note',
+              rows: '3',
+              maxlength: '300',
+              placeholder: 'مثال: الحد الأدنى للطلب غير مستوفى / بيانات المحفظة ناقصة',
+            },
+          });
+
+          const body = Ui.el('div', {}, [
+            Ui.el('div', { class: 'form-hint', attrs: { style: 'margin-bottom:14px' } }, [
+              Ui.ic('fa-solid fa-circle-info'),
+              ' الرفض لا يمس رصيد الفني — الطلب بيفضل محفوظ كمرجع.',
+            ]),
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'reject-note' } }, [
+                'سبب الرفض ',
+                Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+              ]),
+              noteInput,
+            ]),
+          ]);
+
+          const confirmBtn = Ui.el(
+            'button',
+            {
+              class: 'btn btn-soft-danger',
+              attrs: { type: 'button' },
+              on: {
+                click: async () => {
+                  const note = noteInput.value.trim();
+                  if (note.length < 3) {
+                    toast('اكتب سبب الرفض', 'error');
+                    noteInput.focus();
+                    return;
+                  }
+                  Ui.btnLoading(confirmBtn, 'جارٍ الرفض...');
+                  try {
+                    const d = await api('/api/admin/withdrawals/' + id + '/reject', {
+                      method: 'POST',
+                      body: { note },
+                    });
+                    window.closeModal();
+                    toast(d.message, 'success');
+                    await loadAll(true);
+                  } catch (err) {
+                    toast(err.message, 'error');
+                    Ui.btnReset(confirmBtn);
+                  }
+                },
+              },
+            },
+            [Ui.ic('fa-solid fa-xmark'), 'رفض الطلب']
+          );
+
+          Ui.openModal(
+            'رفض طلب سحب #' + id,
+            body,
+            Ui.el(
+              'div',
+              { attrs: { style: 'display:flex;gap:8px;justify-content:flex-end;width:100%' } },
+              [
+                Ui.el(
+                  'button',
+                  { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                  ['إلغاء']
+                ),
+                confirmBtn,
+              ]
+            ),
+            { onOpen: () => requestAnimationFrame(() => noteInput.focus()) }
+          );
+        }
+
+        // Marking a withdrawal paid is the only step that moves money out of the
+        // technician's credit, and it is irreversible from the UI. The amount is
+        // echoed back in the confirmation so an admin cannot mark a 2,000 request
+        // paid after intending 200.
+        function markWithdrawalPaid(btn) {
+          const id = Number(btn.dataset.paidWithdrawal);
+          const w = allWithdrawals.find((x) => x.id === id);
+          if (!w) return;
+
+          const noteInput = Ui.el('textarea', {
+            class: 'input',
+            attrs: {
+              id: 'paid-note',
+              rows: '2',
+              maxlength: '300',
+              placeholder: 'مثال: فودافون كاش — رقم العملية 123',
+            },
+          });
+
+          const body = Ui.el('div', {}, [
+            Ui.el('div', { class: 'detail-grid', style: 'margin-bottom:16px' }, [
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['الفني']),
+                Ui.el('span', { class: 'dv' }, [String(w.technician_name || '—')]),
+              ]),
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, ['المبلغ المحوّل']),
+                Ui.el('span', { class: 'dv', attrs: { style: 'font-weight:800' } }, [
+                  money(w.amount),
+                ]),
+              ]),
+            ]),
+            Ui.el('div', { class: 'form-hint', attrs: { style: 'margin-bottom:14px' } }, [
+              Ui.ic('fa-solid fa-triangle-exclamation'),
+              ' هيتم خصم ' +
+                money(w.amount) +
+                ' من رصيد الفني. تأكد إن التحويل تم فعلاً قبل التأكيد.',
+            ]),
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'paid-note' } }, [
+                'ملاحظة (اختياري)',
+              ]),
+              noteInput,
+            ]),
+          ]);
+
+          const confirmBtn = Ui.el(
+            'button',
+            {
+              class: 'btn btn-brand',
+              attrs: { type: 'button' },
+              on: {
+                click: async () => {
+                  Ui.btnLoading(confirmBtn, 'جارٍ التسجيل...');
+                  try {
+                    const d = await api('/api/admin/withdrawals/' + id + '/paid', {
+                      method: 'POST',
+                      body: { note: noteInput.value.trim() || undefined },
+                    });
+                    window.closeModal();
+                    toast(d.message, 'success');
+                    await loadAll(true);
+                  } catch (err) {
+                    toast(err.message, 'error');
+                    Ui.btnReset(confirmBtn);
+                  }
+                },
+              },
+            },
+            [Ui.ic('fa-solid fa-money-bill-transfer'), 'تأكيد التحويل']
+          );
+
+          Ui.openModal(
+            'تسجيل تحويل طلب سحب #' + id,
+            body,
+            Ui.el(
+              'div',
+              { attrs: { style: 'display:flex;gap:8px;justify-content:flex-end;width:100%' } },
+              [
+                Ui.el(
+                  'button',
+                  { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                  ['إلغاء']
+                ),
+                confirmBtn,
+              ]
+            )
+          );
+        }
+
+        // Resolution from the pending-payments tab, so an admin who landed here
+        // because of the badge does not have to navigate to the requests page to
+        // finish the job. Reuses the same endpoint as admin/requests.html.
+        // The admin's decision on a cash confirmation, for either open state.
+        //
+        // The two figures are shown before the input, always. For a dispute they are
+        // the disagreement being decided; for a pending row the customer never
+        // answered, so the technician's figure is the only evidence there is and the
+        // admin needs to see exactly what they are about to ratify.
+        //
+        // The pre-fill differs deliberately: a pending row is pre-filled with the
+        // technician's amount (there is nothing to arbitrate, just a missing
+        // confirmation), while a dispute starts EMPTY. Suggesting either side's
+        // number would make the button a rubber stamp for whoever is read first.
+        function openConfirmAmountModal(paymentId) {
+          const p = pendingPayments.find((x) => x.id === paymentId);
+          if (!p) return;
+
+          const isDispute = p.amount_status === 'disputed';
+          const techAmount = Number(p.technician_reported_amount || 0);
+          const custAmount = Number(p.customer_reported_amount || 0);
+
+          const amountInput = Ui.el('input', {
+            class: 'input',
+            id: 'confirm-amount-input',
+            attrs: {
+              type: 'number',
+              min: '1',
+              step: '0.01',
+              dir: 'ltr',
+              placeholder: isDispute ? 'أدخل المبلغ الفعلي' : String(techAmount),
+              // Pre-filled only for the non-dispute case.
+              value: isDispute ? '' : String(techAmount),
+              inputmode: 'decimal',
+            },
+          });
+
+          const noteInput = Ui.el('textarea', {
+            class: 'input',
+            id: 'confirm-amount-note',
+            attrs: {
+              rows: '2',
+              maxlength: '300',
+              placeholder: 'مثال: تواصلت مع العميل وأكد المبلغ',
+            },
+          });
+
+          const body = Ui.el('div', {}, [
+            Ui.el('div', { class: 'payment-dispute-summary' }, [
+              Ui.el('div', { class: 'pds-row' }, [
+                Ui.el('span', { class: 'pds-label' }, ['الفني:']),
+                Ui.el('span', { class: 'pds-value' }, [
+                  Ui.escapeHtml(p.technician_name || '—') + ' — ' + money(techAmount),
+                ]),
+              ]),
+              custAmount > 0
+                ? Ui.el('div', { class: 'pds-row' }, [
+                    Ui.el('span', { class: 'pds-label' }, ['العميل:']),
+                    Ui.el('span', { class: 'pds-value' }, [
+                      Ui.escapeHtml(p.customer_name || '—') + ' — ' + money(custAmount),
+                    ]),
+                  ])
+                : Ui.el('div', { class: 'pds-row' }, [
+                    Ui.el('span', { class: 'pds-label' }, ['العميل:']),
+                    Ui.el('span', { class: 'pds-value muted' }, ['لم يؤكد بعد']),
+                  ]),
+            ]),
+
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'confirm-amount-input' } }, [
+                'المبلغ الفعلي بعد التحقق ',
+                Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+              ]),
+              amountInput,
+              isDispute
+                ? Ui.el('div', { class: 'form-hint' }, [
+                    Ui.ic('fa-solid fa-triangle-exclamation'),
+                    ' يوجد اختلاف بين الطرفين — تأكد من العميل والفني قبل الحسم.',
+                  ])
+                : Ui.el('div', { class: 'form-hint' }, [
+                    ' العميل لم يؤكد المبلغ — سيُحتسب من المبلغ المسجّل من الفني.',
+                  ]),
+            ]),
+
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'confirm-amount-note' } }, [
+                'ملاحظة (اختياري)',
+              ]),
+              noteInput,
+            ]),
+          ]);
+
+          const confirm = Ui.el(
+            'button',
+            {
+              class: 'btn btn-brand btn-block',
+              on: {
+                click: async () => {
+                  // Read from the element, not getElementById: the id is only unique
+                  // while this modal is the live one, and a stale overlay would
+                  // silently return the previous dialog's value.
+                  const amt = Number(amountInput.value);
+                  const note = noteInput.value.trim();
+
+                  if (!isFinite(amt) || amt <= 0 || amt > 100000) {
+                    toast('أدخل المبلغ الصحيح', 'error');
+                    amountInput.classList.add('invalid');
+                    amountInput.focus();
+                    return;
+                  }
+
+                  Ui.btnLoading(confirm, 'جاري الحفظ...');
+                  try {
+                    const d = await api('/api/admin/payments/' + paymentId + '/resolve-dispute', {
+                      method: 'POST',
+                      body: { final_amount: amt, note },
+                    });
+                    window.closeModal();
+                    // A row that was already settled changes no money, and the route
+                    // says so in the message — pass it through rather than claiming a
+                    // success that did not happen.
+                    toast(
+                      d.message || (isDispute ? 'تم حل النزاع' : 'تم تأكيد المبلغ'),
+                      d.already_finalized ? 'warn' : 'success'
+                    );
+                    await loadAll(true);
+                  } catch (err) {
+                    toast(err.message, 'error');
+                    Ui.btnReset(confirm);
+                  }
+                },
+              },
+            },
+            [
+              Ui.ic(isDispute ? 'fa-solid fa-gavel' : 'fa-solid fa-check'),
+              isDispute ? 'حل النزاع' : 'تأكيد المبلغ',
+            ]
+          );
+
+          Ui.openModal(
+            {
+              title: (isDispute ? 'حل النزاع — طلب #' : 'تأكيد المبلغ — طلب #') + paymentId,
+              icon: {
+                cls: isDispute ? 'fa-solid fa-scale-balanced' : 'fa-solid fa-money-check-dollar',
+                bg: isDispute ? '#fef3c7' : '#ecfdf5',
+                color: isDispute ? '#b45309' : '#059669',
+              },
+            },
+            body,
+            confirm,
+            {
+              onOpen: () => requestAnimationFrame(() => amountInput.focus()),
+            }
+          );
+        }
+
+        document.querySelectorAll('.adm-tab').forEach((t) => {
+          t.addEventListener('click', () => switchTab(t.dataset.tab));
+        });
+
+        document.getElementById('refresh-btn-top').addEventListener('click', () => loadAll(true));
+
+        window.closeModal = () => Ui.openModal(null, null, null, { onClose: null });
+
+        await loadAll(true);
+        // 30s keeps the withdrawal and dispute queues honest without hammering the
+        // API. The signature guard inside loadAll means an unchanged queue costs
+        // three GETs and no DOM work.
+        setInterval(() => loadAll(false), 30000);
+      })();
+    </script>
+  </body>
+</html>
