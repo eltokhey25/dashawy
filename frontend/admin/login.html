@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة تحكم دشاوي — دخول المسؤولين</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <style>
+    :root {
+      --bg1: #0b1120;
+      --bg2: #111827;
+      --panel: rgba(255, 255, 255, 0.045);
+      --line: rgba(255, 255, 255, 0.09);
+      --txt: #e2e8f0;
+      --muted: #94a3b8;
+      --brand: #6366f1;
+      --brand2: #a855f7;
+      --accent: #10b981;
+      --danger: #f87171;
+      --r-xl: 22px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, sans-serif;
+      color: var(--txt);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 28px 16px;
+      background:
+        radial-gradient(1100px 520px at 85% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
+        radial-gradient(900px 500px at 5% 110%, rgba(168, 85, 247, 0.14), transparent 55%),
+        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+      background-size: 42px 42px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .wrap { position: relative; z-index: 1; width: 100%; max-width: 410px; }
+    .top-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); text-decoration: none; font-size: 0.83rem;
+      margin-bottom: 20px; transition: color 0.15s ease; border-radius: 8px;
+    }
+    .top-link:hover { color: #fff; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--r-xl);
+      padding: 34px 30px 30px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+    }
+    .badge-row { display: flex; justify-content: space-between; align-items: center; }
+    .beacon {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.4px;
+      color: #a7f3d0; background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35); padding: 4px 10px; border-radius: 20px;
+    }
+    .beacon i { font-size: 0.55rem; color: var(--accent); }
+    .logo {
+      width: 58px; height: 58px; border-radius: 17px;
+      display: grid; place-items: center; font-size: 1.45rem; color: #fff;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand2) 100%);
+      box-shadow: 0 18px 40px -12px rgba(99, 102, 241, 0.7);
+      margin-bottom: 20px;
+    }
+    .card h1 { font-size: 1.45rem; font-weight: 800; margin-bottom: 6px; }
+    .card .sub { color: var(--muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 26px; }
+    .card .sub b { color: var(--txt); }
+    .fied { margin-bottom: 16px; }
+    .fied label {
+      display: block; font-size: 0.8rem; font-weight: 700; color: #cbd5e1;
+      margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .fied label a {
+      font-size: 0.72rem; font-weight: 600; color: var(--brand); text-decoration: none;
+      font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, sans-serif;
+    }
+    .fied label a:hover { text-decoration: underline; }
+    .field {
+      position: relative;
+    }
+    .field i.fa-solid {
+      position: absolute; inset-inline-start: 14px; top: 50%;
+      transform: translateY(-50%); color: #64748b; font-size: 0.85rem; z-index: 1;
+    }
+    .field .reveal {
+      position: absolute; inset-inline-end: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #64748b; cursor: pointer; font-size: 0.85rem;
+      padding: 6px; border-radius: 8px; z-index: 1;
+    }
+    .field .reveal:hover { color: var(--txt); background: rgba(255, 255, 255, 0.06); }
+    .field input {
+      width: 100%; background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--line); border-radius: 13px;
+      color: var(--txt); font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, sans-serif; font-size: 0.92rem;
+      padding: 13px 42px 13px 14px; outline: none; transition: all 0.15s ease;
+    }
+    .field input:focus { border-color: rgba(99, 102, 241, 0.7); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18); }
+    .field input.invalid { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.16); }
+    .field input::placeholder { color: #566076; }
+    .form-error {
+      color: var(--danger); font-size: 0.78rem; margin-top: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .btn-go {
+      width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      margin-top: 8px; padding: 13px 20px; border: none; border-radius: 13px;
+      background: linear-gradient(135deg, var(--brand), var(--brand2));
+      color: #fff; font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, sans-serif; font-size: 0.98rem; font-weight: 800;
+      cursor: pointer; box-shadow: 0 16px 34px -12px rgba(99, 102, 241, 0.65);
+      transition: all 0.18s ease;
+    }
+    .btn-go:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+    .btn-go:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn-go .spin {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff;
+      animation: sp 0.7s linear infinite;
+    }
+    @keyframes sp { to { transform: rotate(360deg); } }
+    .features {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line);
+    }
+    .feature { text-align: center; }
+    .feature i { display: block; font-size: 0.95rem; color: #818cf8; margin-bottom: 5px; }
+    .feature span { font-size: 0.68rem; color: var(--muted); line-height: 1.6; display: block; }
+    .foot-note {
+      text-align: center; color: #64748b; font-size: 0.74rem;
+      margin-top: 18px; line-height: 1.8;
+    }
+    .foot-note a { color: #818cf8; text-decoration: none; }
+    .foot-note a:hover { text-decoration: underline; }
+
+    /* Toasts (styled to match ui.js). */
+    #toast-root {
+      position: fixed; top: 18px; inset-inline: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+    }
+    .toast {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: #1f2937; color: #f3f4f6; font-size: 0.84rem;
+      border: 1px solid var(--line); border-inline-start: 3px solid var(--muted);
+      padding: 10px 18px; border-radius: 11px; box-shadow: 0 14px 30px -12px rgba(0, 0, 0, 0.6);
+    }
+    .toast.success { border-inline-start-color: var(--accent); }
+    .toast.error { border-inline-start-color: var(--danger); }
+    .toast.warn { border-inline-start-color: #fbbf24; }
+
+    @media (max-width: 480px) {
+      .card { padding: 26px 20px 24px; }
+      .logo { width: 52px; height: 52px; font-size: 1.3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="top-link" href="/"><i class="fa-solid fa-arrow-right"></i> العودة إلى موقع دشاوي</a>
+
+    <div class="card">
+      <div class="badge-row">
+        <span class="logo"><i class="fa-solid fa-shield-halved"></i></span>
+        <span class="beacon"><i class="fa-solid fa-circle"></i> منطقة محمية</span>
+      </div>
+      <h1>لوحة تحكم دشاوي</h1>
+      <p class="sub">هذه البوابة مخصصة للمسؤولين فقط — سجّل دخولك لإدارة <b>الفنيين والطلبات والعملاء</b> ومتابعة الإحصائيات.</p>
+
+      <form id="login-form" novalidate>
+        <div class="fied">
+          <label for="email">البريد الإلكتروني</label>
+          <div class="field">
+            <i class="fa-solid fa-envelope"></i>
+            <input type="email" id="email" class="alf-input" autocomplete="username" placeholder="admin@example.com">
+          </div>
+        </div>
+        <div class="fied">
+          <label for="password">
+            <span>كلمة المرور</span>
+            <a href="/" onclick="return false" title="تصل عبر إدارة النظام">نسيت كلمة المرور؟</a>
+          </label>
+          <div class="field">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="password" class="alf-input" autocomplete="current-password" placeholder="••••••••">
+            <button type="button" class="reveal" id="reveal-btn" aria-label="إظهار كلمة المرور" tabindex="-1"><i class="fa-regular fa-eye"></i></button>
+          </div>
+        </div>
+        <button type="submit" class="btn-go" id="login-btn"><i class="fa-solid fa-right-to-bracket"></i> دخول لوحة التحكم</button>
+      </form>
+
+      <div class="features">
+        <div class="feature"><i class="fa-solid fa-people-group"></i><span>إدارة الفنيين والعملاء</span></div>
+        <div class="feature"><i class="fa-solid fa-list-check"></i><span>متابعة كل الطلبات</span></div>
+        <div class="feature"><i class="fa-solid fa-chart-line"></i><span>إحصاءات وتحليلات</span></div>
+      </div>
+    </div>
+
+    <div class="foot-note">© 2026 دشاوي · جميع الحقوق محفوظة</div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    // Already signed in as admin? Go straight to the dashboard.
+    if (Auth.isAuthed() && Auth.role() === 'admin') window.location.replace('/admin/dashboard');
+
+    const form = document.getElementById('login-form');
+    const btn = document.getElementById('login-btn');
+
+    document.getElementById('reveal-btn').addEventListener('click', () => {
+      const p = document.getElementById('password');
+      const eye = document.getElementById('reveal-btn').querySelector('i');
+      const show = p.type === 'password';
+      p.type = show ? 'text' : 'password';
+      eye.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+    });
+
+    function invalid(input, msg) {
+      const group = input.closest('.fied');
+      group.querySelector('.form-error') && group.querySelector('.form-error').remove();
+      input.classList.remove('invalid');
+      const err = document.createElement('div');
+      err.className = 'form-error';
+      // Built from nodes, not innerHTML: `msg` is currently always a literal,
+      // but string-concatenating it into HTML would make any future dynamic
+      // message (e.g. a server error) an XSS sink.
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-circle-exclamation';
+      err.appendChild(icon);
+      err.appendChild(document.createTextNode(' ' + msg));
+      group.appendChild(err);
+      input.classList.add('invalid');
+    }
+    function clearErrors() {
+      document.querySelectorAll('.form-error').forEach((e) => e.remove());
+      document.querySelectorAll('.alf-input.invalid').forEach((e) => e.classList.remove('invalid'));
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearErrors();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      let ok = true;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { invalid(document.getElementById('email'), 'بريد إلكتروني غير صالح'); ok = false; }
+      if (!password) { invalid(document.getElementById('password'), 'أدخل كلمة المرور'); ok = false; }
+      if (!ok) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spin"></span> جارٍ التحقق…';
+      try {
+        const data = await api('/api/auth/login', { method: 'POST', body: { email, password } });
+        if (data.user.role !== 'admin') {
+          toast('هذه البوابة مخصصة للمسؤولين فقط', 'error');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> دخول لوحة التحكم';
+          return;
+        }
+        Auth.setSession(data);
+        toast('أهلًا بك في لوحة التحكم 👋', 'success');
+        setTimeout(() => { window.location.href = '/admin/dashboard'; }, 450);
+      } catch (err) {
+        toast(err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> دخول لوحة التحكم';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>حساب فني جديد — دشاوي</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="دشاوي">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <!-- iOS splash screen (universal fallback) -->
+  <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
+  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+
+  <!-- Brand visual -->
+  <aside class="auth-visual-side">
+    <div class="auth-visual-inner">
+
+      <a href="/" class="auth-brand">
+        <span class="auth-brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+
+      <div class="auth-visual-content">
+        <h2 class="auth-visual-title">
+          انضم لفريق دشاوي<br>
+          <span class="grad">ووصولك لطلبات أكثر</span>
+        </h2>
+        <p class="auth-visual-desc">
+          اعرض خدماتك في تركيب وصيانة الدش والرسيفرات
+          واستقبل طلبات عملاء منطقتك في الإسكندرية.
+        </p>
+
+        <ul class="auth-features">
+          <li><i class="fa-solid fa-bolt"></i> طلبات من أقرب منطقة لك تلقائياً</li>
+          <li><i class="fa-solid fa-location-dot"></i> تحكم في تواجدك واستقبال الطلبات</li>
+          <li><i class="fa-solid fa-shield-halved"></i> فنيون موثوقون — الإدارة تعتمد الحسابات</li>
+          <li><i class="fa-solid fa-star"></i> تقييمات حقيقية ترفع ملفك بين العملاء</li>
+        </ul>
+      </div>
+
+      <div class="auth-visual-footer">
+        <span>© 2026 دشاوي</span>
+        <span>صُنع في مصر 🇪🇬</span>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Form -->
+  <main class="auth-form-side">
+    <div class="auth-form-inner">
+
+      <div class="auth-form-header">
+        <a href="/" class="auth-back-link">
+          <i class="fa-solid fa-arrow-right"></i> العودة للرئيسية
+        </a>
+        <h1 class="auth-form-title">انضم كفني 🛠️</h1>
+      </div>
+
+      <div class="auth-wizard">
+
+        <!-- Progress -->
+        <div class="auth-progress">
+          <div class="ap-step active" data-step="1">
+            <span class="ap-num">1</span>
+            <span class="ap-label">البيانات</span>
+          </div>
+          <div class="ap-step" data-step="2">
+            <span class="ap-num">2</span>
+            <span class="ap-label">الدخول</span>
+          </div>
+          <div class="ap-step" data-step="3">
+            <span class="ap-num">3</span>
+            <span class="ap-label">الموقع</span>
+          </div>
+          <div class="ap-step" data-step="4">
+            <span class="ap-num">4</span>
+            <span class="ap-label">المستندات</span>
+          </div>
+        </div>
+
+        <form id="register-tech-form" novalidate>
+
+          <!-- STEP 1 — who you are -->
+          <div class="auth-step" data-step="1">
+            <h2 class="auth-title">أهلًا بيك 🛠️</h2>
+            <p class="auth-sub">4 خطوات وتبعنا في طلبات منطقتك</p>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-name">الاسم الكامل</label>
+              <input type="text" id="reg-tech-name" class="input" placeholder="مثال: ياسر عادل" autocomplete="name">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-phone">رقم الهاتف</label>
+              <input type="tel" id="reg-tech-phone" class="input" dir="ltr" style="text-align:right"
+                     placeholder="+20 100 000 0000" autocomplete="tel" maxlength="20">
+              <div class="form-hint">رقمك للتواصل + تسجيل الدخول — لا يمكن استخدامه في أكثر من حساب</div>
+            </div>
+          </div>
+
+          <!-- STEP 2 — how you log in -->
+          <div class="auth-step" data-step="2" style="display:none;">
+            <h2 class="auth-title">إيميلك وكلمة السر</h2>
+            <p class="auth-sub">هتستخدمهم في تسجيل الدخول</p>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-email">البريد الإلكتروني</label>
+              <input type="email" id="reg-tech-email" class="input" placeholder="you@example.com" autocomplete="email">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-password">كلمة المرور</label>
+              <input type="password" id="reg-tech-password" class="input" placeholder="6 أحرف على الأقل" autocomplete="new-password">
+            </div>
+          </div>
+
+          <!-- STEP 3 — where you work -->
+          <div class="auth-step" data-step="3" style="display:none;">
+            <h2 class="auth-title">فين هتشتغل؟</h2>
+            <p class="auth-sub">عشان نوصلك بالطلبات القريبة منك</p>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-area">المنطقة في الإسكندرية</label>
+              <select id="reg-tech-area" class="input">
+                <option value="">اختر منطقتك…</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-location">العنوان بالتفصيل <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+              <input type="text" id="reg-tech-location" class="input" maxlength="300" placeholder="مثال: سموحة، شارع فوزي معاذ">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-tech-geo">موقعك الحالي <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+              <div class="geo-bar" style="display:flex;gap:10px;align-items:flex-end">
+                <input type="text" id="reg-tech-geo" class="input" readonly placeholder="حدد موقعك الحالي">
+                <button type="button" class="btn btn-outline btn-sm" id="reg-tech-geo-btn" style="flex-shrink:0">
+                  <i class="fa-solid fa-location-crosshairs"></i> تحديد
+                </button>
+              </div>
+              <div class="form-hint" id="reg-tech-geo-status">يفضّل تحديد موقعك ليصل إليك طلبات أقرب منطقة</div>
+              <input type="hidden" id="reg-tech-lat">
+              <input type="hidden" id="reg-tech-lng">
+            </div>
+          </div>
+
+          <!-- STEP 4 — the documents that get you approved -->
+          <div class="auth-step" data-step="4" style="display:none;">
+            <h2 class="auth-title">المستندات المطلوبة</h2>
+            <p class="auth-sub">الإدارة بتراجعهم قبل ما تقدّم استقبال الطلبات</p>
+
+            <div class="auth-info-box">
+              <i class="fa-solid fa-circle-info"></i>
+              <div>
+                <b>سيتم مراجعة طلبك</b>
+                <p>لن تتمكن من استقبال الطلبات حتى اعتمادك من الإدارة.</p>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-criminal-record">صورة الفيش الجنائي</label>
+              <div class="file-upload" id="criminal-record-upload">
+                <input type="file" id="reg-criminal-record" hidden
+                       accept="image/jpeg,image/png,image/webp,application/pdf">
+                <label for="reg-criminal-record" class="file-upload-label">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                  <span class="fu-text">اضغط لرفع صورة الفيش</span>
+                  <span class="fu-hint">JPG, PNG, WEBP, PDF — بحد أقصى 5 ميجا</span>
+                </label>
+                <div class="file-upload-preview" id="criminal-record-preview"></div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="reg-national-id">صورة بطاقة الرقم القومي</label>
+              <div class="file-upload" id="national-id-upload">
+                <input type="file" id="reg-national-id" hidden
+                       accept="image/jpeg,image/png,image/webp,application/pdf">
+                <label for="reg-national-id" class="file-upload-label">
+                  <i class="fa-solid fa-id-card"></i>
+                  <span class="fu-text">اضغط لرفع صورة البطاقة</span>
+                  <span class="fu-hint">JPG, PNG, WEBP, PDF — بحد أقصى 5 ميجا</span>
+                </label>
+                <div class="file-upload-preview" id="national-id-preview"></div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:6px">
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;line-height:1.7">
+                <input type="checkbox" id="reg-tech-consent" style="margin-top:5px;width:auto;flex-shrink:0">
+                <span>
+                  أوافق على <a href="/privacy.html" target="_blank" style="font-weight:700">سياسة الخصوصية</a>
+                  وعلى معالجة بياناتي الحساسة (صورة البطاقة والفيش الجنائي) للتحقق من أهليتي، وفقاً لقانون حماية البيانات الشخصية رقم 151 لسنة 2020.
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Navigation -->
+          <div class="auth-nav">
+            <button type="button" class="btn btn-outline" id="auth-back" style="display:none;">
+              <i class="fa-solid fa-arrow-right"></i> السابق
+            </button>
+            <button type="button" class="btn btn-brand" id="auth-next">
+              التالي <i class="fa-solid fa-arrow-left"></i>
+            </button>
+          </div>
+
+        </form>
+
+        <div class="auth-divider">أو</div>
+
+        <div class="auth-footer">
+          <div>عندك حساب؟ <a href="/login.html">سجّل دخول</a></div>
+          <div>عايز تطلب خدمة كعميل؟ <a href="/register.html">أنشئ حساب عميل</a></div>
+        </div>
+
+        <ul class="auth-trust">
+          <li><i class="fa-solid fa-user-check"></i> الموافقة غالباً خلال 24 ساعة</li>
+          <li><i class="fa-solid fa-lock"></i> مستنداتك مشفرة ومحمية</li>
+          <li><i class="fa-solid fa-money-bill-wave"></i> عمولة واضحة بلا مفاجآت</li>
+        </ul>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    // Guests only — a signed-in user has nothing to register.
+    if (Auth.isAuthed()) window.location.replace(Auth.homePath());
+
+    const LAST_STEP = 4;
+    const state = { step: 1, submitting: false };
+
+    const $ = (id) => document.getElementById(id);
+
+    // Load Alexandria neighborhoods into the registration area select.
+    async function fillAreas(selectEl) {
+      try {
+        const data = await api('/api/alexandria-areas');
+        Ui.clear(selectEl);
+        selectEl.appendChild(Ui.el('option', { text: 'اختر منطقتك…', attrs: { value: '' } }));
+        (data.areas || []).forEach((a) => {
+          selectEl.appendChild(Ui.el('option', { text: a.label, attrs: { value: a.key } }));
+        });
+      } catch (e) {
+        console.error('Failed to load areas', e);
+      }
+    }
+    fillAreas($('reg-tech-area'));
+
+    function setupFileUpload(inputId, boxId, previewId) {
+      const input = $(inputId);
+      const box = $(boxId);
+      const preview = $(previewId);
+      input.addEventListener('change', () => {
+        const f = input.files && input.files[0];
+        box.classList.remove('has-error');
+        if (!f) { box.classList.remove('has-file'); preview.innerHTML = ''; return; }
+        if (f.size > 5 * 1024 * 1024) {
+          box.classList.add('has-error');
+          box.classList.remove('has-file');
+          preview.textContent = 'الملف أكبر من 5 ميجا';
+          input.value = '';
+          return;
+        }
+        box.classList.add('has-file');
+        preview.innerHTML = '';
+        preview.appendChild(document.createTextNode(f.name + ' (' + Math.round(f.size / 1024) + ' KB)'));
+        if (f.type.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = URL.createObjectURL(f);
+          preview.appendChild(img);
+        }
+      });
+    }
+    setupFileUpload('reg-criminal-record', 'criminal-record-upload', 'criminal-record-preview');
+    setupFileUpload('reg-national-id', 'national-id-upload', 'national-id-preview');
+
+    const PHONE_RE = /^[+()\-\s\d]{6,20}$/;
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    function stepErrors() {
+      const errors = [];
+      if (state.step === 1) {
+        if ($('reg-tech-name').value.trim().length < 2) errors.push(['reg-tech-name', 'اسم غير صالح']);
+        if (!PHONE_RE.test($('reg-tech-phone').value.trim())) errors.push(['reg-tech-phone', 'رقم غير صالح']);
+      }
+      if (state.step === 2) {
+        if (!EMAIL_RE.test($('reg-tech-email').value.trim())) errors.push(['reg-tech-email', 'إيميل غير صالح']);
+        if (($('reg-tech-password').value || '').length < 6) {
+          errors.push(['reg-tech-password', 'كلمة المرور 6 أحرف على الأقل']);
+        }
+      }
+      if (state.step === 3) {
+        if (!$('reg-tech-area').value) errors.push(['reg-tech-area', 'اختر منطقتك']);
+      }
+      if (state.step === 4) {
+        if (!$('reg-criminal-record').files[0]) errors.push(['reg-criminal-record', 'ارفع صورة الفيش']);
+        if (!$('reg-national-id').files[0]) errors.push(['reg-national-id', 'ارفع صورة البطاقة']);
+        if (!$('reg-tech-consent').checked) {
+          errors.push(['reg-tech-consent', 'يجب الموافقة على معالجة البيانات الحساسة']);
+          toast('لازم توافق على معالجة البيانات الحساسة (الفيش الجنائي وبطاقة الرقم القومي)', 'error');
+        }
+      }
+      return errors;
+    }
+
+    // Marks every field on the step at once. ui.js's setFieldError() clears all
+    // form errors before adding one, so a loop over it would leave only the last
+    // message standing; a hidden file input also has nothing to paint red, so the
+    // upload box carries the state instead.
+    function markFieldError(input, message) {
+      input.classList.add('invalid');
+      const wrap = input.closest('.form-group') || input.parentElement;
+      wrap.appendChild(
+        Ui.el('div', { class: 'form-error' }, [Ui.ic('fa-solid fa-circle-exclamation'), message])
+      );
+      const box = input.closest('.file-upload');
+      if (box) box.classList.add('has-error');
+    }
+
+    function renderStep() {
+      document.querySelectorAll('.auth-step').forEach((s) => {
+        s.style.display = Number(s.dataset.step) === state.step ? '' : 'none';
+      });
+      document.querySelectorAll('.ap-step').forEach((s) => {
+        const n = Number(s.dataset.step);
+        s.classList.toggle('active', n === state.step);
+        s.classList.toggle('done', n < state.step);
+      });
+
+      $('auth-back').style.display = state.step === 1 ? 'none' : '';
+
+      const nextBtn = $('auth-next');
+      nextBtn.innerHTML =
+        state.step === LAST_STEP
+          ? '<i class="fa-solid fa-screwdriver-wrench"></i> إرسال للمراجعة'
+          : 'التالي <i class="fa-solid fa-arrow-left"></i>';
+    }
+
+    function goToStep(step) {
+      state.step = step;
+      renderStep();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    $('auth-back').addEventListener('click', () => {
+      if (state.step > 1) goToStep(state.step - 1);
+    });
+
+    $('auth-next').addEventListener('click', async () => {
+      if (state.submitting) return;
+      clearFormErrors(document);
+
+      const errors = stepErrors();
+      if (errors.length) {
+        errors.forEach(([id, msg]) => markFieldError($(id), msg));
+        const first = $(errors[0][0]);
+        if (first && first.focus) first.focus();
+        return;
+      }
+
+      if (state.step < LAST_STEP) {
+        goToStep(state.step + 1);
+        return;
+      }
+
+      // Final step: submit with the two documents attached.
+      const btn = $('auth-next');
+      state.submitting = true;
+      Ui.btnLoading(btn, 'جاري الإرسال للمراجعة...');
+
+      const name      = $('reg-tech-name').value.trim();
+      const phone     = $('reg-tech-phone').value.trim();
+      const email     = $('reg-tech-email').value.trim();
+      const password  = $('reg-tech-password').value;
+      const area_key  = $('reg-tech-area').value;
+      const lat       = $('reg-tech-lat').value;
+      const lng       = $('reg-tech-lng').value;
+      const crimFile  = $('reg-criminal-record').files[0];
+      const idFile    = $('reg-national-id').files[0];
+
+      const fd = new FormData();
+      fd.append('name', name);
+      fd.append('phone', phone);
+      fd.append('email', email);
+      fd.append('password', password);
+      if (area_key) fd.append('area_key', area_key);
+      const loc = $('reg-tech-location').value.trim();
+      if (loc) fd.append('location_text', loc);
+      if (lat) fd.append('latitude', lat);
+      if (lng) fd.append('longitude', lng);
+      fd.append('criminal_record', crimFile);
+      fd.append('national_id', idFile);
+      fd.append('sensitive_consent', 'true');
+      fd.append('policy_version', 'v1.0');
+
+      try {
+        const res = await fetch('/api/auth/register-technician', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'فشل التسجيل');
+
+        // No client-side consent POST here, deliberately. POST /api/consent
+        // requires a session, and a freshly registered technician has none — so the
+        // call could only ever 401, and that 401 fires the global TokenGuard in
+        // api.js, which clears storage and hijacks the redirect below with a
+        // misleading "انتهت الجلسة" toast. The consent itself is not lost: the
+        // server records it during registration, with IP and user-agent
+        // (auth.routes.js, "Record the explicit consent for sensitive-data
+        // processing"). The customer wizard still posts it, because by then
+        // Auth.setSession() has given it a real token.
+
+        // Success screen. No auto-login: the account cannot receive work until an
+        // admin approves it, so a session would land the technician on an empty
+        // dashboard.
+        Ui.clear(document.body);
+        document.body.appendChild(
+          Ui.el('div', { class: 'card', style: 'max-width:520px;margin:60px auto;text-align:center;padding:40px' }, [
+            Ui.el('div', { style: 'font-size:3rem;color:var(--accent);margin-bottom:16px' }, [Ui.ic('fa-solid fa-circle-check')]),
+            Ui.el('h2', { style: 'margin-bottom:10px' }, ['تم استلام طلبك — قيد المراجعة']),
+            Ui.el('p', { style: 'color:var(--muted);margin-bottom:20px;line-height:1.8' }, [
+              'سيتم مراجعة مستنداتك من قبل الإدارة في أقرب وقت. سيصلك إشعار عند الموافقة على حسابك.'
+            ]),
+            Ui.el('p', { style: 'color:var(--muted);font-size:0.85rem' }, ['جارٍ تحويلك لتسجيل الدخول…'])
+          ])
+        );
+        setTimeout(() => { window.location.href = '/login.html'; }, 3000);
+      } catch (err) {
+        // A phone collision is a field-level problem on step 1.
+        if (err.message && err.message.includes('مسجّل بالفعل')) {
+          clearFormErrors(document);
+          goToStep(1);
+          setFieldError($('reg-tech-phone'), err.message);
+          $('reg-tech-phone').focus();
+        }
+        toast(err.message, 'error');
+        Ui.btnReset(btn);
+        state.submitting = false;
+      }
+    });
+
+    // Enter advances the wizard instead of doing nothing.
+    document.getElementById('register-tech-form').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      $('auth-next').click();
+    });
+
+    // Geolocation on technician register.
+    $('reg-tech-geo-btn').addEventListener('click', () => {
+      if (!navigator.geolocation) { toast('المتصفح لا يدعم تحديد الموقع', 'warn'); return; }
+      const btn = $('reg-tech-geo-btn');
+      btn.disabled = true;
+      $('reg-tech-geo-status').textContent = 'جارٍ تحديد الموقع…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          $('reg-tech-lat').value = pos.coords.latitude.toFixed(6);
+          $('reg-tech-lng').value = pos.coords.longitude.toFixed(6);
+          $('reg-tech-geo').value = 'خط العرض ' + pos.coords.latitude.toFixed(4) + ' · خط الطول ' + pos.coords.longitude.toFixed(4);
+          $('reg-tech-geo-status').textContent = 'تم تحديد موقعك ✓';
+          btn.disabled = false;
+        },
+        () => {
+          $('reg-tech-geo-status').textContent = 'تعذر التحديد — يمكنك المتابعة بالوصف النصي';
+          btn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    renderStep();
+    Ui.initNav();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>

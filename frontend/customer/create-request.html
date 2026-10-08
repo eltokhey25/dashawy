@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>طلب خدمة — دشاوي</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/customer/dashboard.html">
+        <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+
+      <div class="nav-menu">
+        <a href="/customer/dashboard.html">
+          <i class="fa-solid fa-house"></i> الرئيسية
+        </a>
+        <a href="/customer/my-requests.html">
+          <i class="fa-solid fa-list-check"></i> طلباتي
+        </a>
+      </div>
+
+      <div class="nav-actions">
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="القائمة">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container page" style="max-width: 1000px;">
+    <div class="legacy-banner">
+      <i class="fa-solid fa-circle-info"></i>
+      <div>
+        <b>صفحة قديمة</b>
+        <span>استخدم <a href="/request">صفحة الطلب الجديدة</a> — أسرع وأسهل.</span>
+      </div>
+    </div>
+
+    <header class="page-head">
+      <div>
+        <h1>طلب خدمة جديد</h1>
+        <p class="sub">سيتم تعيين أفضل فني متاح تلقائياً أو اختر بنفسك</p>
+      </div>
+    </header>
+
+    <!-- Selected service banner (hidden by default; filled by the script) -->
+    <div class="selected-service-banner" id="service-banner" style="display:none;">
+      <span class="ss-ic" id="sb-icon"></span>
+      <span class="ss-info">
+        <b id="sb-title">الخدمة المختارة</b>
+        <span id="sb-desc">اختر الخدمة من القائمة</span>
+      </span>
+      <span class="ss-x muted" style="font-size:0.8rem;">✓ جاهز للتقديم</span>
+    </div>
+
+    <!-- Assignment method. Hidden by the script when a technician is already
+         preselected via ?technician_id=N, because the choice is then made. -->
+    <div id="assignment-choice" class="assignment-choice">
+      <div class="ac-title">
+        <i class="fa-solid fa-user-check"></i>
+        كيف تريد اختيار الفني؟
+      </div>
+      <div class="ac-options">
+        <label class="ac-option" data-choice="auto">
+          <input type="radio" name="assign-method" value="auto" checked>
+          <div class="aco-body">
+            <b>خلي النظام يختار لي</b>
+            <span>سنحدد أقرب فني متاح في منطقتك تلقائياً</span>
+          </div>
+          <i class="fa-solid fa-wand-magic-sparkles aco-icon"></i>
+        </label>
+        <label class="ac-option" data-choice="manual">
+          <input type="radio" name="assign-method" value="manual">
+          <div class="aco-body">
+            <b>أنا أختار فني بنفسي</b>
+            <span>استعرض قائمة الفنيين المتاحين واختر الأنسب لك</span>
+          </div>
+          <i class="fa-solid fa-users aco-icon"></i>
+        </label>
+      </div>
+    </div>
+
+    <div class="create-request-grid">
+
+      <!-- Form -->
+      <div class="card card-pad-lg">
+        <form id="req-form" novalidate>
+
+          <!-- Custom specialty (only for the 'other' service) -->
+          <div class="form-group" id="custom-specialty-group" style="display:none;">
+            <label class="form-label">
+              اكتب اسم الخدمة المطلوبة <span style="color:var(--danger-500);">*</span>
+            </label>
+            <input type="text" id="custom_specialty_text" class="input"
+                   maxlength="200"
+                   placeholder="مثال: تركيب ستائر، صيانة مصعد، تنظيف خزانات…">
+            <div class="form-hint">سيتم إرسال طلبك للإدارة لمطابقته مع فني مناسب</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="specialty">نوع الخدمة <span style="color:var(--danger-500);">*</span></label>
+            <select id="specialty" class="input" required></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="description">وصف المشكلة <span style="color:var(--danger-500);">*</span></label>
+            <textarea id="description" class="input" rows="4"
+                      placeholder="اشرح المشكلة بالتفصيل… مثلاً: الدش بيفصل في القنوات لما الجو يبقى مش صافي"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="area">المنطقة في الإسكندرية</label>
+            <select id="area" class="input">
+              <option value="">اختر منطقتك…</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="location_text">العنوان بالتفصيل</label>
+            <input
+              type="text"
+              id="location_text"
+              class="input"
+              maxlength="300"
+              placeholder="مثال: سموحة، شارع فوزي معاذ، عمارة 12، الدور 3">
+            <div class="form-hint">اكتب اسم الشارع ورقم العمارة والدور عشان الفني يوصلك بسهولة</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="geo">
+              الموقع الجغرافي <span class="form-hint" style="font-weight:400;">(اختياري)</span>
+            </label>
+            <div style="display:flex; gap:10px; align-items:flex-end;">
+              <input type="text" id="geo" class="input" readonly placeholder="اضغط لتحديد موقعك الحالي">
+              <button type="button" class="btn btn-outline btn-sm" id="geo-btn" style="flex-shrink:0;">
+                <i class="fa-solid fa-location-crosshairs"></i> تحديد
+              </button>
+            </div>
+            <div class="form-hint" id="geo-status">يساعد تحديد الموقع النظام على اختيار أقرب فني — أو فقط اكتب العنوان</div>
+            <input type="hidden" id="latitude">
+            <input type="hidden" id="longitude">
+          </div>
+
+          <button type="submit" class="btn btn-brand btn-block btn-lg" id="submit-btn">
+            <i class="fa-solid fa-paper-plane"></i> إرسال الطلب
+          </button>
+        </form>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="card create-request-aside">
+        <div class="card-title" style="display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-circle-info" style="color:var(--brand-600);"></i>
+          إيه اللي هيحصل؟
+        </div>
+        <div class="card-sub">خدمة متخصصة في الدش والرسيفر</div>
+
+        <div class="detail-grid">
+          <div class="detail-row">
+            <span class="dk"><i class="fa-solid fa-location-dot" style="color:var(--brand-600);"></i></span>
+            <span class="dv">
+              <b>الإسكندرية فقط</b><br>
+              <span class="muted" style="font-size:0.83rem;">الخدمة متاحة حالياً داخل محافظة الإسكندرية.</span>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="dk"><i class="fa-solid fa-bolt" style="color:var(--warning-500);"></i></span>
+            <span class="dv">
+              <b>تعيين تلقائي</b><br>
+              <span class="muted" style="font-size:0.83rem;">أقرب فني متخصص متاح يُحدد فوراً.</span>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="dk"><i class="fa-solid fa-rotate" style="color:var(--info-500);"></i></span>
+            <span class="dv">
+              <b>إعادة تعيين ذكية</b><br>
+              <span class="muted" style="font-size:0.83rem;">لو الفني رفض الطلب، يتحول للفني التالي تلقائياً.</span>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="dk"><i class="fa-solid fa-shield-halved" style="color:var(--success-500);"></i></span>
+            <span class="dv">
+              <b>فنيون موثوقون</b><br>
+              <span class="muted" style="font-size:0.83rem;">حسابات الفنيين تنشئها الإدارة فقط بعد التحقق.</span>
+            </span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div id="result-card" style="margin-top:18px; display:none;">
+      <div class="card" style="border-color:var(--success-500); border-inline-start:5px solid var(--success-500);"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const previewMode = params.get('preview') === '1';
+
+    if (previewMode) {
+      // Preview mode: require login, allow any role
+      if (!Auth.isAuthed()) {
+        const svc = params.get('service');
+        window.location.replace('/login.html' + (svc ? '?service=' + encodeURIComponent(svc) : ''));
+        throw new Error('redirect');
+      }
+    } else {
+      // Normal mode: only customers
+      if (!Auth.requireRole('customer')) throw new Error('redirect');
+    }
+
+    Ui.renderNavUser(document.getElementById('nav-user'));
+    Ui.initNav();
+
+    // --------------------------------------------------------
+    // Preselected technician (coming from the public directory)
+    // ?technician_id=N is sent as-is with the request so the chosen
+    // technician is assigned instead of the auto-assigned one.
+    // --------------------------------------------------------
+    let preferredTechId = Number(params.get('technician_id')) || null;
+    let preferredTechInfo = null;
+
+    // If a technician is preselected, fetch their info and show a banner.
+    if (preferredTechId) {
+      // A technician is already chosen, so asking for the method again would
+      // be confusing — hide the choice block and let the banner speak.
+      const choice = document.getElementById('assignment-choice');
+      if (choice) choice.style.display = 'none';
+
+      api('/api/public/technicians/' + preferredTechId)
+        .then((data) => {
+          preferredTechInfo = data.technician;
+          showTechBanner(data.technician, data.profile);
+        })
+        .catch(() => {
+          // Invalid technician id — ignore silently
+          preferredTechId = null;
+        });
+    }
+
+    // The avatar lives on the profile row, so fall back to it when present.
+    function showTechBanner(t, p) {
+      const image = (p && p.profile_image_path) || t.profile_image_path;
+      const banner = Ui.el('div', { class: 'selected-tech-banner' }, [
+        Ui.el('span', { class: 'stb-icon' }, [
+          image
+            ? Ui.el('img', { attrs: { src: image, alt: t.name, style: 'width:100%;height:100%;object-fit:cover;border-radius:50%' } })
+            : Ui.el('span', { class: 'stb-initials' }, [Ui.initials(t.name)])
+        ]),
+        Ui.el('div', { class: 'stb-info' }, [
+          Ui.el('b', {}, ['تم اختيار: ' + Ui.escapeHtml(t.name)]),
+          Ui.el('span', {}, ['الفني المختار سيستلم الطلب مباشرة بعد الإرسال'])
+        ]),
+        Ui.el('button', {
+          class: 'btn btn-ghost btn-sm',
+          attrs: { type: 'button' },
+          on: { click: () => {
+            preferredTechId = null;
+            preferredTechInfo = null;
+            window.location.href = '/customer/create-request.html';
+          }}
+        }, [Ui.ic('fa-solid fa-xmark'), 'إلغاء الاختيار'])
+      ]);
+
+      const container = document.querySelector('.container');
+      const firstChild = container.querySelector('.page-head');
+      if (firstChild && firstChild.nextSibling) {
+        container.insertBefore(banner, firstChild.nextSibling);
+      } else {
+        container.appendChild(banner);
+      }
+    }
+
+    // --------------------------------------------------------
+    // Assignment method: auto-assign (default) or pick a technician
+    // --------------------------------------------------------
+    const assignChoice = document.getElementById('assignment-choice');
+    if (assignChoice) {
+      assignChoice.querySelectorAll('input[name="assign-method"]').forEach((r) => {
+        // Reflect the pre-checked option on load, otherwise the highlighted
+        // card would disagree with the radio that is actually selected.
+        r.parentElement.classList.toggle('active', r.checked);
+
+        r.addEventListener('change', (e) => {
+          // Visual feedback
+          assignChoice.querySelectorAll('.ac-option').forEach((el) => {
+            el.classList.toggle('active', el.dataset.choice === e.target.value);
+          });
+
+          if (e.target.value === 'manual') {
+            // Small delay so the user sees the highlight, then navigate
+            setTimeout(() => {
+              window.location.href = '/customer/technicians.html';
+            }, 350);
+          }
+        });
+      });
+    }
+
+    if (previewMode) {
+      const banner = Ui.el('div', {
+        style: 'background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;padding:12px 18px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;gap:10px;font-weight:700;font-size:0.87rem;border:1px solid #fcd34d'
+      }, [
+        Ui.ic('fa-solid fa-eye'),
+        'وضع المعاينة — أنت تشاهد الصفحة كما يراها العميل. لا يمكنك إرسال الطلب.'
+      ]);
+      const container = document.querySelector('.container');
+      if (container) container.insertBefore(banner, container.firstChild);
+
+      // Disable the submit button
+      setTimeout(() => {
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="fa-solid fa-eye"></i> وضع المعاينة — لا يمكن الإرسال';
+          submitBtn.style.opacity = '0.6';
+          submitBtn.style.cursor = 'not-allowed';
+        }
+      }, 100);
+    }
+
+    const preselected = params.get('service');
+
+    const specialtySelect = document.getElementById('specialty');
+    const metaMap = {};
+    loadSpecialties(specialtySelect).then((keys) => {
+      (keys || []).forEach((k) => { metaMap[k] = Ui.meta(k); });
+      if (preselected && keys.includes(preselected)) {
+        specialtySelect.value = preselected;
+        onServiceChange();
+        syncCustomGroup();
+      }
+    });
+
+    (async function loadAreas() {
+      const sel = document.getElementById('area');
+      try {
+        const data = await api('/api/alexandria-areas');
+        (data.areas || []).forEach((a) => {
+          sel.appendChild(Ui.el('option', { text: a.label, attrs: { value: a.key } }));
+        });
+      } catch (e) { console.error(e); }
+    })();
+
+    function syncCustomGroup() {
+      const isOther = specialtySelect.value === 'other';
+      const g = document.getElementById('custom-specialty-group');
+      g.style.display = isOther ? '' : 'none';
+      if (!isOther) document.getElementById('custom_specialty_text').value = '';
+    }
+    specialtySelect.addEventListener('change', syncCustomGroup);
+
+    function onServiceChange() {
+      const key = specialtySelect.value;
+      if (!key) return;
+      const m = Ui.meta(key);
+      const banner = document.getElementById('service-banner');
+      banner.style.display = 'flex';
+      document.getElementById('sb-icon').innerHTML = '';
+      document.getElementById('sb-icon').appendChild(Ui.ic(m.icon));
+      document.getElementById('sb-title').textContent = m.label;
+      document.getElementById('sb-desc').textContent = m.desc;
+    }
+    specialtySelect.addEventListener('change', onServiceChange);
+
+    if (preselected && Ui.meta(preselected) && Ui.meta(preselected).label !== preselected) onServiceChange();
+
+    // Geolocation.
+    document.getElementById('geo-btn').addEventListener('click', () => {
+      if (!navigator.geolocation) { toast('المتصفح لا يدعم تحديد الموقع', 'warn'); return; }
+      const btn = document.getElementById('geo-btn');
+      btn.disabled = true;
+      document.getElementById('geo-status').textContent = 'جارٍ تحديد الموقع…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          document.getElementById('latitude').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('longitude').value = pos.coords.longitude.toFixed(6);
+          document.getElementById('geo').value = 'خط العرض ' + pos.coords.latitude.toFixed(4) + ' · خط الطول ' + pos.coords.longitude.toFixed(4);
+          document.getElementById('geo-status').textContent = 'تم تحديد موقعك ✓ — سيُناط بك أقرب فني';
+          btn.disabled = false;
+        },
+        () => {
+          document.getElementById('geo-status').textContent = 'تعذر التحديد — سيتم الاعتماد على وصف العنوان';
+          btn.disabled = false;
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    function showResult(data) {
+      const card = document.getElementById('result-card');
+      const box = card.querySelector('.card');
+      Ui.clear(box);
+      card.style.display = 'block';
+      box.appendChild(Ui.el('div', { class: 'req-top' }, [
+        Ui.el('div', { class: 'req-title' }, [
+          Ui.iconBadge(data.request.specialty),
+          'تم استلام طلبك #' + data.request.id
+        ]),
+        Ui.statusBadge(data.request.status)
+      ]));
+      if (data.assigned && data.request.technician_name) {
+        box.appendChild(Ui.el('div', { class: 'detail-grid', style: 'margin-top:12px' }, [
+          Ui.el('div', { class: 'detail-row' }, [Ui.el('span', { class: 'dk' }, ['الفني المكلّف']), Ui.el('span', { class: 'dv' }, [data.request.technician_name + (data.request.technician_phone ? ' · ' + data.request.technician_phone : '')])]),
+          Ui.el('div', { class: 'detail-row' }, [Ui.el('span', { class: 'dk' }, ['التخصص']), Ui.el('span', { class: 'dv' }, [Ui.specialtyLabel(data.request.specialty)])])
+        ]));
+      } else {
+        box.appendChild(Ui.el('p', { style: 'margin-top:10px;color:var(--body)' }, [
+          'لا يوجد فني متاح حالياً لهذا التخصص. الطلب قيد الانتظار وسيُحدد فني أوتوماتيكياً بمجرد توفره — تابع الحالة من «طلباتي».'
+        ]));
+      }
+      box.appendChild(Ui.el('div', { style: 'margin-top:16px' }, [
+        Ui.el('a', { class: 'btn btn-brand', attrs: { href: '/customer/my-requests.html' } }, [Ui.ic('fa-solid fa-list-check'), 'متابعة حالة الطلب'])
+      ]));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('req-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (previewMode) return;
+      clearFormErrors(document);
+      const btn = document.getElementById('submit-btn');
+      const specialty = specialtySelect.value;
+      const customText = document.getElementById('custom_specialty_text').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const area_key = document.getElementById('area').value;
+      const locationText = document.getElementById('location_text').value.trim();
+      const latitude = document.getElementById('latitude').value;
+      const longitude = document.getElementById('longitude').value;
+
+      let ok = true;
+      if (!specialty) { setFieldError(specialtySelect, 'اختر نوع الخدمة'); ok = false; }
+      if (specialty === 'other' && !customText) { setFieldError(document.getElementById('custom_specialty_text'), 'اكتب اسم الخدمة المطلوبة'); ok = false; }
+      if (!description) { setFieldError(document.getElementById('description'), 'اكتب وصف المشكلة'); ok = false; }
+      if (!ok) return;
+
+      Ui.btnLoading(btn, 'جارٍ الإرسال…');
+      try {
+        const body = { specialty, description };
+        if (specialty === 'other') body.custom_specialty_text = customText;
+        if (locationText) body.location_text = locationText;
+        if (area_key) body.area_key = area_key;
+        if (latitude && longitude) { body.latitude = Number(latitude); body.longitude = Number(longitude); }
+        if (preferredTechId) body.technician_id = preferredTechId;
+        const data = await api('/api/customer/requests', { method: 'POST', body });
+        showResult(data);
+        toast(data.message, 'success');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+      Ui.btnReset(btn);
+    });
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تسجيل الدخول — دشاوي</title>
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="دشاوي">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <!-- iOS splash screen (universal fallback) -->
+  <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
+  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+
+  <!-- Brand visual -->
+  <aside class="auth-visual-side">
+    <div class="auth-visual-inner">
+
+      <a href="/" class="auth-brand">
+        <span class="auth-brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+
+      <div class="auth-visual-content">
+        <h2 class="auth-visual-title">
+          فني دش متخصص<br>
+          <span class="grad">يوصلك في دقايق</span>
+        </h2>
+        <p class="auth-visual-desc">
+          خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات
+          في محافظة الإسكندرية.
+        </p>
+
+        <ul class="auth-features">
+          <li><i class="fa-solid fa-bolt"></i> تعيين تلقائي لأقرب فني في ثوانٍ</li>
+          <li><i class="fa-solid fa-shield-halved"></i> فنيون معتمدون — الإدارة تراجع كل حساب</li>
+          <li><i class="fa-solid fa-star"></i> تقييمات حقيقية من العملاء السابقين</li>
+          <li><i class="fa-solid fa-location-dot"></i> متاحون في جميع مناطق الإسكندرية</li>
+        </ul>
+      </div>
+
+      <div class="auth-visual-footer">
+        <span>© 2026 دشاوي</span>
+        <span>صُنع في مصر 🇪🇬</span>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Form -->
+  <main class="auth-form-side">
+    <div class="auth-form-inner">
+
+      <div class="auth-form-header">
+        <a href="/" class="auth-back-link">
+          <i class="fa-solid fa-arrow-right"></i> العودة للرئيسية
+        </a>
+        <h1 class="auth-form-title">أهلًا بعودتك 👋</h1>
+        <p class="auth-form-sub">سجّل دخولك للمتابعة</p>
+      </div>
+
+      <form id="login-form" novalidate>
+
+        <div class="auth-notice">
+          <i class="fa-solid fa-location-dot"></i>
+          الخدمة متاحة حالياً في محافظة الإسكندرية فقط
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-email">البريد الإلكتروني أو رقم الهاتف</label>
+          <input type="text" id="login-email" class="input" autocomplete="username" placeholder="you@example.com أو 01xxxxxxxxx" dir="ltr" style="text-align:right">
+        </div>
+
+        <div class="form-group">
+          <div class="auth-label-row">
+            <label class="form-label" for="login-password">كلمة المرور</label>
+            <a href="javascript:void(0)" id="forgot-pwd-link">نسيت كلمة المرور؟</a>
+          </div>
+          <input type="password" id="login-password" class="input" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn btn-brand btn-block btn-lg" id="login-btn" style="margin-top:6px">
+          <i class="fa-solid fa-right-to-bracket"></i> دخول
+        </button>
+
+      </form>
+
+      <div class="auth-divider">أو</div>
+
+      <div class="auth-footer">
+        <div>مش معاك حساب؟ <a href="/register.html">أنشئ حساب عميل</a></div>
+        <div>عايز تشتغل فني؟ <a href="/register-tech.html">سجّل كفني</a></div>
+      </div>
+
+      <ul class="auth-trust">
+        <li><i class="fa-solid fa-lock"></i> بياناتك مشفرة ومحمية</li>
+        <li><i class="fa-solid fa-headset"></i> دعم فني متواصل</li>
+        <li><i class="fa-solid fa-circle-check"></i> بدون رسوم خفية</li>
+      </ul>
+
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    // Logged-in users go straight to their dashboard.
+    if (Auth.isAuthed()) window.location.replace(Auth.homePath());
+
+    // Preserve the selected service across the login step.
+    const serviceKey = new URLSearchParams(window.location.search).get('service');
+
+    function currentUserAfterAuth(role) {
+      if (role === 'customer') {
+        // Arrived here from a service card, so the chosen service goes straight
+        // into the wizard instead of costing the customer another tap.
+        if (serviceKey) {
+          return '/request?service=' + encodeURIComponent(serviceKey);
+        }
+        return '/customer/home.html';
+      }
+      return Auth.homePath(role);
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearFormErrors(document);
+      const loginId = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+      const btn = document.getElementById('login-btn');
+
+      let ok = true;
+      // Deliberately no email-format check: the same field accepts a phone
+      // number. The only meaningful client-side rule is "not empty" — anything
+      // stricter would reject valid input, and the server already returns a
+      // uniform error for a bad identifier or a bad password.
+      if (!loginId) { setFieldError(document.getElementById('login-email'), 'أدخل البريد أو رقم الهاتف'); ok = false; }
+      if (!password) { setFieldError(document.getElementById('login-password'), 'أدخل كلمة المرور'); ok = false; }
+      if (!ok) return;
+
+      Ui.btnLoading(btn, 'جارٍ الدخول…');
+      try {
+        // `identifier` is the real field; `email` is sent alongside it so any
+        // older cached client still authenticates.
+        const data = await api('/api/auth/login', { method: 'POST', body: { identifier: loginId, email: loginId, password } });
+        Auth.setSession(data);
+
+        if (data.must_change_password) {
+          toast('يجب تغيير كلمة المرور قبل المتابعة', 'warn');
+          setTimeout(() => { window.location.href = '/change-password'; }, 500);
+          return;
+        }
+
+        toast('أهلًا بعودتك 👋', 'success');
+        setTimeout(() => { window.location.href = currentUserAfterAuth(data.user.role); }, 450);
+      } catch (err) {
+        toast(err.message, 'error');
+        Ui.btnReset(btn);
+      }
+    });
+
+    document.getElementById('forgot-pwd-link').addEventListener('click', () => {
+      Ui.openModal(
+        { title: 'استرجاع كلمة المرور', icon: { cls: 'fa-solid fa-key', bg: '#fef3c7', color: '#b45309' } },
+        Ui.el('div', {}, [
+          Ui.el('p', { style: 'line-height:1.9;color:var(--body);font-size:0.9rem;margin-bottom:14px' }, [
+            'لاسترجاع كلمة المرور، يرجى التواصل مع الإدارة على:'
+          ]),
+          Ui.el('a', {
+            class: 'btn btn-outline btn-block',
+            attrs: { href: 'tel:+201025330520', style: 'margin-bottom:10px' }
+          }, [Ui.ic('fa-solid fa-phone'), ' 01025330520']),
+          Ui.el('a', {
+            class: 'btn btn-outline btn-block',
+            attrs: { href: 'https://wa.me/201025330520', target: '_blank' }
+          }, [Ui.ic('fa-brands fa-whatsapp'), ' واتساب']),
+          Ui.el('p', { style: 'font-size:0.8rem;color:var(--muted);margin-top:14px;line-height:1.7;text-align:center' }, [
+            'الإدارة ستتحقق من هويتك وتعيد تعيين كلمة المرور خلال دقائق.'
+          ])
+        ]),
+        Ui.el('button', {
+          class: 'btn btn-soft',
+          on: { click: () => Ui.openModal(null, null, null, { onClose: null }) }
+        }, ['إغلاق'])
+      );
+    });
+
+    Ui.initNav();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+  <script src="/js/push.js"></script>
+</body>
+</html>

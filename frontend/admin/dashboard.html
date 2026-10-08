@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة التحكم — دشاوي</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/admin/_admin.css" />
+  </head>
+  <body class="adm-body">
+    <div class="adm-shell">
+      <!-- Sidebar -->
+      <aside class="adm-sidebar" id="sidebar">
+        <div class="adm-sidebar-brand">
+          <span class="asb-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+          <div class="asb-info">
+            <b>دشاوي</b>
+            <span>لوحة إدارة المنصة</span>
+          </div>
+        </div>
+
+        <nav class="adm-sidebar-nav">
+          <div class="adm-nav-section">عام</div>
+          <a class="adm-nav-item active" id="nav-stats" href="/admin/dashboard"
+            ><i class="fa-solid fa-gauge-high"></i> الإحصائيات</a
+          >
+          <a class="adm-nav-item" id="nav-requests" href="/admin/requests"
+            ><i class="fa-solid fa-list-check"></i> الطلبات<span
+              class="badge"
+              id="side-pending-count"
+              style="
+                margin-inline-start: auto;
+                font-size: 0.68rem;
+                padding: 2px 8px;
+                border-radius: 10px;
+              "
+              >0</span
+            ></a
+          >
+          <a class="adm-nav-item" id="nav-technicians" href="/admin/technicians"
+            ><i class="fa-solid fa-users-gear"></i> الفنيون</a
+          >
+
+          <div class="adm-nav-section">المالية</div>
+          <a class="adm-nav-item" id="nav-finance" href="/admin/finance"
+            ><i class="fa-solid fa-file-invoice-dollar"></i> المالية<span
+              class="badge"
+              id="nav-finance-count"
+              style="
+                margin-inline-start: auto;
+                font-size: 0.68rem;
+                padding: 2px 8px;
+                border-radius: 10px;
+                display: none;
+              "
+              >0</span
+            ></a
+          >
+          <a class="adm-nav-item" id="nav-wallets" href="/admin/wallets"
+            ><i class="fa-solid fa-wallet"></i> المحافظ</a
+          >
+
+          <div class="adm-nav-section">المحتوى</div>
+          <a class="adm-nav-item" id="nav-reviews" href="/admin/reviews"
+            ><i class="fa-solid fa-star"></i> المراجعات</a
+          >
+          <a class="adm-nav-item" id="nav-customers" href="/admin/customers"
+            ><i class="fa-solid fa-people-group"></i> العملاء</a
+          >
+          <a class="adm-nav-item" id="nav-specialties" href="/admin/specialties"
+            ><i class="fa-solid fa-tags"></i> التخصصات</a
+          >
+          <a class="adm-nav-item" id="nav-data-requests" href="/admin/data-requests"
+            ><i class="fa-solid fa-scale-balanced"></i> طلبات البيانات</a
+          >
+
+          <div class="adm-nav-section">النظام</div>
+          <a class="adm-nav-item" id="nav-settings" href="/admin/settings"
+            ><i class="fa-solid fa-gear"></i> الإعدادات</a
+          >
+          <a class="adm-nav-item" href="/admin/admins" id="nav-admins" style="display: none">
+            <i class="fa-solid fa-user-shield"></i> المسؤولون
+          </a>
+        </nav>
+
+        <div class="adm-sidebar-user">
+          <span class="asu-avatar" id="side-avatar">إ</span>
+          <div class="asu-info">
+            <b id="side-name">مدير</b>
+            <span>إدارة النظام</span>
+          </div>
+          <a class="btn btn-soft btn-sm" href="/change-password.html" title="تغيير كلمة المرور">
+            <i class="fa-solid fa-key"></i>
+          </a>
+          <button
+            class="btn btn-soft-danger btn-sm"
+            onclick="Auth.logout('/admin')"
+            title="تسجيل الخروج"
+          >
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </aside>
+      <div class="adm-backdrop" id="sidebar-backdrop"></div>
+
+      <!-- Main -->
+      <div class="adm-main">
+        <header class="adm-topbar">
+          <button class="adm-mobile-toggle" id="sidebar-toggle" aria-label="القائمة">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="atb-title" id="tb-title">لوحة التحكم</div>
+          <div class="atb-spacer"></div>
+          <button class="atb-btn" id="refresh-btn" title="تحديث">
+            <i class="fa-solid fa-rotate"></i>
+          </button>
+          <a class="atb-btn" href="/" target="_blank" title="الموقع"
+            ><i class="fa-solid fa-globe"></i
+          ></a>
+        </header>
+
+        <main class="adm-content">
+          <!-- Stat cards -->
+          <div class="adm-stat-row" id="stat-row"></div>
+
+          <!-- Recent requests + top technicians -->
+          <div class="adm-grid-2">
+            <div class="adm-card">
+              <div class="adm-card-head">
+                <h3>
+                  <i
+                    class="fa-solid fa-circle-clock"
+                    style="color: var(--adm-primary); margin-inline-end: 6px"
+                  ></i>
+                  أحدث الطلبات
+                </h3>
+                <div class="ach-actions">
+                  <a class="adm-btn ghost sm" href="/admin/requests"
+                    ><i class="fa-solid fa-arrow-left"></i> كل الطلبات</a
+                  >
+                </div>
+              </div>
+              <div class="adm-table-wrap">
+                <table class="adm-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>العميل</th>
+                      <th>الخدمة</th>
+                      <th>الحالة</th>
+                      <th>التاريخ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-tbody"></tbody>
+                </table>
+              </div>
+              <p class="form-hint" style="margin-top: 10px; cursor: default">
+                اضغط على أي صف لعرض تفاصيل الطلب.
+              </p>
+            </div>
+
+            <div class="adm-card">
+              <div class="adm-card-head">
+                <h3>
+                  <i
+                    class="fa-solid fa-ranking-star"
+                    style="color: var(--adm-primary); margin-inline-end: 6px"
+                  ></i>
+                  أعلى الفنيين أداءً
+                </h3>
+                <div class="ach-actions">
+                  <a class="adm-btn ghost sm" href="/admin/technicians"
+                    ><i class="fa-solid fa-arrow-left"></i> كل الفنيين</a
+                  >
+                </div>
+              </div>
+              <div id="top-techs"></div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="adm-grid-2">
+            <div class="adm-card">
+              <div class="adm-card-head">
+                <h3>
+                  <i
+                    class="fa-solid fa-chart-pie"
+                    style="color: var(--adm-primary); margin-inline-end: 6px"
+                  ></i>
+                  الطلبات حسب الحالة
+                </h3>
+              </div>
+              <div class="chart-box" style="height: 250px; position: relative">
+                <canvas id="status-chart"></canvas>
+              </div>
+            </div>
+            <div class="adm-card">
+              <div class="adm-card-head">
+                <h3>
+                  <i
+                    class="fa-solid fa-chart-line"
+                    style="color: var(--adm-primary); margin-inline-end: 6px"
+                  ></i>
+                  الطلبات خلال آخر 7 أيام
+                </h3>
+              </div>
+              <div class="chart-box" style="height: 250px; position: relative">
+                <canvas id="trend-chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick actions -->
+          <div class="adm-card">
+            <div class="adm-card-head">
+              <h3>
+                <i
+                  class="fa-solid fa-bolt"
+                  style="color: var(--adm-primary); margin-inline-end: 6px"
+                ></i>
+                إجراءات سريعة
+              </h3>
+            </div>
+            <div class="adm-actions">
+              <a class="adm-btn primary" href="/admin/technicians"
+                ><i class="fa-solid fa-user-plus"></i> إضافة فني جديد</a
+              >
+              <a class="adm-btn" href="/admin/requests"
+                ><i class="fa-solid fa-list-check"></i> متابعة الطلبات</a
+              >
+              <a class="adm-btn" href="/admin/customers"
+                ><i class="fa-solid fa-people-group"></i> إدارة العملاء</a
+              >
+              <a class="adm-btn" href="/admin/specialties"
+                ><i class="fa-solid fa-tags"></i> إدارة التخصصات</a
+              >
+              <a class="adm-btn" href="/admin/data-requests"
+                ><i class="fa-solid fa-scale-balanced"></i> طلبات البيانات</a
+              >
+              <a class="adm-btn" href="/admin/settings"
+                ><i class="fa-solid fa-gear"></i> الإعدادات</a
+              >
+              <a class="adm-btn" href="/" target="_blank"
+                ><i class="fa-solid fa-globe"></i> زيارة الموقع</a
+              >
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script src="/js/admin.js"></script>
+    <script>
+      (async () => {
+        if (!(await Admin.init())) throw new Error('redirect');
+
+        Admin.hideUnauthorizedNav();
+        const me = Auth.getUser();
+        if (me && me.is_super_admin) {
+          const el = document.getElementById('nav-admins');
+          if (el) el.style.display = '';
+        }
+        const user = Auth.getUser();
+        document.getElementById('side-name').textContent = user.email;
+        document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
+        document.getElementById('tb-title').textContent = 'لوحة التحكم';
+
+        // Mobile sidebar toggle.
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const sbtn = document.getElementById('sidebar-toggle');
+        sbtn.addEventListener('click', () => {
+          sidebar.classList.add('open');
+          backdrop.classList.add('show');
+        });
+        backdrop.addEventListener('click', () => {
+          sidebar.classList.remove('open');
+          backdrop.classList.remove('show');
+        });
+        const mq = window.matchMedia('(max-width:1024px)');
+        mq.addEventListener('change', () => {});
+        sbtn.style.display = mq.matches ? '' : 'none';
+
+        // One colour per status, and the order below must stay in step with STATUS_COLORS.
+        // 'no_technician' is included because the stats endpoint reports it (it comes
+        // from config.STATUSES), and leaving it out would make the doughnut quietly
+        // under-report the requests that need an admin.
+        const STATUS_ORDER = [
+          'pending',
+          'no_technician',
+          'assigned',
+          'in_progress',
+          'completed',
+          'cancelled',
+        ];
+        const STATUS_COLORS = ['#f59e0b', '#b91c1c', '#818cf8', '#0ea5e9', '#10b981', '#f43f5e'];
+
+        // Stat card builder (accented variants).
+        function statCard(label, value, icon, accent) {
+          return Ui.el('div', { class: 'adm-stat accent-' + accent }, [
+            Ui.el('div', { class: 'as-info' }, [
+              Ui.el('b', {}, [value == null ? '—' : value]),
+              Ui.el('span', {}, [label]),
+            ]),
+            Ui.el('span', { class: 'as-icon' }, [Ui.ic(icon)]),
+          ]);
+        }
+
+        // ---- Charts ----
+        function statusChart(el, byStatus) {
+          const order = STATUS_ORDER;
+          return new Chart(el, {
+            type: 'doughnut',
+            data: {
+              labels: order.map((s) => Ui.statusLabel(s)),
+              datasets: [
+                {
+                  data: order.map((s) => byStatus[s] || 0),
+                  backgroundColor: STATUS_COLORS,
+                  borderWidth: 2,
+                  borderColor: '#fff',
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              cutout: '62%',
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    font: { family: 'Cairo', size: 11 },
+                    boxWidth: 10,
+                    usePointStyle: true,
+                  },
+                },
+                tooltip: {
+                  rtl: true,
+                  titleFont: { family: 'Cairo' },
+                  bodyFont: { family: 'Cairo' },
+                },
+              },
+            },
+          });
+        }
+
+        function trendChart(el, byDay) {
+          const days = [];
+          for (let i = 6; i >= 0; i--) {
+            const d = new Date(Date.now() - i * 86400000);
+            const iso = d.toISOString().slice(0, 10);
+            days.push({ iso, n: byDay[iso] || 0 });
+          }
+          const labels = days.map((d) =>
+            new Date(d.iso + 'T12:00:00Z').toLocaleDateString('ar-EG-u-nu-latn', {
+              day: 'numeric',
+              month: 'short',
+            })
+          );
+          return new Chart(el, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                {
+                  data: days.map((d) => d.n),
+                  borderColor: '#10b981',
+                  backgroundColor: 'rgba(16,185,129,0.12)',
+                  fill: true,
+                  tension: 0.4,
+                  pointBackgroundColor: '#10b981',
+                  pointRadius: 4,
+                  borderWidth: 2.5,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { stepSize: 1, font: { family: 'Cairo' } },
+                  grid: { color: 'rgba(15,23,42,0.06)' },
+                },
+                x: { grid: { display: false }, ticks: { font: { family: 'Cairo' } } },
+              },
+            },
+          });
+        }
+
+        // ---- Recent requests ----
+        let lastStats = null;
+        let technicians = [];
+
+        function renderRecent(s) {
+          const tbody = document.getElementById('recent-tbody');
+          Ui.clear(tbody);
+          const rows = s.newestRequests || [];
+          if (!rows.length) {
+            tbody.appendChild(
+              Ui.el('tr', {}, [
+                Ui.el('td', { attrs: { colspan: 5 } }, [
+                  Ui.el('div', { class: 'adm-empty' }, [
+                    Ui.ic('fa-regular fa-folder-open'),
+                    Ui.el('b', {}, ['لا توجد طلبات بعد']),
+                    'أول طلب يصل سيظهر هنا',
+                  ]),
+                ]),
+              ])
+            );
+            return;
+          }
+          rows.forEach((r) => {
+            const m = Ui.meta(r.specialty);
+            tbody.appendChild(
+              Ui.el('tr', { attrs: { 'data-req': r.id } }, [
+                Ui.el('td', {}, ['#' + r.id]),
+                Ui.el('td', {}, [
+                  Ui.el('div', { class: 'tbl-user' }, [
+                    Ui.el(
+                      'span',
+                      {
+                        class: 'avatar',
+                        attrs: { style: 'width:30px;height:30px;font-size:0.7rem' },
+                      },
+                      [Ui.initials(r.customer_name)]
+                    ),
+                    Ui.escapeHtml(r.customer_name),
+                  ]),
+                ]),
+                Ui.el('td', {}, [
+                  Ui.el(
+                    'span',
+                    {
+                      class: 'badge',
+                      attrs: { style: 'background:' + m.bg + ';color:' + m.color },
+                    },
+                    [Ui.ic(m.icon), m.label]
+                  ),
+                ]),
+                Ui.el('td', {}, [Ui.statusBadge(r.status)]),
+                Ui.el('td', {}, [Ui.dateTime(r.created_at)]),
+              ])
+            );
+          });
+        }
+
+        // ---- Top technicians (by completed count) ----
+        function renderTopTechs(list) {
+          const wrap = document.getElementById('top-techs');
+          Ui.clear(wrap);
+          if (!list.length) {
+            wrap.appendChild(
+              Ui.el('div', { class: 'adm-empty' }, [
+                Ui.ic('fa-solid fa-users-gear'),
+                Ui.el('b', {}, ['لا يوجد فنيون بعد']),
+                'أضف فنيين لبدء تعيين الطلبات',
+              ])
+            );
+            return;
+          }
+          list.forEach((t) => {
+            const m = Ui.meta(t.specialty);
+            const row = Ui.el('div', {
+              style:
+                'display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f1f5f9',
+            });
+            row.appendChild(
+              Ui.el(
+                'span',
+                {
+                  class: 'avatar',
+                  attrs: {
+                    style:
+                      'width:40px;height:40px;font-size:0.8rem;background:' +
+                      m.bg +
+                      ';color:' +
+                      m.color,
+                  },
+                },
+                [Ui.initials(t.name)]
+              )
+            );
+            const info = Ui.el('div', { style: 'flex:1;min-width:0' }, [
+              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(t.name)]),
+              Ui.el(
+                'span',
+                {
+                  class: 'badge',
+                  attrs: {
+                    style: 'background:' + m.bg + ';color:' + m.color + ';font-size:0.68rem',
+                  },
+                },
+                [Ui.ic(m.icon), m.label]
+              ),
+            ]);
+            row.appendChild(info);
+            row.appendChild(
+              Ui.el('span', { class: 'adm-badge green' }, [
+                Ui.ic('fa-solid fa-circle-check'),
+                t.completed + ' مكتمل',
+              ])
+            );
+            wrap.appendChild(row);
+          });
+        }
+
+        // ---- Details modal + assign (same as requests page) ----
+        function openDetail(r) {
+          const m = Ui.meta(r.specialty);
+          const rows = Ui.el('div', { class: 'detail-grid' });
+          const add = (k, v) =>
+            rows.appendChild(
+              Ui.el('div', { class: 'detail-row' }, [
+                Ui.el('span', { class: 'dk' }, [k]),
+                Ui.el('span', { class: 'dv' }, [v]),
+              ])
+            );
+          add('رقم الطلب', '#' + r.id);
+          const custWrap = Ui.el('span', {}, [Ui.escapeHtml(r.customer_name)]);
+          if (r.customer_phone)
+            custWrap.appendChild(
+              Ui.el(
+                'a',
+                {
+                  class: 'dv-tel',
+                  attrs: {
+                    href: 'tel:' + r.customer_phone,
+                    dir: 'ltr',
+                    style: 'margin-inline-start:8px',
+                  },
+                },
+                [r.customer_phone]
+              )
+            );
+          add('العميل', custWrap);
+          add(
+            'خدمة',
+            Ui.el(
+              'span',
+              { class: 'badge', attrs: { style: 'background:' + m.bg + ';color:' + m.color } },
+              [Ui.ic(m.icon), m.label]
+            )
+          );
+          if (r.custom_specialty_text)
+            add('الخدمة المطلوبة', Ui.escapeHtml(r.custom_specialty_text));
+          add('الحالة', Ui.statusBadge(r.status));
+          add('الموقع', Ui.escapeHtml(r.customer_location || r.location_text || '—'));
+          if (r.description) add('الوصف', Ui.el('div', {}, [Ui.escapeHtml(r.description)]));
+          if (r.technician_name)
+            add(
+              'الفني المسند',
+              Ui.escapeHtml(r.technician_name) +
+                (r.technician_phone ? ' (جهة ' + r.technician_phone + ')' : '')
+            );
+          add('أُنشئ', Ui.dateTime(r.created_at));
+          if (r.assigned_at) add('أُسند في', Ui.dateTime(r.assigned_at));
+          if (r.completed_at) add('أُنجز في', Ui.dateTime(r.completed_at));
+
+          const body = Ui.el('div', {});
+          body.appendChild(rows);
+
+          const assignBox = Ui.el('div', { class: 'assign-box', id: 'assign-box' });
+          body.appendChild(assignBox);
+          buildAssign(assignBox, r);
+
+          Ui.openModal(
+            'تفاصيل الطلب #' + r.id,
+            body,
+            Ui.el(
+              'button',
+              { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+              ['إغلاق']
+            )
+          );
+        }
+
+        function matchingTechnicians(r) {
+          return technicians.filter(
+            (t) => t.specialty === r.specialty && t.availability === 'available'
+          );
+        }
+
+        async function buildAssign(box, r) {
+          Ui.clear(box);
+          if (r.status === 'pending') {
+            box.appendChild(Ui.el('h4', {}, [Ui.ic('fa-solid fa-user-plus'), 'تعيين فني']));
+            const cands = matchingTechnicians(r);
+            if (!cands.length) {
+              box.appendChild(
+                Ui.el('div', { class: 'form-hint' }, ['لا يوجد فنيون متاحون في هذا التخصص حالياً.'])
+              );
+              return;
+            }
+            const row = Ui.el('div', { class: 'assign-row' });
+            const sel = Ui.el('select', { class: 'input', id: 'assign-select' });
+            cands.forEach((t) =>
+              sel.appendChild(
+                Ui.el('option', { text: t.name + ' — ' + t.phone, attrs: { value: t.id } })
+              )
+            );
+            const btn = Ui.el('button', { class: 'btn btn-brand btn-sm', id: 'assign-btn' }, [
+              'تأكيد التعيين',
+            ]);
+            btn.addEventListener('click', async () => {
+              Ui.btnLoading(btn, 'جارٍ التعيين…');
+              try {
+                const data = await api('/api/admin/requests/' + r.id + '/assign', {
+                  method: 'POST',
+                  body: { technician_id: Number(sel.value) },
+                });
+                toast(data.message, 'success');
+                Ui.openModal(null, null, null, { onClose: null });
+                load();
+              } catch (err) {
+                toast(err.message, 'error');
+                Ui.btnReset(btn);
+              }
+            });
+            row.appendChild(sel);
+            row.appendChild(btn);
+            box.appendChild(row);
+            return;
+          }
+          box.appendChild(
+            Ui.el('div', { class: 'form-hint' }, [
+              r.status === 'assigned' || r.status === 'in_progress'
+                ? 'الطلب مسند بالفعل لـ ' +
+                  (r.technician_name ? Ui.escapeHtml(r.technician_name) : 'فني')
+                : 'لا يمكن تعيين فني لطلب ' + Ui.statusLabel(r.status),
+            ])
+          );
+        }
+
+        // ---- Load / render ----
+        function renderWith(s, techs, reqs, money) {
+          // Eight stat cards: the seven request states, then the money queue.
+          const row = document.getElementById('stat-row');
+          Ui.clear(row);
+          row.appendChild(
+            statCard('إجمالي الطلبات', s.totalRequests, 'fa-solid fa-rectangle-list', 'red')
+          );
+          row.appendChild(
+            statCard('بانتظار فني', s.byStatus.pending, 'fa-regular fa-clock', 'orange')
+          );
+          // Stranded requests: the broadcast window expired with no taker, so these
+          // are the ones an admin has to re-broadcast or reassign by hand.
+          row.appendChild(
+            statCard('لا يوجد فني متاح', s.byStatus.no_technician, 'fa-solid fa-user-slash', 'pink')
+          );
+          row.appendChild(
+            statCard('تم تحديد فني', s.byStatus.assigned, 'fa-solid fa-user-check', 'blue')
+          );
+          row.appendChild(
+            statCard(
+              'جاري التنفيذ',
+              s.byStatus.in_progress,
+              'fa-solid fa-screwdriver-wrench',
+              'purple'
+            )
+          );
+          row.appendChild(
+            statCard('مكتملة', s.byStatus.completed, 'fa-solid fa-circle-check', 'green')
+          );
+          row.appendChild(statCard('ملغاة', s.byStatus.cancelled, 'fa-solid fa-ban', 'red'));
+          // Money the platform owes technicians and has not sent. Pink rather than
+          // orange: this is a liability, and it is the one card here that is about
+          // cash leaving rather than a request state.
+          row.appendChild(
+            statCard(
+              'طلبات سحب معلقة',
+              (money && money.count) || 0,
+              'fa-solid fa-hand-holding-dollar',
+              'pink'
+            )
+          );
+
+          // The sidebar badge counts everything an admin should look at, so a
+          // stranded request is visible without opening the page.
+          const pend =
+            (s.byStatus.pending || 0) +
+            (s.byStatus.no_technician || 0) +
+            ((money && money.count) || 0);
+          document.getElementById('side-pending-count').textContent = pend;
+
+          renderRecent(s);
+          renderTopTechs(techs);
+          if (window.Chart) {
+            statusChart(document.getElementById('status-chart'), s.byStatus);
+            trendChart(document.getElementById('trend-chart'), s.byDay || {});
+          }
+        }
+
+        async function load() {
+          const row = document.getElementById('stat-row');
+          Ui.clear(row);
+          for (let i = 0; i < 6; i++)
+            row.appendChild(Ui.el('div', { class: 'sk sk-card', attrs: { style: 'height:96px' } }));
+          try {
+            // The withdrawal queue is fetched alongside the rest but guarded on its
+            // own: a 403 from a stats-only admin must not take the whole dashboard
+            // down with it, since the request stats are the page's main content.
+            const [s, t, r, w] = await Promise.all([
+              api('/api/admin/stats'),
+              api('/api/admin/technicians'),
+              api('/api/admin/requests'),
+              api('/api/admin/withdrawals').catch(() => ({ count: 0, awaiting_count: 0 })),
+            ]);
+            lastStats = s;
+            technicians = t.technicians || [];
+
+            const reqs = r.requests || [];
+            const completedByTech = {};
+            reqs.forEach((x) => {
+              if (x.status === 'completed' && x.technician_id) {
+                completedByTech[x.technician_id] = (completedByTech[x.technician_id] || 0) + 1;
+              }
+            });
+            const top = (t.technicians || []).slice(0, 4).map((x) => ({
+              id: x.id,
+              name: x.name,
+              specialty: x.specialty,
+              completed: completedByTech[x.id] || 0,
+            }));
+
+            renderWith(s, top, reqs, w);
+          } catch (e) {
+            toast(e.message, 'error');
+          }
+        }
+
+        document.getElementById('recent-tbody').addEventListener('click', (e) => {
+          const tr = e.target.closest('tr[data-req]');
+          if (!tr) return;
+          const r = (lastStats.newestRequests || []).find((x) => x.id === Number(tr.dataset.req));
+          if (r) openDetail(r);
+        });
+
+        window.closeModal = () => Ui.openModal(null, null, null, { onClose: null });
+
+        document.getElementById('refresh-btn').addEventListener('click', load);
+        load();
+      })();
+    </script>
+  </body>
+</html>

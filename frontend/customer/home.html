@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>طلب خدمة — دشاوي</title>
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="دشاوي">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <!-- iOS splash screen (universal fallback) -->
+    <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
+    <meta name="description" content="دشاوي — اطلب فني دش معتمد في الإسكندرية في دقيقة واحدة." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body class="customer-home-body">
+    <header class="ch-topbar">
+      <a class="ch-brand" href="/customer/home.html">
+        <span class="ch-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+      <div class="ch-actions">
+        <a href="/customer/my-requests.html" class="ch-icon-btn" title="طلباتي">
+          <i class="fa-solid fa-list-check"></i>
+        </a>
+        <button class="ch-icon-btn" id="ch-logout" type="button" title="خروج">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <main class="ch-main">
+      <div class="ch-welcome">
+        <h1>أهلًا يا <span id="ch-name">…</span> 👋</h1>
+        <p>محتاج فني دش؟ اطلب خدمتك في دقيقة واحدة.</p>
+      </div>
+
+      <a href="/request" class="ch-big-cta" id="ch-request-btn">
+        <span class="cbc-icon"><i class="fa-solid fa-bolt"></i></span>
+        <span class="cbc-text">
+          <b>اطلب خدمة الآن</b>
+          <span>اختر الخدمة واحنا نوصلك أقرب فني</span>
+        </span>
+        <span class="cbc-arrow"><i class="fa-solid fa-arrow-left"></i></span>
+      </a>
+
+      <div class="ch-stats" id="ch-stats">
+        <div class="ch-stat">
+          <b id="st-total">—</b>
+          <span>إجمالي طلباتك</span>
+        </div>
+        <div class="ch-stat">
+          <b id="st-active">—</b>
+          <span>طلبات نشطة</span>
+        </div>
+        <div class="ch-stat">
+          <b id="st-completed">—</b>
+          <span>مكتملة</span>
+        </div>
+      </div>
+
+      <div class="ch-quick-links">
+        <a href="/customer/my-requests.html" class="ch-quick-link">
+          <i class="fa-solid fa-list-check"></i>
+          <span>طلباتي</span>
+        </a>
+        <a href="/customer/dashboard.html" class="ch-quick-link">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>لوحة التحكم</span>
+        </a>
+        <a href="/change-password.html" class="ch-quick-link">
+          <i class="fa-solid fa-key"></i>
+          <span>كلمة المرور</span>
+        </a>
+      </div>
+    </main>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script>
+      (async () => {
+        // requireRole already redirects and returns false when the session is
+        // missing or the role is wrong, so bailing here is what stops this page
+        // from rendering its shell for a technician or an admin.
+        if (!Auth.requireRole('customer')) return;
+
+        const profile = Auth.getProfile();
+        const name = profile && profile.name ? profile.name.split(' ')[0] : 'عميل';
+        document.getElementById('ch-name').textContent = name;
+
+        document.getElementById('ch-logout').addEventListener('click', () => {
+          if (confirm('تسجيل الخروج؟')) Auth.logout();
+        });
+
+        try {
+          const data = await api('/api/customer/requests');
+          const reqs = data.requests || [];
+          document.getElementById('st-total').textContent = reqs.length;
+          // 'no_technician' counts as active: the request is still open and the
+          // queue is still working on it, it has simply not been picked up yet.
+          document.getElementById('st-active').textContent =
+            reqs.filter((r) => ['pending', 'assigned', 'in_progress', 'no_technician'].includes(r.status)).length;
+          document.getElementById('st-completed').textContent =
+            reqs.filter((r) => r.status === 'completed').length;
+        } catch (e) {
+          // A failed stats call must not take the page's one real job (asking to
+          // make a request) down with it, so the dashes stay in place.
+        }
+      })();
+    </script>
+    <script src="/js/pwa-install.js"></script>
+    <script src="/js/push.js"></script>
+    <script src="/js/force-review.js"></script>
+</body>
+</html>

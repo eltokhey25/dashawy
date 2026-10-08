@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>اطلب الخدمة — دشاوي</title>
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="دشاوي" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    <!-- iOS splash screen (universal fallback) -->
+    <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png" />
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
+    <meta
+      name="description"
+      content="اطلب فني دش معتمد في الإسكندرية — أربع خطوات ويوصلك أقرب فني."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="uber-app">
+      <header class="uber-topbar">
+        <a class="uber-brand" href="/customer/home.html">
+          <span class="ub-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+          <span>دشاوي</span>
+        </a>
+        <div class="uber-topbar-actions">
+          <a href="/customer/my-requests.html" class="ub-icon-btn" title="طلباتي">
+            <i class="fa-solid fa-list-check"></i>
+          </a>
+          <button class="ub-icon-btn" id="ub-logout" title="خروج" type="button">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </header>
+
+      <main class="uber-main" id="uber-main"></main>
+
+      <footer class="uber-sheet hidden" id="uber-sheet"></footer>
+
+      <div class="uber-searching" id="uber-searching" style="display: none">
+        <div class="usr-radar">
+          <div class="usr-circle"></div>
+          <div class="usr-circle"></div>
+          <div class="usr-circle"></div>
+          <div class="usr-center"><i class="fa-solid fa-satellite-dish"></i></div>
+        </div>
+        <h2 class="usr-title">جاري البحث عن فني...</h2>
+        <p class="usr-sub" id="usr-sub">بنبحث في أقرب الفنيين المتاحين في منطقتك</p>
+        <div class="usr-timer" id="usr-timer">30</div>
+        <div class="usr-timer-label" id="usr-timer-label">ثانية متبقية للبحث</div>
+        <button class="btn btn-ghost" id="usr-cancel" type="button">إلغاء الطلب</button>
+      </div>
+
+      <div class="uber-accepted" id="uber-accepted" style="display: none"></div>
+
+      <div class="uber-queued" id="uber-queued" style="display: none"></div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script>
+      (async () => {
+        if (!Auth.requireRole('customer')) return;
+
+        const main = document.getElementById('uber-main');
+        const sheet = document.getElementById('uber-sheet');
+        const searchingEl = document.getElementById('uber-searching');
+        const acceptedEl = document.getElementById('uber-accepted');
+        const queuedEl = document.getElementById('uber-queued');
+
+        const state = {
+          step: 'service',
+          service: null,
+          customText: '',
+          area_key: null,
+          location_text: '',
+          description: '',
+          latitude: null,
+          longitude: null,
+          requestId: null,
+          pollingTimer: null,
+          // Searching-screen bookkeeping.
+          // searchStartedAt anchors both the countdown and the queued switch, so
+          // the two can never disagree about when the search ends.
+          // noTechniciansAtStart records that the broadcast reached nobody, which
+          // is the only thing that changes the wording on the searching screen.
+          searchStartedAt: 0,
+          timerInterval: null,
+          noTechniciansAtStart: false,
+        };
+
+        const STEPS = ['service', 'location', 'details', 'confirm'];
+
+        // Where each step's back button goes. 'service' is the floor, so it has no
+        // back affordance at all.
+        const BACK_TARGET = { location: 'service', details: 'location', confirm: 'details' };
+
+        const STEP_TITLES = {
+          service: ['إيه اللي محتاج مساعدة فيه؟', 'اختر الخدمة وهنوصلك أقرب فني ليها'],
+          location: ['فين المكان؟', 'اختر منطقتك بالظبط عشان نوصلك أسرع فني'],
+          details: ['وصف المشكلة', 'اكتب تفاصيل بسيطة — الفني هيعرف يتصرف'],
+          confirm: ['تأكيد الطلب', 'راجع البيانات قبل ما تبعتها'],
+        };
+
+        const POLL_MS = 3000;
+
+        // How long the searching screen stays up MINIMUM, whatever the broadcast
+        // said.
+        //
+        // Jumping straight to "queued" the instant the server reports zero
+        // technicians read as a dead end: the customer never sees that anything
+        // was attempted on their behalf, and they cannot tell "nobody is free"
+        // apart from "the app gave up". Thirty seconds of visible searching —
+        // with a countdown, so the wait is legible — lets the radar do that job,
+        // and in practice it also catches a technician who accepts a moment
+        // after the request was created.
+        const MIN_SEARCH_MS = 30000;
+
+        let specialties = [];
+        let areas = [];
+
+        // ------------------------------------------------------------
+        // Reference data
+        // ------------------------------------------------------------
+        async function loadData() {
+          try {
+            const [specRes, areaRes] = await Promise.all([
+              api('/api/specialties'),
+              api('/api/alexandria-areas'),
+            ]);
+            specialties = specRes.specialties || [];
+            areas = areaRes.areas || [];
+          } catch (e) {
+            // Nothing can be rendered without these, so say so plainly instead of
+            // showing an empty grid the customer cannot act on.
+            Ui.clear(main);
+            main.appendChild(
+              Ui.el('div', { class: 'ua-info-card' }, [
+                Ui.ic('fa-solid fa-triangle-exclamation'),
+                ' تعذر تحميل الخدمات. تأكد من الإنترنت وجرب تاني.',
+              ])
+            );
+          }
+        }
+
+        // The API's label/icon are admin-editable, so they win where present. The
+        // description and colour live only in the shared Ui.meta map, which is
+        // also what the rest of the site renders from — so both sources are used
+        // rather than picking one and losing half the card.
+        function cardMeta(s) {
+          const m = Ui.meta(s.key);
+          const known = m.label !== s.key; // Ui.meta echoes the key when unknown
+          return {
+            label: s.label || m.label,
+            desc: m.desc || '',
+            icon: known ? m.icon : s.icon || m.icon,
+            color: m.color,
+            bg: m.bg,
+          };
+        }
+
+        function areaLabel(key) {
+          const found = areas.find((a) => a.key === key);
+          return found ? found.label : '';
+        }
+
+        function selectedServiceLabel() {
+          // For 'other' the service NAME is the custom text, so that is what the
+          // summary shows — echoing the generic "أخرى" would not tell the
+          // customer what they are about to book.
+          if (state.service === 'other' && state.customText.trim()) {
+            return state.customText.trim();
+          }
+          const row = specialties.find((s) => s.key === state.service);
+          return row ? cardMeta(row).label : Ui.meta(state.service).label;
+        }
+
+        // ------------------------------------------------------------
+        // Step 1 — service
+        // ------------------------------------------------------------
+        function renderService() {
+          const frag = document.createDocumentFragment();
+          const [title, sub] = STEP_TITLES.service;
+          frag.appendChild(Ui.el('h1', { class: 'uber-step-title' }, [title]));
+          frag.appendChild(Ui.el('p', { class: 'uber-step-sub' }, [sub]));
+
+          const grid = Ui.el('div', { class: 'uber-service-grid' });
+          specialties.forEach((s) => {
+            const m = cardMeta(s);
+            const card = Ui.el(
+              'button',
+              {
+                class: 'uber-service-card' + (state.service === s.key ? ' selected' : ''),
+                attrs: { type: 'button', 'data-service': s.key },
+                on: {
+                  click: () => {
+                    state.service = s.key;
+                    // The custom-text field belongs to the 'other' branch only, so
+                    // its value is dropped when leaving it: carrying a stale
+                    // "تنظيف هوائي" into a later dish_repair request would label
+                    // the job wrong.
+                    if (s.key !== 'other') {
+                      state.customText = '';
+                      go('location');
+                      return;
+                    }
+                    // 'other' is the one card that cannot advance on its own — the
+                    // server rejects the request unless the customer names the
+                    // service — so it stays put and reveals the name field.
+                    render();
+                  },
+                },
+              },
+              [
+                Ui.el(
+                  'span',
+                  {
+                    class: 'usc-icon',
+                    attrs: { style: 'background:' + m.bg + ';color:' + m.color },
+                  },
+                  [Ui.ic(m.icon)]
+                ),
+                Ui.el('span', { class: 'usc-body' }, [
+                  Ui.el('span', { class: 'usc-label' }, [m.label]),
+                  Ui.el('span', { class: 'usc-desc' }, [m.desc]),
+                ]),
+                Ui.el('span', { class: 'usc-check' }, [Ui.ic('fa-solid fa-circle-check')]),
+              ]
+            );
+            grid.appendChild(card);
+          });
+          frag.appendChild(grid);
+
+          if (state.service === 'other') {
+            const custom = Ui.el('input', {
+              class: 'input ub-field',
+              id: 'ub-custom',
+              attrs: {
+                type: 'text',
+                maxlength: '200',
+                placeholder: 'مثال: تركيب سبلاش كير',
+                value: state.customText,
+              },
+            });
+            custom.addEventListener('input', () => {
+              state.customText = custom.value;
+              renderSheet();
+            });
+            frag.appendChild(
+              Ui.el('div', { class: 'form-group ub-custom' }, [
+                Ui.el('label', { class: 'form-label', attrs: { for: 'ub-custom' } }, [
+                  'اسم الخدمة المطلوبة ',
+                  Ui.el('span', { class: 'ub-req' }, ['*']),
+                ]),
+                custom,
+                Ui.el('div', { class: 'form-hint' }, [
+                  'اكتب اسم الخدمة بالظبط عشان نوصلك الفني المناسب',
+                ]),
+              ])
+            );
+            frag.appendChild(
+              Ui.el(
+                'button',
+                {
+                  class: 'ub-edit',
+                  attrs: { type: 'button' },
+                  on: {
+                    click: () => {
+                      state.service = null;
+                      state.customText = '';
+                      render();
+                    },
+                  },
+                },
+                [Ui.ic('fa-solid fa-xmark'), ' اختيار خدمة من القائمة']
+              )
+            );
+          }
+
+          main.appendChild(frag);
+        }
+
+        // ------------------------------------------------------------
+        // Step 2 — location
+        // ------------------------------------------------------------
+        function renderLocation() {
+          const frag = document.createDocumentFragment();
+          const [title, sub] = STEP_TITLES.location;
+          frag.appendChild(Ui.el('h1', { class: 'uber-step-title' }, [title]));
+          frag.appendChild(Ui.el('p', { class: 'uber-step-sub' }, [sub]));
+
+          const areaSelect = Ui.el('select', {
+            class: 'input ub-field',
+            attrs: { id: 'ub-area', 'aria-label': 'المنطقة' },
+          });
+          areaSelect.appendChild(Ui.el('option', { attrs: { value: '' } }, ['اختر منطقتك…']));
+          areas.forEach((a) => {
+            // Only the chosen area carries the `selected` attribute: setting it
+            // on every option (which is what a null value would do through
+            // Ui.el) makes the browser show the last area instead of the one the
+            // customer actually picked.
+            const attrs = { value: a.key };
+            if (state.area_key === a.key) attrs.selected = '';
+            areaSelect.appendChild(Ui.el('option', { attrs }, [a.label]));
+          });
+          areaSelect.addEventListener('change', () => {
+            state.area_key = areaSelect.value;
+            renderSheet();
+          });
+          frag.appendChild(
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'ub-area' } }, [
+                'المنطقة ',
+                Ui.el('span', { class: 'ub-req' }, ['*']),
+              ]),
+              areaSelect,
+            ])
+          );
+
+          const address = Ui.el('input', {
+            class: 'input ub-field',
+            id: 'ub-address',
+            attrs: {
+              type: 'text',
+              maxlength: '300',
+              placeholder: 'مثال: شارع فوزي معاذ، عمارة 12، الدور 3',
+              value: state.location_text,
+            },
+          });
+          address.addEventListener('input', () => {
+            state.location_text = address.value;
+          });
+          frag.appendChild(
+            Ui.el('div', { class: 'form-group', attrs: { style: 'margin-top:16px' } }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'ub-address' } }, [
+                'العنوان بالتفصيل (اختياري)',
+              ]),
+              address,
+            ])
+          );
+
+          const geoBtn = Ui.el(
+            'button',
+            { class: 'btn btn-outline ub-geo-btn', attrs: { type: 'button', id: 'ub-geo' } },
+            [Ui.ic('fa-solid fa-location-crosshairs'), ' استخدم موقعي الحالي']
+          );
+          geoBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+              toast('المتصفح لا يدعم تحديد الموقع', 'warn');
+              return;
+            }
+            Ui.btnLoading(geoBtn, 'جاري التحديد...');
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                state.latitude = Number(pos.coords.latitude.toFixed(6));
+                state.longitude = Number(pos.coords.longitude.toFixed(6));
+                Ui.clear(geoBtn);
+                geoBtn.appendChild(Ui.ic('fa-solid fa-location-crosshairs'));
+                geoBtn.appendChild(document.createTextNode(' تم تحديد موقعك ✓'));
+                geoBtn.disabled = true;
+                toast('تم تحديد موقعك ✓', 'success');
+              },
+              () => {
+                toast('تعذر تحديد الموقع — اكتب العنوان يدوي', 'error');
+                Ui.btnReset(geoBtn);
+              },
+              { enableHighAccuracy: true, timeout: 10000 }
+            );
+          });
+          frag.appendChild(Ui.el('div', { attrs: { style: 'margin-top:16px' } }, [geoBtn]));
+
+          main.appendChild(frag);
+        }
+
+        // ------------------------------------------------------------
+        // Step 3 — details
+        // ------------------------------------------------------------
+        function renderDetails() {
+          const frag = document.createDocumentFragment();
+          const [title, sub] = STEP_TITLES.details;
+          frag.appendChild(Ui.el('h1', { class: 'uber-step-title' }, [title]));
+          frag.appendChild(Ui.el('p', { class: 'uber-step-sub' }, [sub]));
+
+          const ta = Ui.el('textarea', {
+            class: 'input ub-field ub-textarea',
+            id: 'ub-desc',
+            attrs: {
+              rows: '6',
+              maxlength: '2000',
+              placeholder: 'مثال: الدش بيفصل في القنوات لما الجو يبقى مش صافي',
+            },
+          });
+          ta.value = state.description;
+          ta.addEventListener('input', () => {
+            state.description = ta.value;
+            renderSheet();
+          });
+          frag.appendChild(ta);
+
+          main.appendChild(frag);
+        }
+
+        // ------------------------------------------------------------
+        // Step 4 — confirm
+        // ------------------------------------------------------------
+        function renderConfirm() {
+          const frag = document.createDocumentFragment();
+          const [title, sub] = STEP_TITLES.confirm;
+          frag.appendChild(Ui.el('h1', { class: 'uber-step-title' }, [title]));
+          frag.appendChild(Ui.el('p', { class: 'uber-step-sub' }, [sub]));
+
+          const card = Ui.el('div', { class: 'ua-info-card' });
+          const rows = [
+            ['الخدمة', selectedServiceLabel()],
+            ['المنطقة', areaLabel(state.area_key)],
+          ];
+          if (state.location_text.trim()) rows.push(['العنوان', state.location_text.trim()]);
+          if (state.description.trim()) rows.push(['الوصف', state.description.trim()]);
+          rows.forEach(([k, v]) => {
+            card.appendChild(
+              Ui.el('div', { class: 'ua-info-row' }, [
+                Ui.el('span', {}, [k]),
+                Ui.el('span', {}, [v]),
+              ])
+            );
+          });
+          frag.appendChild(card);
+
+          // Edit links: the whole point of a one-screen-per-step flow is that a
+          // wrong answer is one tap from fixed, not four steps back.
+          const edits = Ui.el('div', { class: 'ub-edits' }, [
+            Ui.el(
+              'button',
+              {
+                class: 'ub-edit',
+                attrs: { type: 'button' },
+                on: {
+                  click: () => {
+                    state.step = 'location';
+                    render();
+                  },
+                },
+              },
+              [Ui.ic('fa-solid fa-pen'), ' تعديل الموقع']
+            ),
+            Ui.el(
+              'button',
+              {
+                class: 'ub-edit',
+                attrs: { type: 'button' },
+                on: {
+                  click: () => {
+                    state.step = 'details';
+                    render();
+                  },
+                },
+              },
+              [Ui.ic('fa-solid fa-pen'), ' تعديل الوصف']
+            ),
+          ]);
+          frag.appendChild(edits);
+
+          frag.appendChild(
+            Ui.el('div', { class: 'ua-info-card ub-notice' }, [
+              Ui.ic('fa-solid fa-circle-info'),
+              ' هيتपरسل طلبك لكل الفنيين المتاحين في منطقتك. أول فني يقبل، هيوصلك.',
+            ])
+          );
+
+          // Cash is the only method and the amount is agreed after the job — say
+          // so here rather than letting a customer assume a card was charged.
+          frag.appendChild(
+            Ui.el('div', { class: 'ua-info-card ub-notice' }, [
+              Ui.ic('fa-solid fa-money-bill-wave'),
+              ' الدفع نقداً للفني بعد ما يخلص الشغل، وتأكدّده أنت بإيراد المبلغ.',
+            ])
+          );
+
+          main.appendChild(frag);
+        }
+
+        // ------------------------------------------------------------
+        // Bottom sheet — one primary action per step, always reachable
+        // ------------------------------------------------------------
+        function sheetButton(label, opts) {
+          opts = opts || {};
+          // `disabled` is only ever added when it should be: Ui.el turns a null
+          // attribute value into '', so passing disabled: null would still
+          // render the button disabled.
+          const attrs = { type: 'button' };
+          if (opts.id) attrs.id = opts.id;
+          if (opts.disabled) attrs.disabled = '';
+          return Ui.el(
+            'button',
+            {
+              class: 'btn ' + (opts.variant || 'btn-brand'),
+              attrs,
+              on: opts.on,
+            },
+            opts.icon ? [Ui.ic(opts.icon), ' ' + label] : [label]
+          );
+        }
+
+        function renderSheet() {
+          Ui.clear(sheet);
+          sheet.classList.remove('hidden');
+
+          const step = state.step;
+
+          // 'service' needs no CTA: tapping a card IS the action. The one
+          // exception is 'other', which the server rejects unless the customer
+          // names the service — so that branch keeps a continue button.
+          if (step === 'service' && state.service !== 'other') {
+            sheet.classList.add('hidden');
+            return;
+          }
+
+          if (step === 'confirm') {
+            sheet.appendChild(
+              sheetButton('إرسال الطلب', {
+                id: 'ub-submit',
+                icon: 'fa-solid fa-paper-plane',
+                on: { click: submitRequest },
+              })
+            );
+            return;
+          }
+
+          if (step !== 'service') {
+            sheet.appendChild(
+              sheetButton('السابق', {
+                id: 'ub-back',
+                variant: 'btn-outline',
+                on: {
+                  click: () => {
+                    go(BACK_TARGET[step]);
+                  },
+                },
+              })
+            );
+          }
+          sheet.appendChild(
+            sheetButton('متابعة', {
+              id: 'ub-next',
+              icon: 'fa-solid fa-arrow-left',
+              disabled: !isStepValid(),
+              on: {
+                click: () => {
+                  if (!isStepValid()) {
+                    toast(
+                      step === 'service'
+                        ? 'اكتب اسم الخدمة المطلوبة'
+                        : step === 'location'
+                          ? 'اختر منطقتك الأول'
+                          : 'اكتب وصف بسيط للمشكلة',
+                      'error'
+                    );
+                    return;
+                  }
+                  go(STEPS[STEPS.indexOf(step) + 1]);
+                },
+              },
+            })
+          );
+        }
+
+        function isStepValid() {
+          // 'other' additionally needs the service name the server demands.
+          if (state.step === 'service') return state.customText.trim().length >= 3;
+          if (state.step === 'location') return Boolean(state.area_key);
+          if (state.step === 'details') return state.description.trim().length >= 5;
+          return true;
+        }
+
+        // ------------------------------------------------------------
+        // Navigation
+        // ------------------------------------------------------------
+        function go(step) {
+          state.step = step;
+          render();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function render() {
+          Ui.clear(main);
+          if (state.step === 'service') renderService();
+          else if (state.step === 'location') renderLocation();
+          else if (state.step === 'details') renderDetails();
+          else if (state.step === 'confirm') renderConfirm();
+          renderSheet();
+        }
+
+        // ------------------------------------------------------------
+        // Submit + search
+        // ------------------------------------------------------------
+        async function submitRequest() {
+          const btn = document.getElementById('ub-submit');
+          if (!btn || btn.disabled) return;
+          Ui.btnLoading(btn, 'جاري الإرسال...');
+
+          try {
+            const body = {
+              specialty: state.service,
+              description: state.description.trim(),
+              area_key: state.area_key,
+            };
+            if (state.service === 'other') body.custom_specialty_text = state.customText.trim();
+            if (state.location_text.trim()) body.location_text = state.location_text.trim();
+            if (state.latitude !== null && state.longitude !== null) {
+              body.latitude = state.latitude;
+              body.longitude = state.longitude;
+            }
+
+            const data = await api('/api/customer/requests', { method: 'POST', body });
+            state.requestId = data.request.id;
+
+            // Everyone goes through the searching screen, INCLUDING the case where
+            // the broadcast reached nobody. The server's `queued` flag is the
+            // authority on whether the queue took the request; sent_to === 0 is
+            // the signal for the wording on the searching screen, not a reason to
+            // skip it.
+            state.noTechniciansAtStart =
+              Boolean(data.queued) || !data.broadcast || data.broadcast.sent_to === 0;
+            showSearching(data.broadcast ? data.broadcast.sent_to : 0);
+          } catch (err) {
+            toast(err.message, 'error');
+            Ui.btnReset(btn);
+          }
+        }
+
+        function stopPolling() {
+          if (state.pollingTimer) {
+            clearInterval(state.pollingTimer);
+            state.pollingTimer = null;
+          }
+          // The countdown belongs to the search, so it dies with the search. Doing
+          // it here rather than at each call site means an interval can never
+          // outlive the screen it was counting down for.
+          if (state.timerInterval) {
+            clearInterval(state.timerInterval);
+            state.timerInterval = null;
+          }
+        }
+
+        // Whether a final screen is showing. The searching overlay is
+        // deliberately NOT one of them: it is a live state that still needs its
+        // polling, and treating it as terminal is what used to strand a customer
+        // on the radar after returning from a backgrounded tab.
+        function terminalScreenUp() {
+          return acceptedEl.style.display === 'flex' || queuedEl.style.display === 'flex';
+        }
+
+        // Seconds left on the minimum-search countdown, never below zero.
+        function searchSecondsLeft() {
+          if (!state.searchStartedAt) return 0;
+          const elapsed = Date.now() - state.searchStartedAt;
+          return Math.max(0, Math.ceil((MIN_SEARCH_MS - elapsed) / 1000));
+        }
+
+        function showSearching(sentTo) {
+          sheet.classList.add('hidden');
+          searchingEl.style.display = 'flex';
+          state.searchStartedAt = Date.now();
+
+          // Claiming nobody was contacted is the one case where "we are searching
+          // the nearest available technicians" would be a lie, so the line changes
+          // rather than the screen being skipped.
+          const sub = document.getElementById('usr-sub');
+          if (sub) {
+            sub.textContent = state.noTechniciansAtStart
+              ? 'مفيش فني متاح في منطقتك دلوقتي — بنجهّز طلبك ونفضل نتابع'
+              : 'بنبحث في أقرب الفنيين المتاحين في منطقتك';
+          }
+
+          const timerEl = document.getElementById('usr-timer');
+          const left = searchSecondsLeft();
+          if (timerEl) timerEl.textContent = String(left);
+
+          stopPolling(); // clears any countdown left over from a previous attempt
+          state.timerInterval = setInterval(() => {
+            const remaining = searchSecondsLeft();
+            const el = document.getElementById('usr-timer');
+            if (el) el.textContent = String(remaining);
+            if (remaining <= 0) {
+              // Hand over to the poller rather than switching screens from here:
+              // it is the only thing that knows whether the request was accepted
+              // in the meantime, and a switch here could race it.
+              clearInterval(state.timerInterval);
+              state.timerInterval = null;
+              checkStatus();
+            }
+          }, 1000);
+
+          state.pollingTimer = setInterval(checkStatus, POLL_MS);
+          checkStatus();
+          console.info('[request] broadcast sent to', sentTo, 'technician(s)');
+        }
+
+        async function checkStatus() {
+          if (!state.requestId) return;
+          try {
+            const data = await api('/api/customer/requests/' + state.requestId);
+            const r = data.request;
+            if (r.status === 'assigned' || r.status === 'in_progress' || r.status === 'completed') {
+              // Accepted (possibly and finished while the page sat open). This is
+              // never held back by the countdown: a technician taking the job is
+              // the answer, and it should feel instant.
+              stopPolling();
+              showAccepted(r);
+              return;
+            }
+            if (r.status === 'cancelled' && state.searchStartedAt && searchSecondsLeft() > 0) {
+              // Somebody cancelled it on another device inside our own search
+              // window. Holding the radar up now would be theatre — the request
+              // is gone, so the queued copy would be a lie. Say so immediately.
+              stopPolling();
+              showQueued({ cancelled: true });
+              return;
+            }
+            if (r.status === 'cancelled' || r.status === 'no_technician') {
+              stopPolling();
+              showQueued();
+              return;
+            }
+          } catch (e) {
+            /* silent: a transient network blip must not end the search */
+          }
+          // Still pending (or the poll failed). Once the minimum has elapsed the
+          // wait has done its job, whatever the server said: the request stays
+          // live and the queue service keeps re-offering it, so the queued screen
+          // is the honest place to leave the customer.
+          if (state.pollingTimer && searchSecondsLeft() <= 0) {
+            stopPolling();
+            showQueued();
+          }
+        }
+
+        // Polling pauses while the tab is hidden: a backgrounded tab should not
+        // spend a request every three seconds, and the immediate check on return
+        // closes the gap.
+        document.addEventListener('visibilitychange', () => {
+          if (!state.requestId) return;
+          if (document.hidden) {
+            stopPolling();
+          } else if (!state.pollingTimer && !terminalScreenUp()) {
+            state.pollingTimer = setInterval(checkStatus, POLL_MS);
+            checkStatus();
+          }
+        });
+
+        // ------------------------------------------------------------
+        // Accepted
+        // ------------------------------------------------------------
+        function haversineKm(lat1, lon1, lat2, lon2) {
+          const toRad = (d) => (d * Math.PI) / 180;
+          const R = 6371;
+          const dLat = toRad(lat2 - lat1);
+          const dLon = toRad(lon2 - lon1);
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // The request carries no ETA field, so a number is only ever shown when it
+        // can be derived: 25 km/h average city driving speed plus a fixed 5-minute
+        // buffer. With no technician coordinates the line degrades to "on the way"
+        // rather than inventing a minute count.
+        function etaText(tech, km) {
+          if (!Number.isFinite(km)) return 'الفني في الطريق إليك';
+          const minutes = Math.max(5, Math.round((km / 25) * 60) + 5);
+          return 'سيصل خلال ' + minutes + ' دقيقة تقريباً';
+        }
+
+        async function showAccepted(request) {
+          searchingEl.style.display = 'none';
+          acceptedEl.style.display = 'flex';
+          Ui.clear(acceptedEl);
+
+          const meta = Ui.statusMeta(request.status);
+          const done = request.status === 'completed';
+
+          acceptedEl.appendChild(
+            Ui.el('div', { class: 'ua-hero' }, [
+              Ui.el('div', { class: 'ua-check' }, [
+                Ui.ic(done ? 'fa-solid fa-circle-check' : 'fa-solid fa-check'),
+              ]),
+              Ui.el('h1', { class: 'ua-title' }, [
+                done ? 'الخدمة تمّت' : request.technician_name ? 'فني في الطريق' : 'تم استلام طلبك',
+              ]),
+              Ui.el('p', { class: 'ua-sub' }, ['طلب #' + request.id + ' · ' + meta.label]),
+            ])
+          );
+
+          const body = Ui.el('div', { class: 'ua-body' });
+          acceptedEl.appendChild(body);
+
+          // Rating, avatar photo and coordinates all live on the public profile
+          // endpoint; the request payload itself carries only a name and a phone.
+          let profile = null;
+          let profileExtra = null;
+          if (request.technician_id) {
+            try {
+              const res = await api('/api/public/technicians/' + request.technician_id);
+              profile = res.technician || null;
+              profileExtra = res.profile || null;
+            } catch (e) {
+              /* the card below is built to work without it */
+            }
+          }
+
+          const techName = request.technician_name || 'الفني';
+          const avatar = Ui.el('div', { class: 'ua-tech-avatar' }, [Ui.initials(techName)]);
+          if (profileExtra && profileExtra.profile_image_path) {
+            avatar.textContent = '';
+            avatar.appendChild(
+              Ui.el('img', {
+                attrs: {
+                  // Stored as the full public path, same as every other screen
+                  // that renders it — so it is used verbatim.
+                  src: profileExtra.profile_image_path,
+                  alt: techName,
+                  loading: 'lazy',
+                },
+              })
+            );
+          }
+
+          const metaRow = Ui.el('div', { class: 'ua-tech-meta' }, [
+            Ui.el('span', {}, [
+              Ui.ic('fa-solid fa-screwdriver-wrench'),
+              ' ' + selectedServiceLabel(),
+            ]),
+          ]);
+          if (profile && profile.avg_rating) {
+            metaRow.appendChild(
+              Ui.el('span', { class: 'ub-stars' }, [
+                Ui.ic('fa-solid fa-star'),
+                ' ' +
+                  profile.avg_rating +
+                  (profile.review_count ? ' (' + profile.review_count + ' تقييم)' : ''),
+              ])
+            );
+          }
+          if (profile && profile.location_text) {
+            metaRow.appendChild(
+              Ui.el('span', {}, [Ui.ic('fa-solid fa-location-dot'), ' ' + profile.location_text])
+            );
+          }
+
+          const km =
+            profile &&
+            Number.isFinite(profile.latitude) &&
+            Number.isFinite(profile.longitude) &&
+            Number.isFinite(state.latitude) &&
+            Number.isFinite(state.longitude)
+              ? haversineKm(state.latitude, state.longitude, profile.latitude, profile.longitude)
+              : null;
+
+          body.appendChild(
+            Ui.el('div', { class: 'ua-tech-card' }, [
+              avatar,
+              Ui.el('div', { class: 'ua-tech-info' }, [
+                Ui.el('div', { class: 'ua-tech-name' }, [techName]),
+                metaRow,
+              ]),
+            ])
+          );
+
+          // --- Start PIN -------------------------------------------------
+          // The customer is the only party who ever sees this code; the
+          // technician has to ask for it at the door. It is deliberately not
+          // shown once the job has started, because by then it has done its job.
+          if (request.start_pin && request.status === 'assigned') {
+            body.appendChild(
+              Ui.el('div', { class: 'start-pin-card' }, [
+                Ui.el('div', { class: 'spc-label' }, [
+                  Ui.ic('fa-solid fa-lock'),
+                  ' الرقم السري لبدء المهمة',
+                ]),
+                Ui.el('div', { class: 'spc-digits' }, [
+                  ...String(request.start_pin)
+                    .split('')
+                    .map((d) => Ui.el('span', { class: 'spc-digit' }, [d])),
+                ]),
+                Ui.el('p', { class: 'spc-hint' }, [
+                  'اطلب هذا الرقم من الفني عند وصوله ليبدأ المهمة',
+                ]),
+              ])
+            );
+          } else if (request.status === 'in_progress') {
+            body.appendChild(
+              Ui.el('div', { class: 'job-started-banner' }, [
+                Ui.ic('fa-solid fa-circle-check'),
+                ' الفني بدأ المهمة',
+              ])
+            );
+          }
+
+          // --- Public profile of the technician --------------------------
+          // Available as soon as a technician is attached, so the customer can
+          // read the reviews before deciding who to let in.
+          if (request.technician_id) {
+            body.appendChild(
+              Ui.el(
+                'a',
+                {
+                  class: 'btn btn-outline btn-block',
+                  attrs: {
+                    href:
+                      request.technician_profile_url ||
+                      '/technician-profile.html?id=' + request.technician_id,
+                    target: '_blank',
+                    rel: 'noopener',
+                  },
+                },
+                [Ui.ic('fa-solid fa-user'), ' عرض بروفايل الفني']
+              )
+            );
+          }
+
+          body.appendChild(
+            Ui.el('div', { class: 'ub-eta' }, [
+              Ui.ic('fa-solid fa-location-arrow'),
+              ' ' + etaText(profile, km),
+            ])
+          );
+
+          const actions = Ui.el('div', { class: 'ua-actions' });
+          if (request.technician_phone) {
+            actions.appendChild(
+              Ui.el(
+                'a',
+                { class: 'btn btn-brand', attrs: { href: 'tel:' + request.technician_phone } },
+                [Ui.ic('fa-solid fa-phone'), ' اتصل بالفني']
+              )
+            );
+          }
+          actions.appendChild(
+            Ui.el(
+              'a',
+              { class: 'btn btn-outline', attrs: { href: '/customer/my-requests.html' } },
+              [Ui.ic('fa-solid fa-list-check'), ' متابعة']
+            )
+          );
+          // Chat is available for exactly as long as somebody is on the job.
+          if (request.technician_id && ['assigned', 'in_progress'].includes(request.status)) {
+            actions.appendChild(
+              Ui.el('a', { class: 'chat-button', attrs: { href: '/chat.html?id=' + request.id } }, [
+                Ui.ic('fa-solid fa-comments'),
+                ' شات',
+              ])
+            );
+          }
+          body.appendChild(actions);
+
+          if (!done) {
+            const cancelBtn = sheetButton('إلغاء الطلب', {
+              id: 'ub-accept-cancel',
+              variant: 'btn-ghost',
+              on: { click: cancelRequest },
+            });
+            body.appendChild(Ui.el('div', { class: 'ub-cancel-row' }, [cancelBtn]));
+          }
+        }
+
+        // ------------------------------------------------------------
+        // Queued / no technicians
+        // ------------------------------------------------------------
+        function showQueued(opts) {
+          // `cancelled` means the request itself is gone (cancelled elsewhere
+          // inside the search window), so the copy must not promise a notification
+          // for something that no longer exists.
+          const wasCancelled = Boolean(opts && opts.cancelled);
+          stopPolling();
+          searchingEl.style.display = 'none';
+          sheet.classList.add('hidden');
+          queuedEl.style.display = 'flex';
+          Ui.clear(queuedEl);
+
+          queuedEl.appendChild(
+            Ui.el('div', { class: 'uq-icon' }, [
+              Ui.ic(wasCancelled ? 'fa-solid fa-ban' : 'fa-solid fa-hourglass-half'),
+            ])
+          );
+          queuedEl.appendChild(
+            Ui.el('h1', { class: 'uq-title' }, [
+              wasCancelled ? 'تم إلغاء الطلب' : 'مفيش فني متاح حالياً',
+            ])
+          );
+          queuedEl.appendChild(
+            Ui.el('p', { class: 'uq-sub' }, [
+              wasCancelled
+                ? 'الطلب اتلغى من جهاز تاني. ابعت طلب جديد وخلاص، وهنوصّلك أقرب فني.'
+                : 'تم حفظ طلبك بأمان. هنبعتلك إشعار بمجرد توفر فني في منطقتك.',
+            ])
+          );
+          queuedEl.appendChild(
+            Ui.el('div', { class: 'uq-actions' }, [
+              Ui.el(
+                'a',
+                { class: 'btn btn-brand', attrs: { href: '/customer/my-requests.html' } },
+                ['متابعة حالة الطلب']
+              ),
+              Ui.el(
+                'button',
+                {
+                  class: 'btn btn-outline',
+                  attrs: { type: 'button' },
+                  on: { click: resetFlow },
+                },
+                [Ui.ic('fa-solid fa-rotate-right'), ' طلب جديد']
+              ),
+              Ui.el('a', { class: 'btn btn-ghost', attrs: { href: '/' } }, ['الرئيسية']),
+            ])
+          );
+        }
+
+        function resetFlow() {
+          stopPolling();
+          queuedEl.style.display = 'none';
+          acceptedEl.style.display = 'none';
+          searchingEl.style.display = 'none';
+          state.step = 'service';
+          state.service = null;
+          state.customText = '';
+          state.area_key = null;
+          state.location_text = '';
+          state.description = '';
+          state.latitude = null;
+          state.longitude = null;
+          state.requestId = null;
+          // The search is over, so its clock stops with it. Without this a stale
+          // searchStartedAt would make the NEXT request's countdown jump straight
+          // to 0 and skip the searching screen entirely.
+          state.searchStartedAt = 0;
+          state.noTechniciansAtStart = false;
+          render();
+        }
+
+        async function cancelRequest() {
+          if (!state.requestId) {
+            resetFlow();
+            return;
+          }
+          if (!confirm('إلغاء الطلب؟')) return;
+          try {
+            await api('/api/customer/requests/' + state.requestId + '/cancel', { method: 'POST' });
+            resetFlow();
+          } catch (e) {
+            toast(e.message, 'error');
+          }
+        }
+
+        document.getElementById('usr-cancel').addEventListener('click', cancelRequest);
+        document.getElementById('ub-logout').addEventListener('click', () => {
+          if (terminalScreenUp() && !confirm('فيه طلب لسه شغال. تخرج برضه؟')) return;
+          stopPolling();
+          Auth.logout();
+        });
+
+        await loadData();
+        render();
+
+        // Deep link from a service card on the marketing site:
+        // /request?service=dish_repair. The choice has already been made, so the
+        // wizard opens on the location step with it preselected instead of
+        // making the customer tap the same card again. An unknown or disabled
+        // key is ignored and the normal list is shown — a stale link must not
+        // submit a service the server will reject.
+        const presetKey = new URLSearchParams(window.location.search).get('service');
+        if (presetKey && specialties.some((s) => s.key === presetKey)) {
+          state.service = presetKey;
+          go('location');
+        }
+      })();
+    </script>
+    <script src="/js/pwa-install.js"></script>
+    <script src="/js/push.js"></script>
+  </body>
+</html>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الإعدادات — دشاوي</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/admin/_admin.css">
+</head>
+<body class="adm-body">
+  <div class="adm-shell">
+    <!-- Sidebar -->
+    <aside class="adm-sidebar" id="sidebar">
+      <div class="adm-sidebar-brand">
+        <span class="asb-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <div class="asb-info">
+          <b>دشاوي</b>
+          <span>لوحة إدارة المنصة</span>
+        </div>
+      </div>
+
+      <nav class="adm-sidebar-nav">
+        <div class="adm-nav-section">عام</div>
+        <a class="adm-nav-item" id="nav-stats" href="/admin/dashboard"><i class="fa-solid fa-gauge-high"></i> الإحصائيات</a>
+        <a class="adm-nav-item" id="nav-requests" href="/admin/requests"><i class="fa-solid fa-list-check"></i> الطلبات<span class="badge" id="side-pending-count" style="margin-inline-start:auto;font-size:0.68rem;padding:2px 8px;border-radius:10px">0</span></a>
+        <a class="adm-nav-item" id="nav-technicians" href="/admin/technicians"><i class="fa-solid fa-users-gear"></i> الفنيون</a>
+
+        <div class="adm-nav-section">المالية</div>
+        <a class="adm-nav-item" id="nav-finance" href="/admin/finance"><i class="fa-solid fa-file-invoice-dollar"></i> المالية<span class="badge" id="nav-finance-count" style="margin-inline-start:auto;font-size:0.68rem;padding:2px 8px;border-radius:10px;display:none">0</span></a>
+        <a class="adm-nav-item" id="nav-wallets" href="/admin/wallets"><i class="fa-solid fa-wallet"></i> المحافظ</a>
+
+        <div class="adm-nav-section">المحتوى</div>
+        <a class="adm-nav-item" id="nav-reviews" href="/admin/reviews"><i class="fa-solid fa-star"></i> المراجعات</a>
+        <a class="adm-nav-item" id="nav-customers" href="/admin/customers"><i class="fa-solid fa-people-group"></i> العملاء</a>
+        <a class="adm-nav-item" id="nav-specialties" href="/admin/specialties"><i class="fa-solid fa-tags"></i> التخصصات</a>
+        <a class="adm-nav-item" id="nav-data-requests" href="/admin/data-requests"><i class="fa-solid fa-scale-balanced"></i> طلبات البيانات</a>
+
+        <div class="adm-nav-section">النظام</div>
+        <a class="adm-nav-item active" id="nav-settings" href="/admin/settings"><i class="fa-solid fa-gear"></i> الإعدادات</a>
+        <a class="adm-nav-item" href="/admin/admins" id="nav-admins" style="display:none;">
+          <i class="fa-solid fa-user-shield"></i> المسؤولون
+        </a>
+      </nav>
+
+      <div class="adm-sidebar-user">
+        <span class="asu-avatar" id="side-avatar">إ</span>
+        <div class="asu-info">
+          <b id="side-name">مدير</b>
+          <span>إدارة النظام</span>
+        </div>
+        <a class="btn btn-soft btn-sm" href="/change-password.html" title="تغيير كلمة المرور">
+          <i class="fa-solid fa-key"></i>
+        </a>
+        <button class="btn btn-soft-danger btn-sm" onclick="Auth.logout('/admin')" title="تسجيل الخروج"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+      </div>
+    </aside>
+    <div class="adm-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Main -->
+    <div class="adm-main">
+      <header class="adm-topbar">
+        <button class="adm-mobile-toggle" id="sidebar-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
+        <div class="atb-title" id="tb-title">الإعدادات</div>
+        <div class="atb-spacer"></div>
+        <a class="atb-btn" href="/" target="_blank" title="عرض الموقع"><i class="fa-solid fa-globe"></i></a>
+      </header>
+
+      <main class="adm-content">
+        <div class="page-head">
+          <div>
+            <h1>الإعدادات العامة</h1>
+            <div class="sub">معلومات المنصة وسياسة التوزيع التلقائي</div>
+          </div>
+        </div>
+
+        <div class="adm-card" style="margin-bottom:18px;">
+          <div class="adm-card-head">
+            <h3><i class="fa-solid fa-globe" style="color:var(--adm-primary);margin-inline-end:6px"></i> بيانات المنصة</h3>
+            <button class="adm-btn primary" id="save-btn" type="button">
+              <i class="fa-solid fa-floppy-disk"></i> حفظ الإعدادات
+            </button>
+          </div>
+          <form id="settings-form">
+            <div class="form-group">
+              <label class="form-label">اسم المنصة</label>
+              <input class="input" id="set-site_name" placeholder="دشاوي">
+            </div>
+            <div class="form-group">
+              <label class="form-label">الوصف المختصر</label>
+              <input class="input" id="set-site_tagline" placeholder="خدمة متخصصة في تركيب وصيانة أطباق الدش">
+              <div class="form-hint">يظهر أسفل اسم المنصة في الفوتر</div>
+            </div>
+          </form>
+        </div>
+
+        <div class="adm-card" style="margin-bottom:18px;">
+          <div class="adm-card-head">
+            <h3><i class="fa-solid fa-address-book" style="color:var(--adm-primary);margin-inline-end:6px"></i> بيانات التواصل</h3>
+          </div>
+          <div style="display:grid;gap:14px;">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-solid fa-phone" style="color:var(--adm-primary)"></i>
+                هاتف التواصل
+              </label>
+              <input class="input" id="set-contact_phone" dir="ltr" placeholder="01025330520">
+              <div class="form-hint">الرقم كما يظهر للزوار في الفوتر</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-solid fa-envelope" style="color:var(--adm-primary)"></i>
+                بريد التواصل
+              </label>
+              <input class="input" id="set-contact_email" dir="ltr" type="email" placeholder="info@example.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-solid fa-location-dot" style="color:var(--adm-primary)"></i>
+                العنوان
+              </label>
+              <input class="input" id="set-contact_address" placeholder="الإسكندرية، مصر">
+            </div>
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-regular fa-clock" style="color:var(--adm-primary)"></i>
+                مواعيد العمل
+              </label>
+              <input class="input" id="set-working_hours" placeholder="يومياً من 9 ص إلى 10 م">
+            </div>
+          </div>
+        </div>
+
+        <div class="adm-card" style="margin-bottom:18px;">
+          <div class="adm-card-head">
+            <h3><i class="fa-solid fa-share-nodes" style="color:var(--adm-primary);margin-inline-end:6px"></i> روابط التواصل الاجتماعي</h3>
+          </div>
+          <div style="display:grid;gap:14px;">
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-brands fa-whatsapp" style="color:#25D366"></i>
+                رابط واتساب
+              </label>
+              <input class="input" id="set-whatsapp" dir="ltr" placeholder="+201025330520 أو https://wa.me/201025330520">
+              <div class="form-hint">اكتب الرقم مع كود الدولة (مثال: +201025330520) أو رابط مباشر</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-brands fa-instagram" style="color:#E4405F"></i>
+                رابط انستجرام
+              </label>
+              <input class="input" id="set-instagram_url" dir="ltr" placeholder="https://instagram.com/username">
+              <div class="form-hint">اتركه فارغاً لإخفاء الأيقونة من الموقع</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                <i class="fa-brands fa-facebook-f" style="color:#1877F2"></i>
+                رابط فيسبوك
+              </label>
+              <input class="input" id="set-facebook_url" dir="ltr" placeholder="https://facebook.com/page-name">
+              <div class="form-hint">اتركه فارغاً لإخفاء الأيقونة من الموقع</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <h3><i class="fa-solid fa-sliders" style="color:var(--adm-primary);margin-inline-end:6px"></i> إعدادات التشغيل والدعم</h3>
+          </div>
+          <form id="ops-form">
+            <div class="form-group">
+              <label class="form-label">هاتف الدعم</label>
+              <input class="input" id="set-support_phone" dir="ltr" placeholder="+20xxxxxxxxxx">
+              <div class="form-hint">يظهر في صفحات التواصل بالعملاء (إن لم يوجد يُخفى)</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">بريد الدعم</label>
+              <input class="input" id="set-support_email" dir="ltr" type="email" placeholder="support@domain.com">
+            </div>
+            <div class="form-group">
+              <label class="form-label">التوزيع التلقائي</label>
+              <div>
+                <label class="switch-label" style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                  <input type="checkbox" id="set-auto_assign_enabled">
+                  <span>توزيع الطلبات تلقائياً على أقرب فني متاح</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">نطاق البحث (كم)</label>
+              <input class="input" id="set-auto_assign_radius_km" dir="ltr" type="number" min="1" max="200" placeholder="25">
+              <div class="form-hint">أقصى مسافة لاعتماد فني للطلب تلقائياً</div>
+            </div>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/admin.js"></script>
+  <script>
+    (async () => {
+      if (!(await Admin.init())) throw new Error('redirect');
+
+      Admin.hideUnauthorizedNav();
+      const me = Auth.getUser();
+      if (me && me.is_super_admin) {
+        const el = document.getElementById('nav-admins');
+        if (el) el.style.display = '';
+      }
+      const user = Auth.getUser();
+      document.getElementById('side-name').textContent = user.email;
+      document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
+      document.getElementById('tb-title').textContent = 'الإعدادات';
+
+      const sidebar = document.getElementById('sidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      const sbtn = document.getElementById('sidebar-toggle');
+      backdrop.addEventListener('click', () => { sidebar.classList.remove('open'); backdrop.classList.remove('show'); });
+      sbtn.addEventListener('click', () => { sidebar.classList.add('open'); backdrop.classList.add('show'); });
+      const mq = window.matchMedia('(max-width:1024px)');
+      mq.addEventListener('change', (e) => { sbtn.style.display = e.matches ? '' : 'none'; });
+      sbtn.style.display = mq.matches ? '' : 'none';
+
+      // Every editable setting on this page, as input-id -> settings key. Kept as a
+      // single list so load() and the save handler can never drift apart.
+      const FIELDS = {
+        'set-site_name': 'site_name',
+        'set-site_tagline': 'site_tagline',
+        'set-contact_phone': 'contact_phone',
+        'set-contact_email': 'contact_email',
+        'set-contact_address': 'contact_address',
+        'set-working_hours': 'working_hours',
+        'set-whatsapp': 'whatsapp',
+        'set-instagram_url': 'instagram_url',
+        'set-facebook_url': 'facebook_url',
+        'set-support_phone': 'support_phone',
+        'set-support_email': 'support_email',
+        'set-auto_assign_radius_km': 'auto_assign_radius_km'
+      };
+
+      async function load() {
+        try {
+          const data = await api('/api/admin/settings');
+          const s = data.settings || {};
+          Object.entries(FIELDS).forEach(([id, key]) => {
+            document.getElementById(id).value = s[key] || '';
+          });
+          document.getElementById('set-auto_assign_enabled').checked = s.auto_assign_enabled !== '0';
+        } catch (e) { toast(e.message, 'error'); }
+      }
+
+      document.getElementById('save-btn').addEventListener('click', async () => {
+        const body = {};
+        Object.entries(FIELDS).forEach(([id, key]) => {
+          body[key] = document.getElementById(id).value.trim();
+        });
+        body.auto_assign_enabled = document.getElementById('set-auto_assign_enabled').checked ? '1' : '0';
+        const btn = document.getElementById('save-btn');
+        Ui.btnLoading(btn, 'جارٍ الحفظ…');
+        try {
+          const data = await api('/api/admin/settings', { method: 'PUT', body });
+          toast(data.message, 'success');
+        } catch (err) { toast(err.message, 'error'); }
+        Ui.btnReset(btn);
+      });
+
+      load();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>اختر الفني — دشاوي</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Navbar (same as customer pages) -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/customer/dashboard.html">
+        <span class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <span>دشاوي</span>
+      </a>
+      <div class="nav-menu">
+        <a href="/customer/dashboard.html"><i class="fa-solid fa-house"></i> الرئيسية</a>
+        <a href="/customer/my-requests.html"><i class="fa-solid fa-list-check"></i> طلباتي</a>
+      </div>
+      <div class="nav-actions">
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container page">
+    <div class="legacy-banner">
+      <i class="fa-solid fa-circle-info"></i>
+      <div>
+        <b>النظام يعيّن الفني تلقائياً</b>
+        <span>لم تعد بحاجة لاختيار الفني — النظام يرسل طلبك لأقرب فنيين في منطقتك.
+          <a href="/request">اطلب الخدمة الآن</a>
+        </span>
+      </div>
+    </div>
+
+    <div class="page-head">
+      <div>
+        <h1>الفنيون المتاحون</h1>
+        <div class="sub">اختر فنياً بنفسك، أو دع النظام يختار الأقرب لك تلقائياً</div>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="tech-filters">
+      <select id="filter-area" class="input select-sm">
+        <option value="">كل المناطق</option>
+      </select>
+      <select id="filter-rating" class="input select-sm">
+        <option value="">كل التقييمات</option>
+        <option value="4.5">4.5 نجوم أو أكثر</option>
+        <option value="4">4 نجوم أو أكثر</option>
+        <option value="3">3 نجوم أو أكثر</option>
+      </select>
+      <button class="btn btn-outline btn-sm" id="reset-filters">
+        <i class="fa-solid fa-filter-circle-xmark"></i> مسح
+      </button>
+    </div>
+
+    <div id="tech-grid" class="tech-grid"></div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    // ============================================================
+    // Guard + init
+    // ============================================================
+    if (!Auth.requireRole('customer')) throw new Error('redirect');
+    Ui.renderNavUser(document.getElementById('nav-user'));
+    Ui.initNav();
+
+    // ============================================================
+    // State
+    // ============================================================
+    let allTechs = [];
+    const gridEl = document.getElementById('tech-grid');
+    const areaFilter = document.getElementById('filter-area');
+    const ratingFilter = document.getElementById('filter-rating');
+
+    // ============================================================
+    // Load areas into filter
+    // ============================================================
+    async function loadAreas() {
+      try {
+        const data = await api('/api/alexandria-areas');
+        (data.areas || []).forEach((a) => {
+          areaFilter.appendChild(Ui.el('option', {
+            text: a.label,
+            attrs: { value: a.label }
+          }));
+        });
+      } catch (e) { /* silently ignore */ }
+    }
+
+    // ============================================================
+    // Load technicians
+    // ============================================================
+    async function loadTechs() {
+      Ui.clear(gridEl);
+      gridEl.appendChild(Ui.skeletonList(3));
+      try {
+        const data = await api('/api/public/technicians');
+        allTechs = data.technicians || [];
+        render();
+      } catch (e) {
+        Ui.clear(gridEl);
+        gridEl.appendChild(Ui.el('div', { class: 'empty' }, [
+          Ui.ic('fa-solid fa-triangle-exclamation'),
+          Ui.el('b', {}, ['تعذر تحميل الفنيين']),
+          Ui.el('p', {}, [e.message])
+        ]));
+      }
+    }
+
+    // ============================================================
+    // Filter
+    // ============================================================
+    function filtered() {
+      const area = areaFilter.value;
+      const minRating = Number(ratingFilter.value) || 0;
+      return allTechs.filter((t) => {
+        if (area && t.location_text !== area) return false;
+        if (minRating && (t.avg_rating || 0) < minRating) return false;
+        return true;
+      });
+    }
+
+    // ============================================================
+    // Render
+    // ============================================================
+    function render() {
+      Ui.clear(gridEl);
+      const rows = filtered();
+
+      if (!rows.length) {
+        gridEl.appendChild(Ui.el('div', { class: 'empty' }, [
+          Ui.ic('fa-solid fa-user-slash'),
+          Ui.el('b', {}, ['لا يوجد فنيون متاحون']),
+          Ui.el('p', {}, ['جرب تغيير الفلاتر أو انتظر قليلاً ثم حدّث الصفحة.'])
+        ]));
+        return;
+      }
+
+      rows.forEach((t) => {
+        const card = Ui.el('div', { class: 'tech-card' });
+        // Only an 'available' technician can actually be picked: the server
+        // rejects any other availability, so the card reflects it up front.
+        const isAvailable = t.availability === 'available';
+
+        // Header: avatar + name + rating
+        const avatar = Ui.el('div', { class: 'tech-avatar' });
+        if (t.profile_image_path) {
+          avatar.appendChild(Ui.el('img', { attrs: { src: t.profile_image_path, alt: t.name } }));
+        } else {
+          avatar.appendChild(Ui.el('span', { class: 'tech-avatar-initials' }, [Ui.initials(t.name)]));
+        }
+
+        const stars = [];
+        const rating = Math.round(t.avg_rating || 0);
+        for (let i = 1; i <= 5; i++) {
+          stars.push(Ui.ic(i <= rating ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+        }
+
+        card.appendChild(Ui.el('div', { class: 'tech-head' }, [
+          avatar,
+          Ui.el('div', { class: 'tech-info' }, [
+            Ui.el('h3', { class: 'tech-name' }, [Ui.escapeHtml(t.name)]),
+            Ui.el('div', { class: 'tech-area' }, [
+              Ui.ic('fa-solid fa-location-dot'),
+              ' ' + (t.location_text || '—')
+            ]),
+            Ui.el('div', { class: 'tech-rating' }, [
+              Ui.el('span', { class: 'stars' }, stars),
+              Ui.el('span', { class: 'rating-num' }, [
+                (t.avg_rating || 0).toFixed(1) + ' (' + (t.review_count || 0) + ' مراجعة)'
+              ])
+            ])
+          ])
+        ]));
+
+        card.appendChild(Ui.el('div', { class: 'tech-stats' }, [
+          Ui.el('div', { class: 'tech-stat' }, [
+            Ui.el('b', {}, [String(t.completed_count || 0)]),
+            Ui.el('span', {}, ['طلب مكتمل'])
+          ]),
+          Ui.el('div', { class: 'tech-stat' }, [
+            Ui.el('b', {}, [String(t.review_count || 0)]),
+            Ui.el('span', {}, ['مراجعة'])
+          ])
+        ]));
+
+        if (isAvailable) {
+          card.appendChild(Ui.el('div', { class: 'tech-badge-available' }, [
+            Ui.ic('fa-solid fa-circle-check'),
+            ' متاح الآن'
+          ]));
+        } else {
+          const m = Ui.availMeta(t.availability);
+          card.appendChild(Ui.el('div', { class: 'tech-badge-unavailable' }, [
+            Ui.ic(m.icon),
+            ' ' + m.label + ' — لا يمكن اختياره الآن'
+          ]));
+        }
+
+        const actions = Ui.el('div', { class: 'tech-actions' }, [
+          Ui.el('a', {
+            class: 'btn btn-outline btn-sm',
+            attrs: {
+              href: '/technician-profile.html?id=' + t.id
+            }
+          }, [Ui.ic('fa-regular fa-eye'), 'البروفايل']),
+          isAvailable
+            ? Ui.el('a', {
+                class: 'btn btn-brand btn-sm',
+                attrs: {
+                  href: '/customer/create-request.html?technician_id=' + t.id
+                }
+              }, [Ui.ic('fa-solid fa-hand-pointer'), 'اطلب منه'])
+            : Ui.el('button', {
+                class: 'btn btn-outline btn-sm',
+                attrs: { type: 'button', disabled: '', title: 'الفني غير متاح حالياً' },
+                on: { click: () => toast('الفني غير متاح حالياً — اختر فنياً آخر', 'warn') }
+              }, [Ui.ic('fa-solid fa-ban'), 'غير متاح'])
+        ]);
+        card.appendChild(actions);
+
+        gridEl.appendChild(card);
+      });
+    }
+
+    // ============================================================
+    // Events
+    // ============================================================
+    areaFilter.addEventListener('change', render);
+    ratingFilter.addEventListener('change', render);
+    document.getElementById('reset-filters').addEventListener('click', () => {
+      areaFilter.value = '';
+      ratingFilter.value = '';
+      render();
+    });
+
+    // ============================================================
+    // Init
+    // ============================================================
+    loadAreas().then(() => loadTechs());
+  </script>
+  <script src="/js/pwa-install.js"></script>
+  <script src="/js/force-review.js"></script>
+</body>
+</html>
