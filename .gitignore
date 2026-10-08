@@ -30,3 +30,8 @@ data/
 # ---------- Logs ----------
 *.log
 npm-debug.log*
+
+# Additional DB artifacts
+database/*.recovered
+database/*.pre-recovery
+database/*.db-*
