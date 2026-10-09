@@ -17,6 +17,90 @@ const broadcast = require('./services/broadcast');
 const queue = require('./services/queue');
 const logger = require('./utils/logger');
 
+// ---------------------------------------------------------------------------
+// TEMPORARY admin account recovery — REMOVE AFTER USE
+// ---------------------------------------------------------------------------
+// Set these two in the deployment's variables (Railway → Service → Variables) and
+// redeploy; the account is then created or repaired on boot, with no shell access
+// needed on the box:
+//
+//   RESET_ADMIN_EMAIL    the address to own (defaults to Eltokhey@salahha.com)
+//   RESET_ADMIN_PASSWORD the password to set
+//
+// Delete both variables (and this block) the moment you are back in. The gate is
+// the reason the block is safe to leave in place while you work: with no
+// variables set nothing runs, so once you remove them the next deploy cannot
+// silently undo a password you changed through the UI afterwards.
+//
+// The password is never written here and never logged — it only ever exists in
+// the deployment's variable store, and these logs are readable in the Railway
+// dashboard by anyone with project access.
+//
+// The password variable alone is the gate, because the email falls back to the
+// owner account below. An address is not a secret; the password is.
+const RESET_ADMIN_EMAIL = process.env.RESET_ADMIN_EMAIL || 'Eltokhey@salahha.com';
+
+if (process.env.RESET_ADMIN_PASSWORD) {
+  try {
+    const bcrypt = require('bcryptjs');
+    // Shared with every route that writes an email. Required here rather than
+    // inlined because the login endpoint looks accounts up through it too
+    // (auth.routes.js:426), and users.email is a plain UNIQUE column — SQLite
+    // compares TEXT case-sensitively, so storing "Eltokhey@salahha.com" while
+    // login normalises to lowercase would create an account that can never
+    // sign in.
+    const { isValidEmail, normalizeEmail, passwordPolicyError } = require('./utils/validation');
+
+    const targetEmail = normalizeEmail(RESET_ADMIN_EMAIL);
+    if (!isValidEmail(targetEmail)) {
+      throw new Error(`RESET_ADMIN_EMAIL is not a valid address: ${RESET_ADMIN_EMAIL}`);
+    }
+
+    // bcrypt will happily hash "a", and the value here is typed by hand into the
+    // Railway dashboard, so the same policy the routes enforce is checked first —
+    // otherwise a typo silently installs a password the app would have refused.
+    const pwProblem = passwordPolicyError(process.env.RESET_ADMIN_PASSWORD);
+    if (pwProblem) throw new Error(`RESET_ADMIN_PASSWORD rejected: ${pwProblem}`);
+
+    const hash = bcrypt.hashSync(process.env.RESET_ADMIN_PASSWORD, 12);
+
+    const existing = db
+      .prepare('SELECT id, role, is_super_admin FROM users WHERE email = ?')
+      .get(targetEmail);
+
+    const run = db.transaction(() => {
+      if (existing) {
+        db.prepare(
+          `UPDATE users
+              SET password_hash = ?, role = 'admin', is_super_admin = 1, blocked = 0,
+                  must_change_password = 0
+            WHERE id = ?`
+        ).run(hash, existing.id);
+        return { id: existing.id, action: 'updated' };
+      }
+      const inserted = db
+        .prepare(
+          `INSERT INTO users (email, password_hash, role, is_super_admin, blocked, must_change_password)
+           VALUES (?, ?, 'admin', 1, 0, 0)`
+        )
+        .run(targetEmail, hash);
+      return { id: inserted.lastInsertRowid, action: 'created' };
+    });
+
+    const { id, action } = run();
+
+    // The email is safe to print; the password is not.
+    logger.warn(
+      'server',
+      `[FORCE-RESET] Admin ${action} for: ${targetEmail} (id ${id}). REMOVE RESET_ADMIN_EMAIL + RESET_ADMIN_PASSWORD NOW.`
+    );
+  } catch (err) {
+    // A failure here must not stop the server from booting, or a bad value
+    // would trade "I can't log in" for "the whole app is down".
+    logger.error('server', `[FORCE-RESET] failed:`, err.message);
+  }
+}
+
 db.prepare('SELECT 1').get();
 
 const server = app.listen(config.PORT, () => {
