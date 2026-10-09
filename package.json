@@ -12,7 +12,7 @@
     "format:check": "prettier --check \"backend/**/*.js\" \"frontend/js/**/*.js\""
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.0.0"
   },
   "license": "MIT",
   "dependencies": {
