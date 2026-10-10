@@ -269,12 +269,19 @@ router.delete(
   requireSuperAdmin,
   wrap(async (req, res) => {
     const id = Number(req.params.id);
+
+    // The one refusal left. Deleting yourself would end the only session that
+    // can reach this endpoint, and the account would have to be recreated
+    // through the boot-time recovery block.
+    if (id === req.user.id) throw new AppError('مش ممكن تحذف حسابك بنفسك', 400);
+
     const target = db.prepare('SELECT id, role, is_super_admin FROM users WHERE id = ?').get(id);
-
     if (!target || target.role !== 'admin') throw new AppError('المسؤول غير موجود', 404);
-    if (target.is_super_admin) throw forbidden('لا يمكن حذف المدير العام');
-    if (id === req.user.id) throw forbidden('لا يمكنك حذف حسابك الشخصي');
 
+    // Any other admin can go, super admin or not. requireSuperAdmin above is
+    // what keeps the endpoint restricted; a second role check here would only
+    // stop one super admin from removing a rival, which is not a protection
+    // worth having — the guard that matters is the self-check above.
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
     res.json({ message: 'تم حذف المسؤول' });
   })

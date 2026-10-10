@@ -210,9 +210,19 @@
               attrs: { 'data-reset': a.id, title: 'تغيير كلمة المرور' }
             }, [Ui.ic('fa-solid fa-key')]));
 
-            actions.appendChild(Ui.el('span', {
-              style: 'color:var(--muted);font-size:0.8rem;align-self:center'
-            }, [isMe ? 'الحساب الرئيسي — محمي' : 'حساب رئيسي — محمي']));
+            // Another super admin is deletable like anyone else; only the
+            // account you are signed in with is protected, and the server
+            // refuses that one regardless of what this button does.
+            if (isMe) {
+              actions.appendChild(Ui.el('span', {
+                style: 'color:var(--muted);font-size:0.8rem;align-self:center'
+              }, ['الحساب الرئيسي — محمي']));
+            } else {
+              actions.appendChild(Ui.el('button', {
+                class: 'adm-btn sm danger',
+                attrs: { 'data-del': a.id, title: 'حذف' }
+              }, [Ui.ic('fa-solid fa-trash')]));
+            }
           }
 
           tbody.appendChild(Ui.el('tr', {}, [
