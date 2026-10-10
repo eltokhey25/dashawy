@@ -160,7 +160,7 @@ router.post(
   '/admins',
   requireSuperAdmin,
   wrap(async (req, res) => {
-    const { email, password, permissions } = req.body || {};
+    const { email, password, permissions, is_super_admin: superFlag } = req.body || {};
     const bcrypt = require('bcryptjs');
 
     if (!isValidEmail(email)) throw badRequest('البريد الإلكتروني غير صالح');
@@ -168,6 +168,11 @@ router.post(
     if (pwProblem) throw badRequest(pwProblem);
 
     const permsArray = sanitizePermissions(permissions);
+
+    // Accepted as true / 1 / "1" and nothing else. A checkbox that arrives
+    // unchecked, absent, or as the string "false" all mean the same thing —
+    // a sub-admin — so the default has to be the safe one.
+    const isSuper = superFlag === true || superFlag === 1 || superFlag === '1';
 
     const normEmail = normalizeEmail(email);
     if (db.prepare('SELECT id FROM users WHERE email = ?').get(normEmail)) {
@@ -178,16 +183,16 @@ router.post(
     const result = db
       .prepare(
         `INSERT INTO users (email, password_hash, role, is_super_admin, must_change_password, permissions)
-     VALUES (?, ?, 'admin', 0, 0, ?)`
+     VALUES (?, ?, 'admin', ?, 0, ?)`
       )
-      .run(normEmail, hash, JSON.stringify(permsArray));
+      .run(normEmail, hash, isSuper ? 1 : 0, JSON.stringify(permsArray));
 
     res.status(201).json({
       message: 'تم إضافة المسؤول بنجاح',
       admin: {
         id: result.lastInsertRowid,
         email: normEmail,
-        is_super_admin: false,
+        is_super_admin: isSuper,
         permissions: permsArray,
       },
     });
@@ -277,6 +282,20 @@ router.delete(
 
     const target = db.prepare('SELECT id, role, is_super_admin FROM users WHERE id = ?').get(id);
     if (!target || target.role !== 'admin') throw new AppError('المسؤول غير موجود', 404);
+
+    // Every remaining admin-management route is gated on requireSuperAdmin, so
+    // removing the last one leaves nobody able to create another — the panel
+    // could only be recovered by redeploying with FORCE_RESET_ADMIN. Counted
+    // across all super admins rather than just the page's visible rows, so a
+    // second account cannot be hidden from the check by being blocked.
+    if (target.is_super_admin) {
+      const { count } = db
+        .prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'admin' AND is_super_admin = 1")
+        .get();
+      if (count <= 1) {
+        throw new AppError('مش ممكن تحذف آخر مدير عام. عيّن مدير عام تاني الأول.', 400);
+      }
+    }
 
     // Any other admin can go, super admin or not. requireSuperAdmin above is
     // what keeps the endpoint restricted; a second role check here would only

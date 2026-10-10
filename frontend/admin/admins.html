@@ -343,6 +343,27 @@
             Ui.el('input', { class: 'input', id: 'adm-pwd', attrs: { type: 'text', dir: 'ltr', placeholder: '6 أحرف على الأقل' } }),
             Ui.el('div', { class: 'form-hint' }, ['اكتبها وسلّمها للمسؤول مباشرة — لن يُطلب منه تغييرها.'])
           ]));
+
+          // Super-admin toggle. Create branch only: PUT refuses to edit a super
+          // admin's row at all (admin.routes.js), so the control would be one
+          // that cannot be saved anywhere else.
+          const superLabel = Ui.el('label', { class: 'perm-option' });
+          const superBox = Ui.el('input', { attrs: { type: 'checkbox', id: 'adm-super' } });
+          // Set as a property, not an attribute — see the note above on
+          // permGrid for why passing checked would tick every box.
+          superBox.checked = false;
+          superBox.addEventListener('change', () => {
+            superLabel.classList.toggle('active', superBox.checked);
+            // A super admin holds every permission implicitly, so the picker
+            // below stops meaning anything. Dimming it is clearer than leaving
+            // a half-ticked selection on screen next to a full-access account.
+            permGrid.style.opacity = superBox.checked ? '0.45' : '';
+            permGrid.style.pointerEvents = superBox.checked ? 'none' : '';
+          });
+          superLabel.appendChild(superBox);
+          superLabel.appendChild(Ui.el('span', { class: 'perm-icon' }, [Ui.ic('fa-solid fa-crown')]));
+          superLabel.appendChild(Ui.el('span', { class: 'perm-label' }, ['تعيينه مدير عام — صلاحية كاملة']));
+          body.appendChild(Ui.el('div', { class: 'form-group' }, [superLabel]));
         } else {
           body.appendChild(Ui.el('div', { class: 'perm-target' }, [
             Ui.ic('fa-solid fa-user-shield'),
@@ -369,10 +390,16 @@
             if (!isEdit) {
               const email = document.getElementById('adm-email').value.trim();
               const password = document.getElementById('adm-pwd').value;
+              const isSuper = document.getElementById('adm-super').checked;
               if (!email || !password) { toast('الإيميل والباسورد مطلوبان', 'error'); return; }
               if (password.length < 6) { toast('الباسورد 6 أحرف على الأقل', 'error'); return; }
               payload.email = email;
               payload.password = password;
+              payload.is_super_admin = isSuper;
+              // A super admin bypasses the permission list entirely, so storing
+              // a partial one on them would be misleading the next time the row
+              // is inspected.
+              if (isSuper) payload.permissions = [];
             }
 
             Ui.btnLoading(saveBtn, 'جارٍ الحفظ…');
