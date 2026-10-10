@@ -20,56 +20,93 @@ const logger = require('./utils/logger');
 db.prepare('SELECT 1').get();
 
 // ---------------------------------------------------------------------------
-// TEMPORARY admin permission repair — REMOVE AFTER USE
+// TEMPORARY admin account recovery — REMOVE AFTER USE
 // ---------------------------------------------------------------------------
-// Restores the owner account's admin flags without touching its credentials.
-// Used when the account can sign in fine but the admin area refuses it, which
-// is a permissions problem and not a password problem.
+// Creates or repairs the owner account on boot, with no shell access needed on
+// the box. Production is a separate database file from local, so an account
+// that exists on a laptop does not exist on Railway — this block is what
+// guarantees an owner account exists on both.
 //
-// Set FORCE_RESET_ADMIN=1 in the deployment's variables (Railway → Service →
-// Variables) and redeploy. Remove the variable immediately afterwards: without
-// it nothing runs, so a later deploy cannot silently re-promote an account you
-// demoted through the UI on purpose.
+// Set these in the deployment's variables (Railway → Service → Variables) and
+// redeploy; delete them and this block the moment you are back in. The gate is
+// the reason the block is safe to leave in place while you work: with
+// FORCE_RESET_ADMIN unset nothing runs, so once you remove it the next deploy
+// cannot silently re-create or re-promote an account you changed through the UI
+// afterwards.
 //
-// FORCE_RESET_ADMIN is the gate rather than the presence of an address because
-// an email is not a secret, and this block runs unattended on every boot.
+//   FORCE_RESET_ADMIN      set to 1 to run the block at all
+//   RESET_ADMIN_EMAIL      the address to own (defaults to Eltokhey@salahha.com)
+//   RESET_ADMIN_PASSWORD   REQUIRED only when the account has to be created
+//
+// The password is never written here and never logged — it only ever exists in
+// the deployment's variable store, and these logs are readable in the Railway
+// dashboard by anyone with project access.
 if (process.env.FORCE_RESET_ADMIN === '1') {
-  // normalizeEmail lowercases, which the lookup depends on: users.email is a
-  // plain TEXT UNIQUE column and SQLite compares it case-sensitively, while
-  // every write path stores addresses lowercased. Looking up the raw
-  // "Eltokhey@salahha.com" would therefore never match the stored row.
-  const { normalizeEmail } = require('./utils/validation');
-  const targetEmail = normalizeEmail(process.env.RESET_ADMIN_EMAIL || 'Eltokhey@salahha.com');
-
   try {
+    const bcrypt = require('bcryptjs');
+    // Shared with every route that writes an email. Required here rather than
+    // inlined because the login endpoint looks accounts up through it too
+    // (auth.routes.js:499), and users.email is a plain UNIQUE column — SQLite
+    // compares TEXT case-sensitively, so storing "Eltokhey@salahha.com" while
+    // login normalises to lowercase would create an account that can never
+    // sign in.
+    const { isValidEmail, normalizeEmail, passwordPolicyError } = require('./utils/validation');
+
+    const targetEmail = normalizeEmail(process.env.RESET_ADMIN_EMAIL || 'Eltokhey@salahha.com');
+    if (!isValidEmail(targetEmail)) {
+      throw new Error(`RESET_ADMIN_EMAIL is not a valid address: ${targetEmail}`);
+    }
+
     const existing = db
       .prepare('SELECT id, email, role, is_super_admin FROM users WHERE email = ?')
       .get(targetEmail);
 
     if (existing) {
-      // Only the two flags. password_hash is deliberately not in this statement
-      // — the point of the block is to leave the existing credentials alone, so
-      // a typo in the address can never cost the owner their login. blocked and
-      // must_change_password are left alone for the same reason.
+      // Only the two flags. password_hash is deliberately not in this statement,
+      // so RESET_ADMIN_PASSWORD is ignored on this path — an account that can
+      // already sign in keeps the credentials it has, and a typo in the password
+      // variable cannot cost the owner their login.
       db.prepare("UPDATE users SET role = 'admin', is_super_admin = 1 WHERE id = ?").run(
         existing.id
       );
-      logger.info(
-        'admin',
-        `[FORCE-RESET] Admin permissions fixed for: ${targetEmail}. is_super_admin = 1`
-      );
+      logger.info('admin', `[FORCE-RESET] Admin permissions updated for: ${targetEmail}`);
     } else {
-      // Creating the account would mean minting a password, which is exactly
-      // what this block exists to avoid. A missing address is reported so the
-      // right one can be set in RESET_ADMIN_EMAIL.
-      logger.error(
-        'admin',
-        `[FORCE-RESET] No user found for: ${targetEmail}. Nothing was changed. ` +
-          'Set RESET_ADMIN_EMAIL to the account that needs repairing.'
-      );
+      const password = process.env.RESET_ADMIN_PASSWORD;
+
+      // Creating an account means minting a password, so this path cannot be
+      // passwordless. Without the variable there is nothing sensible to hash:
+      // bcrypt would happily accept an empty string and install a credential
+      // that is public knowledge, so the block refuses instead.
+      if (!password) {
+        logger.error(
+          'admin',
+          `[FORCE-RESET] No user found for: ${targetEmail}, and RESET_ADMIN_PASSWORD is not set. ` +
+            'Refusing to create the account without a password. Set RESET_ADMIN_PASSWORD and redeploy.'
+        );
+      } else {
+        // bcrypt will happily hash "a", and the value here is typed by hand into
+        // the Railway dashboard, so the same policy the routes enforce is checked
+        // first — otherwise a typo silently installs a password the app would
+        // have refused.
+        const pwProblem = passwordPolicyError(password);
+        if (pwProblem) {
+          throw new Error(`RESET_ADMIN_PASSWORD rejected: ${pwProblem}`);
+        }
+
+        // 12 rounds, matching admin.routes.js:175 and reset-admin.js rather than
+        // the seed's 10.
+        const hash = bcrypt.hashSync(password, 12);
+
+        db.prepare(
+          `INSERT INTO users (email, password_hash, role, is_super_admin, blocked, must_change_password)
+           VALUES (?, ?, 'admin', 1, 0, 0)`
+        ).run(targetEmail, hash);
+
+        logger.info('admin', `[FORCE-RESET] Admin created successfully for: ${targetEmail}`);
+      }
     }
   } catch (err) {
-    logger.error('admin', `[FORCE-RESET] Admin permission repair failed: ${err.message}`);
+    logger.error('admin', `[FORCE-RESET] Admin recovery failed: ${err.message}`);
   }
 }
 
