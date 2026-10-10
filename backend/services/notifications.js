@@ -21,12 +21,55 @@ const logger = require('../utils/logger');
 
 let ready = false;
 
-if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(config.VAPID_SUBJECT, config.VAPID_PUBLIC_KEY, config.VAPID_PRIVATE_KEY);
-  ready = true;
-} else {
-  logger.info('push', `[push] VAPID keys not set — push notifications disabled`);
+// Decides whether push can run, without ever throwing.
+//
+// The previous guard only checked that both keys were PRESENT, which meant any
+// placeholder ("dummy-public-key", a truncated value, a key copied with its label
+// attached) passed the check and then made webpush.setVapidDetails() throw. That
+// throw happened at require() time, i.e. before app.listen(), so a single bad env
+// var took the whole process down and Railway crash-looped the deploy instead of
+// just losing push.
+//
+// setVapidDetails() is still the authority on validity — it is the only thing that
+// knows the required key lengths — we simply keep it behind a try/catch so a
+// misconfigured deployment degrades to "push off" rather than to "no server".
+//
+// A warning rather than info, because a key that is set but wrong is almost always
+// a mistake rather than a decision to disable push.
+function initPush() {
+  const pub = (config.VAPID_PUBLIC_KEY || '').trim();
+  const priv = (config.VAPID_PRIVATE_KEY || '').trim();
+
+  if (!pub && !priv) {
+    logger.info('push', `[push] VAPID keys not set — push notifications disabled`);
+    return false;
+  }
+  if (!pub || !priv) {
+    logger.warn(
+      'push',
+      `[push] only one of VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY is set — push notifications disabled`
+    );
+    return false;
+  }
+
+  try {
+    webpush.setVapidDetails(config.VAPID_SUBJECT, pub, priv);
+    return true;
+  } catch (err) {
+    logger.warn(
+      'push',
+      `[push] VAPID keys are invalid — push notifications disabled.`,
+      err.message
+    );
+    logger.warn(
+      'push',
+      `[push] generate a valid pair with: node -e "console.log(require('web-push').generateVAPIDKeys())"`
+    );
+    return false;
+  }
 }
+
+ready = initPush();
 
 // Never let a full mailbox stall the accept/complete path.
 const MAX_PER_MESSAGE = 10;
@@ -79,8 +122,15 @@ function subscriptionsFor(userId) {
 // Sending
 // ---------------------------------------------------------------------------
 
+// Sends to every subscription this user has, up to MAX_PER_MESSAGE.
+//
+// Returns false when push is disabled — that is the whole point of failing soft
+// at startup: with an invalid key pair `ready` is false forever, and every
+// caller gets a plain "nothing was sent" instead of an exception. No caller
+// reads the counts; they are kept for the enabled path because they cost
+// nothing and are the obvious thing to log when debugging delivery.
 async function sendToUser(userId, payload) {
-  if (!ready) return { sent: 0, failed: 0, reason: 'not_configured' };
+  if (!ready) return false;
 
   const subs = subscriptionsFor(userId);
   if (subs.length === 0) return { sent: 0, failed: 0, reason: 'no_subscriptions' };
@@ -119,11 +169,14 @@ async function sendToUser(userId, payload) {
 }
 
 // Fire-and-forget: the caller must never await or be interrupted by a push.
+// Returns false when there was nothing to do (push disabled, or no recipient),
+// true once the delivery has been kicked off.
 function notify(userId, payload) {
-  if (!userId) return;
+  if (!userId || !ready) return false;
   sendToUser(userId, payload).catch((err) => {
     logger.info('push', `[push] notify error:`, err.message);
   });
+  return true;
 }
 
 // ---------------------------------------------------------------------------

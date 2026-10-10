@@ -28,6 +28,7 @@ const notificationsRoutes = require('./routes/notifications.routes');
 const messagesRoutes = require('./routes/messages.routes');
 const { authenticate } = require('./middleware/auth');
 const refs = require('./services/refs');
+const notifications = require('./services/notifications');
 
 const app = express();
 
@@ -92,6 +93,11 @@ app.use('/api/', apiLimiter);
 // WHICH build answered — a canary that only returns {"ok":true} cannot detect a
 // bad deploy, and a process that has wedged its request handler but still holds
 // the TCP socket is indistinguishable from a healthy one without it.
+//
+// `push` reports whether Web Push is usable, which is a degradation the process
+// survives rather than fails on: a missing or malformed VAPID key pair leaves
+// the server fully up with notifications off, and nothing else in the response
+// would hint at why they stopped arriving.
 const startedAt = Date.now();
 
 app.get('/api/health', (req, res) => {
@@ -100,6 +106,7 @@ app.get('/api/health', (req, res) => {
     uptime: Math.floor((Date.now() - startedAt) / 1000),
     version: require('../package.json').version,
     env: config.NODE_ENV,
+    push: notifications.isReady(),
   });
 });
 
