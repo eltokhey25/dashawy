@@ -28,7 +28,30 @@ const DEFAULT_HEADERS = {
   'X-Permitted-Cross-Domain-Policies': 'none',
   'X-XSS-Protection': '0',
   'Origin-Agent-Cluster': '?1',
-  'Cross-Origin-Opener-Policy': 'same-origin',
+  // 'same-origin-allow-popups', NOT 'same-origin'.
+  //
+  // Google Identity Services delivers the ID token by having its popup call
+  // window.opener.postMessage(...) back into the page. Under 'same-origin' the
+  // popup is a cross-origin document, so the opener is severed: the popup opens
+  // (accounts.google.com/gsi/transform renders as a blank window), the message
+  // never arrives, and the page sits there with no callback and no error.
+  //
+  // What this gives up: the popup keeps a live reference to window.opener, so it
+  // could navigate our tab (reverse tabnabbing). It cannot read anything —
+  // cross-origin DOM access is blocked by the same-origin policy, and this app
+  // holds its session as a JWT in localStorage sent as an Authorization header
+  // rather than as a cookie, so there is no ambient credential for a Google
+  // document to ride on. 'unsafe-none' would buy the same working popup with
+  // strictly less protection, so it is not used.
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+  // Cross-Origin-Embedder-Policy is deliberately NOT sent.
+  //
+  // 'require-corp' would demand a CORP/CORS opt-in on every cross-origin
+  // resource the page embeds, which is exactly what the Google Sign-In button
+  // iframe and its gsi/style stylesheet are not: they are served by Google
+  // without those headers, so require-corp renders the button blank and is
+  // incompatible with GIS. No COEP header means no embedding requirement, and
+  // COOP alone does not impose one.
   'Cross-Origin-Resource-Policy': 'cross-origin',
   // No camera/microphone/geolocation/interest-cohort use anywhere in the app;
   // geolocation is only requested from the customer's own click handler, and
@@ -43,7 +66,11 @@ const CSP = [
   // accounts.google.com serves the Sign-In button and its popup, and
   // google.gstatic.com the iframe document it loads inside.
   "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net accounts.google.com",
-  "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com",
+  // accounts.google.com/gsi/style is the stylesheet Google injects for the
+  // rendered button and the credential iframe. Without it the button renders
+  // unstyled (and, when the injection is blocked outright, not at all).
+  // This is one extra host on one directive — nothing else in style-src moves.
+  "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com https://accounts.google.com/gsi/style",
   "font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com data:",
   "img-src 'self' data: blob: https://lh3.googleusercontent.com",
   // The sign-in popup and its hidden credential iframe.
