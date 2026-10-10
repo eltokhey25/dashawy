@@ -19,6 +19,60 @@ const logger = require('./utils/logger');
 
 db.prepare('SELECT 1').get();
 
+// ---------------------------------------------------------------------------
+// TEMPORARY admin permission repair — REMOVE AFTER USE
+// ---------------------------------------------------------------------------
+// Restores the owner account's admin flags without touching its credentials.
+// Used when the account can sign in fine but the admin area refuses it, which
+// is a permissions problem and not a password problem.
+//
+// Set FORCE_RESET_ADMIN=1 in the deployment's variables (Railway → Service →
+// Variables) and redeploy. Remove the variable immediately afterwards: without
+// it nothing runs, so a later deploy cannot silently re-promote an account you
+// demoted through the UI on purpose.
+//
+// FORCE_RESET_ADMIN is the gate rather than the presence of an address because
+// an email is not a secret, and this block runs unattended on every boot.
+if (process.env.FORCE_RESET_ADMIN === '1') {
+  // normalizeEmail lowercases, which the lookup depends on: users.email is a
+  // plain TEXT UNIQUE column and SQLite compares it case-sensitively, while
+  // every write path stores addresses lowercased. Looking up the raw
+  // "Eltokhey@salahha.com" would therefore never match the stored row.
+  const { normalizeEmail } = require('./utils/validation');
+  const targetEmail = normalizeEmail(process.env.RESET_ADMIN_EMAIL || 'Eltokhey@salahha.com');
+
+  try {
+    const existing = db
+      .prepare('SELECT id, email, role, is_super_admin FROM users WHERE email = ?')
+      .get(targetEmail);
+
+    if (existing) {
+      // Only the two flags. password_hash is deliberately not in this statement
+      // — the point of the block is to leave the existing credentials alone, so
+      // a typo in the address can never cost the owner their login. blocked and
+      // must_change_password are left alone for the same reason.
+      db.prepare("UPDATE users SET role = 'admin', is_super_admin = 1 WHERE id = ?").run(
+        existing.id
+      );
+      logger.info(
+        'admin',
+        `[FORCE-RESET] Admin permissions fixed for: ${targetEmail}. is_super_admin = 1`
+      );
+    } else {
+      // Creating the account would mean minting a password, which is exactly
+      // what this block exists to avoid. A missing address is reported so the
+      // right one can be set in RESET_ADMIN_EMAIL.
+      logger.error(
+        'admin',
+        `[FORCE-RESET] No user found for: ${targetEmail}. Nothing was changed. ` +
+          'Set RESET_ADMIN_EMAIL to the account that needs repairing.'
+      );
+    }
+  } catch (err) {
+    logger.error('admin', `[FORCE-RESET] Admin permission repair failed: ${err.message}`);
+  }
+}
+
 const server = app.listen(config.PORT, () => {
   logger.info('server', `Fix Request server running on http://localhost:${config.PORT}`);
   logger.info(
