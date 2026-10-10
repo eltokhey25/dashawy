@@ -273,7 +273,15 @@ app.use(
     maxAge: '7d',
     etag: true,
     setHeaders(res, filePath) {
-      if (filePath.endsWith('index.html') || filePath.endsWith('.webmanifest')) {
+      // index.html must never be pinned to a stale shell, and the Google
+      // Search Console verification file must never be served from a cache
+      // that outlives the deploy — a cached pre-deploy 404 would otherwise
+      // keep failing verification after the file is added.
+      if (
+        filePath.endsWith('index.html') ||
+        filePath.endsWith('.webmanifest') ||
+        filePath.endsWith('googleffb088e4331f6842.html')
+      ) {
         res.setHeader('Cache-Control', 'no-cache');
       }
     },
