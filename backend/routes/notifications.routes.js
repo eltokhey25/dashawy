@@ -23,7 +23,11 @@ const router = express.Router();
 // it before the user has necessarily subscribed to anything.
 router.get('/vapid-public-key', (req, res) => {
   res.json({
-    publicKey: config.VAPID_PUBLIC_KEY || null,
+    // Null rather than the raw config value when push is off: a key that failed
+    // validation in notifications.js would otherwise be handed to a browser that
+    // then calls urlBase64ToUint8Array() on it and fails with a far more confusing
+    // error. The client checks `enabled` anyway, but the key itself is useless.
+    publicKey: notifications.ready ? config.VAPID_PUBLIC_KEY : null,
     enabled: notifications.ready,
   });
 });
