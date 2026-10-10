@@ -12,11 +12,17 @@
 const logger = require('./logger');
 
 // Reusable error type with a HTTP status code.
+//
+// The optional `code` is a stable machine-readable tag ('profile_incomplete',
+// …). The Arabic message is for people and may be reworded at any time; a client
+// that has to branch on behaviour needs something it can rely on, and matching
+// on a translated sentence is how a copy edit turns into a production bug.
 class AppError extends Error {
-  constructor(message, status = 400) {
+  constructor(message, status = 400, code) {
     super(message);
     this.name = 'AppError';
     this.status = status;
+    if (code) this.code = code;
   }
 }
 
@@ -68,7 +74,14 @@ function errorHandler(err, req, res, next) {
 
   // A multer limit (file too large / too many files) surfaces as a plain
   // Error with a 500 by default; give it its real 4xx status.
-  res.status(status).json({ error: message });
+  //
+  // Only an AppError's own tag is echoed. Multer and Node attach their own
+  // `code` properties ('LIMIT_FILE_SIZE', 'ENOENT', …), and copying those into
+  // the response would leak an internal vocabulary and let a client start
+  // branching on driver-specific strings.
+  const body = { error: message };
+  if (err instanceof AppError && err.code) body.code = err.code;
+  res.status(status).json(body);
 }
 
 // Translates a typed failure from a service into an AppError.

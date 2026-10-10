@@ -12,13 +12,15 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const db = require('../db');
 const config = require('../config');
-const { wrap, AppError, badRequest, unauthorized } = require('../utils/errors');
-const { authenticate } = require('../middleware/auth');
+const { wrap, AppError, badRequest, unauthorized, forbidden } = require('../utils/errors');
+const { authenticate, requireRole } = require('../middleware/auth');
 const rateLimit = require('../middleware/rate-limit');
+const { verifyGoogleIdToken } = require('../services/google-identity');
 
 // Strict limiter for the credential endpoints: brute-forcing a password or
 // spamming registrations is the only thing an attacker wants from these.
@@ -44,6 +46,15 @@ const authLimiter = (name, max, keyBy) =>
 
 const loginLimiter = authLimiter('auth-login', 10);
 const registerLimiter = authLimiter('auth-register', 10);
+
+// Google sign-in is a credential exchange like any other, and it is unauthenticated,
+// so it gets its own bucket rather than sharing one with the password flow.
+// Unlike the password buckets it does NOT skip successful requests: replaying a
+// captured ID token (which stays valid for an hour) is a real attempt to mint a
+// session, and skipping successes would let it be free. 20 per 15 minutes per IP
+// is far above what one person needs to sign in, and the endpoint is not on any
+// page a user reloads.
+const googleLimiter = authLimiter('auth-google', 20);
 
 // 5 per 15 minutes, keyed on the USER rather than the IP.
 //
@@ -137,6 +148,7 @@ const {
   parseLatLng,
   normalizeEmail,
   normalizePhone,
+  normalizeEgyptianMobile,
 } = require('../utils/validation');
 
 const router = express.Router();
@@ -196,6 +208,66 @@ function profileFor(user) {
     return db.prepare('SELECT * FROM technicians WHERE user_id = ?').get(user.id);
   }
   return null;
+}
+
+// The user object handed to the browser. Shared by every route that issues or
+// refreshes a session, so a field added here (profile_complete) cannot appear
+// on one path and be missing on another.
+function safeUserFor(user, profileComplete) {
+  return {
+    id: user.id,
+    email: user.email,
+    phone: user.phone || null,
+    role: user.role,
+    is_super_admin: Boolean(user.is_super_admin),
+    // Unparseable JSON degrades to "no permissions" rather than throwing: a
+    // corrupt value must deny access, never grant it and never 500 a login.
+    permissions: (() => {
+      try {
+        return JSON.parse(user.permissions || '[]');
+      } catch (e) {
+        return [];
+      }
+    })(),
+    profile_complete:
+      profileComplete !== undefined
+        ? Boolean(profileComplete)
+        : user.role !== config.LEVELS.customer || Boolean(user.phone),
+  };
+}
+
+// Refuses an account that must not obtain a session at all, for the same
+// reasons /login does: a blocked user row, a customer blocked on the profile,
+// and (for completeness, since only the Google path can reach a technician row
+// with a valid password) the technician approval states.
+//
+// Shared by the password and Google paths so a blocked account cannot get in by
+// choosing the other one.
+function assertAccountCanSignIn(user) {
+  if (user.blocked) throw unauthorized('تم إيقاف حسابك. تواصل مع الإدارة.');
+
+  if (user.role === config.LEVELS.technician) {
+    const t = db
+      .prepare(
+        'SELECT approval_status, approval_note, availability FROM technicians WHERE user_id = ?'
+      )
+      .get(user.id);
+
+    if (t && t.approval_status === 'pending') {
+      throw unauthorized('حسابك قيد المراجعة من قبل الإدارة. سيتم إشعارك عند الموافقة.');
+    }
+    if (t && t.approval_status === 'rejected') {
+      const note = t.approval_note ? ' — السبب: ' + t.approval_note : '';
+      throw unauthorized('تم رفض طلب انضمامك.' + note);
+    }
+    if (t && t.availability === 'offline') throw unauthorized('هذا الحساب غير نشط');
+  }
+  if (user.role === config.LEVELS.customer) {
+    const c = db.prepare('SELECT blocked FROM customers WHERE user_id = ?').get(user.id);
+    if (c && c.blocked) {
+      throw unauthorized('حسابك موقوف من قبل الإدارة. يرجى التواصل مع الدعم.');
+    }
+  }
 }
 
 // POST /api/auth/register  (customer self-registration)
@@ -263,7 +335,9 @@ router.post(
     };
     res.status(201).json({
       token: signToken(user),
-      user: { id: user.id, email: user.email, phone: user.phone, role: user.role },
+      // safeUserFor, not an ad-hoc object, so the browser receives exactly the
+      // same user shape from registration as it does from login and from Google.
+      user: safeUserFor(user),
       profile: profileFor(user),
     });
   })
@@ -445,49 +519,13 @@ router.post(
 
     clearFailedLogins(user.id);
 
-    const safe = {
-      id: user.id,
-      email: user.email,
-      phone: user.phone || null,
-      role: user.role,
-      is_super_admin: Boolean(user.is_super_admin),
-      permissions: (() => {
-        try {
-          return JSON.parse(user.permissions || '[]');
-        } catch (e) {
-          return [];
-        }
-      })(),
-    };
-
     // Disabled accounts (sub-admins toggled off by the super admin) must not
-    // be able to obtain a session at all, not just fail on later requests.
-    if (user.blocked) {
-      throw unauthorized('تم إيقاف حسابك. تواصل مع الإدارة.');
-    }
+    // be able to obtain a session at all, not just fail on later requests, and
+    // the technician approval states are checked here too — all of it is the
+    // shared gate the Google path uses, so neither route can be the way around it.
+    assertAccountCanSignIn(user);
 
-    if (user.role === config.LEVELS.technician) {
-      const t = db
-        .prepare(
-          'SELECT approval_status, approval_note, availability FROM technicians WHERE user_id = ?'
-        )
-        .get(user.id);
-
-      if (t && t.approval_status === 'pending') {
-        throw unauthorized('حسابك قيد المراجعة من قبل الإدارة. سيتم إشعارك عند الموافقة.');
-      }
-      if (t && t.approval_status === 'rejected') {
-        const note = t.approval_note ? ' — السبب: ' + t.approval_note : '';
-        throw unauthorized('تم رفض طلب انضمامك.' + note);
-      }
-      if (t && t.availability === 'offline') throw unauthorized('هذا الحساب غير نشط');
-    }
-    if (user.role === config.LEVELS.customer) {
-      const c = db.prepare('SELECT blocked FROM customers WHERE user_id = ?').get(user.id);
-      if (c && c.blocked) {
-        throw unauthorized('حسابك موقوف من قبل الإدارة. يرجى التواصل مع الدعم.');
-      }
-    }
+    const safe = safeUserFor(user);
 
     res.json({
       token: signToken(user),
@@ -521,6 +559,11 @@ router.get(
       role: user.role,
       is_super_admin: Boolean(user.is_super_admin),
       must_change_password: Boolean(user.must_change_password),
+      // Re-derived here as well, so a page that reloads mid-onboarding gets
+      // the same answer the guard would give rather than acting on a stale
+      // localStorage value and bouncing the customer off a page they have
+      // legitimately finished.
+      profile_complete: user.role !== config.LEVELS.customer || Boolean(user.phone),
       permissions: (() => {
         try {
           return JSON.parse(user.permissions || '[]');
@@ -530,7 +573,245 @@ router.get(
       })(),
     };
 
-    res.json({ user: safe });
+    res.json({ user: safe, profile: profileFor(safe) });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Google sign-in (customers only)
+// ---------------------------------------------------------------------------
+
+// GET /api/auth/google/config
+// Tells the page whether the feature is switched on and, if so, which client ID
+// the button must be rendered with. Nothing secret is returned: the client ID
+// is published in the Google Cloud console and is already in the page source.
+router.get(
+  '/google/config',
+  wrap(async (req, res) => {
+    res.json({
+      enabled: config.GOOGLE_ENABLED,
+      client_id: config.GOOGLE_ENABLED ? config.GOOGLE_CLIENT_ID : null,
+    });
+  })
+);
+
+// POST /api/auth/google  body: { id_token }
+//
+// The `id_token` is treated as an untrusted string. Nothing about it is read
+// until verifyGoogleIdToken() has checked Google's signature over it, and only
+// what that function returns — never the decoded token itself — reaches the
+// account lookup below.
+//
+// Three outcomes, in order:
+//   1. the email already belongs to a technician or an admin  -> refused, never
+//      merged. One person holding two roles is a support decision, not
+//      something an OAuth callback may decide silently.
+//   2. the email belongs to a customer -> signed in, and google_sub linked.
+//   3. the email is unknown -> a customer account is created with NO phone, so
+//      the response carries profile_complete:false and the API then refuses
+//      every customer route until the number is claimed.
+router.post(
+  '/google',
+  googleLimiter,
+  wrap(async (req, res) => {
+    const { id_token: idToken } = req.body || {};
+    if (!isNonEmptyString(idToken, 4096)) {
+      throw badRequest('بيانات تسجيل الدخول من جوجل غير صالحة');
+    }
+
+    // Throws a 401 AppError for anything that does not verify. No claim from
+    // the request body is consulted at any point below.
+    const google = await verifyGoogleIdToken(idToken);
+
+    let user = db.prepare('SELECT * FROM users WHERE google_sub = ?').get(google.sub);
+
+    if (user) {
+      // Already linked, so this is a returning visitor. If the email Google
+      // reports no longer matches the one on the account, the identity was
+      // moved or the token is from a different Google account than the one
+      // linked — either way, silently re-pointing an existing account at a new
+      // email would hand it to whoever controls that email now.
+      if (normalizeEmail(user.email) !== google.email) {
+        throw forbidden(
+          'حساب جوجل ده مرتبط بالفعل بحساب مسجّل بإيميل تاني. سجّل دخولك بالإيميل وكلمة المرور.'
+        );
+      }
+    } else {
+      const byEmail = db.prepare('SELECT * FROM users WHERE email = ?').get(google.email);
+
+      if (byEmail) {
+        // Requirement: never merge across roles. A technician or admin keeps
+        // using the email/password flow; their account is left completely
+        // untouched, including google_sub, so the two paths stay independent.
+        if (byEmail.role !== config.LEVELS.customer) {
+          throw forbidden(
+            'هذا البريد الإلكتروني مسجّل بالفعل كحساب ' +
+              (byEmail.role === config.LEVELS.technician ? 'فني' : 'مدير') +
+              '. استخدم تسجيل الدخول بالإيميل وكلمة المرور.'
+          );
+        }
+        if (byEmail.google_sub && byEmail.google_sub !== google.sub) {
+          // Same customer email, different Google identity. Refused rather than
+          // re-linked: taking the new link would let anyone who later controls
+          // this Google account walk into an existing customer's history.
+          throw forbidden(
+            'حساب العميل ده مرتبط بحساب جوجل مختلف. سجّل دخولك بالإيميل وكلمة المرور.'
+          );
+        }
+        db.prepare('UPDATE users SET google_sub = ? WHERE id = ?').run(google.sub, byEmail.id);
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(byEmail.id);
+      } else {
+        const create = db.transaction(() => {
+          const inserted = db
+            .prepare(
+              `INSERT INTO users (email, phone, password_hash, role, google_sub)
+               VALUES (?, NULL, ?, ?, ?)`
+            )
+            .run(
+              google.email,
+              // A Google account has no password, but password_hash is NOT NULL
+              // and the phone login path compares against it. This is 256 bits
+              // of CSPRNG output, hashed like any other password and never
+              // stored anywhere: it makes email/password login impossible for
+              // this account rather than merely unlikely, and it can never be
+              // guessed or brute-forced. must_change_password stays 0, because
+              // there is no password for them to change.
+              bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 12),
+              config.LEVELS.customer,
+              google.sub
+            );
+          const userId = inserted.lastInsertRowid;
+
+          // The profile is created now so the name Google returned is on the
+          // account from the first moment — the customer row carries no phone
+          // until they claim one, which is exactly the state the gate expects.
+          db.prepare('INSERT INTO customers (user_id, name, phone) VALUES (?, ?, NULL)').run(
+            userId,
+            // Google may send no name at all (some accounts are email-only), and
+            // the column is NOT NULL. The address' local part is a placeholder
+            // the customer overwrites on the completion form.
+            google.name && google.name.length >= 2 ? google.name : google.email.split('@')[0]
+          );
+          return userId;
+        });
+        user = db.prepare('SELECT * FROM users WHERE id = ?').get(create());
+      }
+    }
+
+    // The one thing this route must never allow, whatever the token says.
+    if (user.role !== config.LEVELS.customer) {
+      throw forbidden('تسجيل الدخول بحساب جوجل متاح للعملاء فقط');
+    }
+
+    assertAccountCanSignIn(user);
+    clearFailedLogins(user.id);
+
+    // A returning customer who is complete is a plain sign-in. Anyone without a
+    // phone — a brand-new Google account, or an existing customer whose phone
+    // was never claimed — gets a token that is valid but carries no authority:
+    // every /api/customer route answers 403 until /complete-profile is posted.
+    const complete = Boolean(user.phone);
+    res.json({
+      token: signToken(user),
+      user: safeUserFor(user, complete),
+      // Returned even when the profile is not finished: the customer row exists
+      // from the moment the account was created, and the completion form
+      // prefills the name Google gave us from it.
+      profile: profileFor(user),
+      must_change_password: Boolean(user.must_change_password),
+      profile_complete: complete,
+    });
+  })
+);
+
+// POST /api/auth/complete-profile  body: { phone, area_key, location_text? }
+//
+// The only way out of the onboarding gate. Customers only — the route is
+// behind requireRole('customer') as well as `authenticate`, so neither a
+// technician nor an admin can use it to edit a profile.
+router.post(
+  '/complete-profile',
+  authenticate,
+  requireRole(config.LEVELS.customer),
+  wrap(async (req, res) => {
+    const { name, phone, area_key, location_text } = req.body || {};
+
+    // Format first, database second: a bad number never reaches a UNIQUE index
+    // and never has to be turned back into a 400.
+    const normPhone = normalizeEgyptianMobile(phone);
+    if (!normPhone) {
+      throw badRequest('رقم الموبايل غير صالح — اكتبه بالشكل 01xxxxxxxxx');
+    }
+    const area = config.ALEXANDRIA_AREAS.find((a) => a.key === area_key);
+    if (!area) throw badRequest('اختر منطقتك');
+    if (location_text !== undefined && !isNonEmptyString(location_text, 300)) {
+      throw badRequest('وصف الموقع غير صالح');
+    }
+    // The name arrived from Google, but the form lets the customer correct it,
+    // so it is validated the same way any other name in this file is. Omitting
+    // it keeps whatever is already stored rather than blanking the column,
+    // which is NOT NULL.
+    const trimmedName = name === undefined ? null : String(name).trim();
+    if (trimmedName !== null && !isValidName(trimmedName)) {
+      throw badRequest('الاسم غير صالح (حرفان على الأقل)');
+    }
+
+    const current = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    if (!current) throw unauthorized('الحساب غير موجود');
+    if (current.role !== config.LEVELS.customer) {
+      throw forbidden('هذه الصفحة متاحة للعملاء فقط');
+    }
+    assertAccountCanSignIn(current);
+
+    // The UNIQUE index on users.phone is the real guarantee; this check is here
+    // to turn a would-be IntegrityError into a field-level message instead of a
+    // 500. Both this read and the write go through normalizeEgyptianMobile, so
+    // "01025330520" and "+201025330520" are recognised as the same number.
+    const takenBy = db.prepare('SELECT id FROM users WHERE phone = ?').get(normPhone);
+    if (takenBy && takenBy.id !== current.id) {
+      throw badRequest('هذا الرقم مسجّل بالفعل. استخدم رقمًا آخر.');
+    }
+
+    // Re-writing the whole location string from the area would append the area
+    // label a second time to a customer who already has one (the form is
+    // re-submittable, and a legacy account may have a free-text location), so
+    // the area is stored in its own column and only the free text is rebuilt.
+    const detail = (location_text || '').trim();
+
+    const run = db.transaction(() => {
+      db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(normPhone, current.id);
+
+      const existingProfile = db
+        .prepare('SELECT id FROM customers WHERE user_id = ?')
+        .get(current.id);
+
+      if (existingProfile) {
+        db.prepare(
+          'UPDATE customers SET phone = ?, area_key = ?, location_text = ? WHERE id = ?'
+        ).run(normPhone, area.key, detail, existingProfile.id);
+        if (trimmedName) {
+          db.prepare('UPDATE customers SET name = ? WHERE id = ?').run(
+            trimmedName,
+            existingProfile.id
+          );
+        }
+      } else {
+        // Defensive: a customer row is created with the account, so this only
+        // runs if one was deleted underneath us. Without it the customer would
+        // have a phone and still no profile.
+        db.prepare(
+          'INSERT INTO customers (user_id, name, phone, area_key, location_text) VALUES (?, ?, ?, ?, ?)'
+        ).run(current.id, trimmedName || current.email.split('@')[0], normPhone, area.key, detail);
+      }
+    });
+    run();
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(current.id);
+    res.json({
+      message: 'تم حفظ بياناتك بنجاح',
+      user: safeUserFor(user, true),
+      profile: profileFor(user),
+    });
   })
 );
 

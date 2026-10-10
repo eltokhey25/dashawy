@@ -41,6 +41,22 @@
       localStorage.setItem(USER_KEY, JSON.stringify(user));
       localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile || null));
     },
+    // Patches the cached user/profile in place after an endpoint changes them
+    // (completing a profile, for instance) without re-issuing a token. The
+    // token is untouched, so there is nothing to re-validate.
+    updateSession(data) {
+      if (data && data.user) {
+        const user = {
+          ...this.getUser(),
+          ...data.user,
+          must_change_password: Boolean(data.must_change_password),
+        };
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      }
+      if (data && 'profile' in data) {
+        localStorage.setItem(PROFILE_KEY, JSON.stringify(data.profile || null));
+      }
+    },
     clear() {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
@@ -52,6 +68,30 @@
     role() {
       const u = this.getUser();
       return u ? u.role : null;
+    },
+
+    // Path of the onboarding form a customer without a phone is sent to.
+    completeProfilePath() {
+      return '/complete-profile.html';
+    },
+
+    // True when the browser is already showing that form. The page is served
+    // under two URLs — the .html file and the clean /complete-profile route —
+    // and the redirect below must not fire on either, or the form would bounce
+    // itself back to a fresh copy on every load and discard what was typed.
+    onCompleteProfilePage() {
+      const path = window.location.pathname;
+      return path.startsWith('/complete-profile.html') || path.startsWith('/complete-profile');
+    },
+
+    // Whether the signed-in customer has claimed a phone. Absent flag means an
+    // older cached payload predating the field, which is treated as complete so
+    // a returning customer is never bounced out of the app by a stale value.
+    isProfileComplete() {
+      const user = this.getUser();
+      if (!user || user.role !== 'customer') return true;
+      if (typeof user.profile_complete !== 'boolean') return true;
+      return user.profile_complete;
     },
 
     // Route to the role's home page; returns the path.
@@ -96,6 +136,17 @@
         window.location.replace(this.homePath(role));
         return false;
       }
+
+      // A customer who signed in with Google and has not claimed a phone yet
+      // holds a valid token but may not use the product, and the API refuses
+      // every /api/customer route for them. Caught here as well as on the
+      // server so the form is one redirect away instead of a wall of failed
+      // requests. The page itself is exempt, or the form could never load.
+      // The server's answer is the real one — this only saves the round trips.
+      if (role === 'customer' && !this.isProfileComplete() && !this.onCompleteProfilePage()) {
+        window.location.replace(this.completeProfilePath());
+        return false;
+      }
       return true;
     },
 
@@ -116,7 +167,10 @@
         }
         const data = await res.json();
         if (data.user) {
-          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+          // Merged rather than replaced: /api/auth/me does not echo the
+          // permissions a page has not re-fetched yet, and the cached copy is
+          // what the admin UI reads between calls.
+          localStorage.setItem(USER_KEY, JSON.stringify({ ...this.getUser(), ...data.user }));
           return data.user;
         }
         return null;

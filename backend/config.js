@@ -95,6 +95,32 @@ function getCommissionPercent() {
 }
 
 /**
+ * Google Sign-In credentials, read from the environment only.
+ *
+ * Both halves must be present for the feature to be on, and neither is ever
+ * hard-coded: the client ID is public by design (the browser needs it, and it
+ * ends up in the page source anyway) while the client secret stays on this
+ * side. The ID-token flow this app uses — the browser button hands the server
+ * an ID token, and the server verifies its signature against Google's published
+ * public keys — never transmits the secret, so it is validated here and kept
+ * for deployments that later add a server-side consent redirect.
+ *
+ * A half-configured environment is reported at boot instead of failing: the
+ * service is optional, and a typo in one variable should not read as "Google
+ * sign-in is misconfigured" when the real answer is simply "off".
+ */
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const GOOGLE_CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
+
+if (Boolean(GOOGLE_CLIENT_ID) !== Boolean(GOOGLE_CLIENT_SECRET)) {
+  logger.warn(
+    'config',
+    '[config] GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together — Google sign-in is disabled.'
+  );
+}
+
+/**
  * Reads a positive integer from the environment, falling back to `fallback`.
  *
  * Every duration in this file is a fallback-guarded read rather than a bare
@@ -116,6 +142,18 @@ module.exports = {
   JWT_SECRET: getJwtSecret(),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   getCommissionPercent,
+
+  // Google Sign-In (customers only — technicians keep the email/password
+  // flow, since their signup requires identity documents).
+  //
+  // GOOGLE_CLIENT_ID is safe to serve to the browser (it is published in the
+  // Google Cloud console); GOOGLE_CLIENT_SECRET is a credential and is only
+  // ever read here. GOOGLE_ENABLED is the single source of truth the route and
+  // the frontend button both read, so "configured" can never disagree between
+  // the two halves of the feature.
+  GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET,
+  GOOGLE_ENABLED,
 
   // How long an offer stays open. Hours, not seconds: a real customer expects a
   // technician to have most of a working day to answer, and the old 60s window

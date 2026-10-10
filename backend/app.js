@@ -194,6 +194,10 @@ const authPages = {
   '/register': 'register.html',
   '/register-tech': 'register-tech.html',
   '/change-password': 'change-password.html',
+  // Where a Google sign-in lands when the customer has no phone yet. It is a
+  // first-class route rather than a redirect target only, so a customer who
+  // bookmarks it or reloads mid-onboarding keeps working.
+  '/complete-profile': 'complete-profile.html',
   // The Uber-style request wizard. Served from the root rather than under
   // /customer/ because it is the flow the homepage CTA points at; the old
   // /customer/create-request.html form stays as the deep-link fallback for the

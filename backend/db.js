@@ -181,7 +181,14 @@ function migrate() {
 
   ensureCashConfirmationSchema();
 
+  // Before migratePhoneIdentity(): that one backfills users.phone FROM
+  // customers.phone, and a Google account legitimately has neither until the
+  // customer completes their profile, so the columns it reads must already
+  // tolerate a profile with no number.
+  migrateCustomerProfileShape();
   migratePhoneIdentity();
+
+  migrateGoogleIdentity();
 }
 
 // Adds the waiting-queue columns to a requests table that predates them.
@@ -730,6 +737,129 @@ function migratePhoneIdentity() {
     logger.info('db', `[db] Normalised ` + normalizedProfiles + ' profile phone value(s).');
   }
 }
+// ---------------------------------------------------------------------------
+// Google sign-in identity + nullable customer phone
+// ---------------------------------------------------------------------------
+//
+// Two changes, both driven by the same feature:
+//
+//   * users.google_sub     — the stable Google account identifier a customer is
+//     linked by. Added with a plain ALTER, since SQLite can add a nullable
+//     column without touching existing rows; the UNIQUE constraint is a
+//     separate partial index created afterwards, exactly like users.phone.
+//   * customers.phone      — has to stop being NOT NULL, because a Google
+//     sign-in creates the customer profile before there is any number to put
+//     in it. SQLite cannot relax a NOT NULL in place, so this one needs the
+//     same drop/rename rebuild migrateRequestStatuses() uses.
+//
+// customers also gains area_key while it is being rebuilt, since a rebuild is
+// the only moment the column can be introduced with its intended definition on
+// an existing database.
+//
+// Rebuilding a table other rows point at is the dangerous part. requests and
+// data_subjects both carry a FOREIGN KEY to customers(id), and DROP TABLE on a
+// parent would cascade-delete them if foreign keys were on — so they are
+// switched off for the duration, exactly as the request migrations do. The row
+// count is verified and foreign_key_check is run afterwards, so a failed
+// migration throws instead of leaving a half-swapped file behind.
+const CUSTOMER_COLUMNS = [
+  'id',
+  'user_id',
+  'name',
+  'phone',
+  'area_key',
+  'location_text',
+  'latitude',
+  'longitude',
+  'blocked',
+  'created_at',
+];
+
+function migrateCustomerProfileShape() {
+  const ddl = tableDdl('customers');
+  if (!ddl) return;
+  // Already migrated, or created fresh from schema.sql.
+  if (ddl.includes('area_key')) return;
+
+  logger.info('db', `[db] Adding customers.area_key and allowing a profile with no phone…`);
+
+  // A database from before area_key must still migrate, so the copy is limited
+  // to the columns the live table actually has.
+  const live = new Set(
+    db
+      .prepare('PRAGMA table_info(customers)')
+      .all()
+      .map((c) => c.name)
+  );
+  const columns = CUSTOMER_COLUMNS.filter((c) => live.has(c));
+  if (!columns.includes('user_id')) throw new Error('[db] customers has no user_id column');
+
+  const schema = fs.readFileSync(config.SCHEMA_PATH, 'utf8');
+  const match = schema.match(/CREATE TABLE IF NOT EXISTS customers \(([\s\S]*?)\n\);/);
+  if (!match) throw new Error('[db] could not read the customers definition from schema.sql');
+  const targetDdl = match[0].replace(
+    'CREATE TABLE IF NOT EXISTS customers',
+    'CREATE TABLE customers_new'
+  );
+
+  const before = db.prepare('SELECT COUNT(*) AS n FROM customers').get().n;
+  const idHighWater = db.prepare('SELECT COALESCE(MAX(id), 0) AS m FROM customers').get().m;
+
+  db.pragma('foreign_keys = OFF');
+  const run = db.transaction(() => {
+    db.exec(targetDdl);
+    db.exec(
+      'INSERT INTO customers_new (' +
+        columns.join(', ') +
+        ') SELECT ' +
+        columns.join(', ') +
+        ' FROM customers'
+    );
+    db.exec('DROP TABLE customers');
+    db.exec('ALTER TABLE customers_new RENAME TO customers');
+    // Restore the AUTOINCREMENT high-water mark, which lives in sqlite_sequence
+    // and is dropped along with the old table. Without this the next insert
+    // would reuse an id that existing requests.customer_id already points at.
+    const bumpSeq = db
+      .prepare('UPDATE sqlite_sequence SET seq = ? WHERE name = ?')
+      .run(idHighWater, 'customers');
+    if (bumpSeq.changes === 0) {
+      db.prepare('INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)').run(
+        'customers',
+        idHighWater
+      );
+    }
+  });
+  run();
+  db.pragma('foreign_keys = ON');
+
+  const after = db.prepare('SELECT COUNT(*) AS n FROM customers').get().n;
+  if (after !== before) {
+    throw new Error('[db] customers migration lost rows: ' + before + ' -> ' + after);
+  }
+  assertNoBrokenForeignKeys('customers');
+  logger.info('db', `[db] customers migrated, ` + after + ' row(s) kept.');
+}
+
+function migrateGoogleIdentity() {
+  const columns = db
+    .prepare('PRAGMA table_info(users)')
+    .all()
+    .map((c) => c.name);
+  if (!columns.includes('google_sub')) {
+    // Nullable and unconstrained here on purpose: the partial UNIQUE index is
+    // created below, and a column-level UNIQUE would also apply to the NULLs
+    // that every account which has never used Google carries.
+    db.prepare('ALTER TABLE users ADD COLUMN google_sub TEXT').run();
+    logger.info('db', `[db] users.google_sub column added.`);
+  }
+
+  db.prepare(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub_unique
+       ON users(google_sub) WHERE google_sub IS NOT NULL AND google_sub != ''`
+  ).run();
+}
+
 migrate();
 
 module.exports = db;
