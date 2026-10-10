@@ -48,28 +48,90 @@ function getJwtSecret() {
   return secret;
 }
 
+// Local development origins. Kept out of production: any page the operator
+// happens to be serving on localhost:3000 would otherwise be a credentialed
+// cross-origin caller of the live API. A deployment that really does split its
+// frontend across hosts can still list localhost explicitly in CORS_ORIGINS.
+const DEV_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 /**
- * Origins allowed to call the API from a browser. The site is normally served
- * same-origin, so this mainly matters for a split dev/prod deployment.
- * Configure with a comma-separated CORS_ORIGINS env var.
+ * Origins allowed to call the API from a browser IN ADDITION to the request's
+ * own origin. Configured with a comma-separated CORS_ORIGINS env var.
+ *
+ * The site is served from the same host as the API, so same-origin requests are
+ * allowed by the CORS middleware itself (see middleware/security-headers.js);
+ * this list exists only for the extra origins a deployment genuinely has — a
+ * second domain, a staging host, a split dev frontend. That split used to be
+ * the ONLY way an origin was allowed, which is why an unset CORS_ORIGINS made
+ * the production site block its own domain.
+ *
+ * Every entry is validated here rather than in the middleware: a typo has to
+ * become a boot-time warning, never a silently dead entry that only shows up
+ * later as a blocked origin in production logs.
+ *
+ * @returns {{origins: string[], source: string}}
  */
 function getAllowedOrigins() {
-  const fromEnv = (process.env.CORS_ORIGINS || '')
+  const raw = process.env.CORS_ORIGINS || '';
+  const fromEnv = [];
+  const rejected = [];
+
+  raw
     .split(',')
-    .map((o) => o.trim().replace(/\/$/, ''))
-    .filter(Boolean);
+    .map((o) => o.trim())
+    .filter(Boolean)
+    .forEach((entry) => {
+      if (entry === '*') {
+        rejected.push(entry + ' (a wildcard is never accepted)');
+        return;
+      }
+      try {
+        const parsed = new URL(entry);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          rejected.push(entry + ' (only http/https origins are allowed)');
+          return;
+        }
+        fromEnv.push(parsed.origin.toLowerCase());
+      } catch (e) {
+        rejected.push(entry + ' (not a valid origin)');
+      }
+    });
 
-  const defaults = ['http://localhost:3000', 'http://127.0.0.1:3000'];
-  const list = Array.from(new Set(defaults.concat(fromEnv)));
+  rejected.forEach((entry) =>
+    logger.warn('config', `[config] CORS_ORIGINS entry ignored: ${entry}.`)
+  );
 
-  if (IS_PRODUCTION && fromEnv.length === 0) {
+  const origins = Array.from(new Set((IS_PRODUCTION ? [] : DEV_ORIGINS).concat(fromEnv)));
+
+  if (fromEnv.length === 0) {
     logger.info(
       'config',
-      `[config] CORS_ORIGINS is not set — only the localhost origins are allowed.`
+      '[config] CORS_ORIGINS is not set — only same-origin requests are allowed (no extra origins).'
+    );
+  } else {
+    logger.info(
+      'config',
+      `[config] CORS allow-list from CORS_ORIGINS (${fromEnv.length}): ${fromEnv.join(', ')}`
     );
   }
-  return list;
+  if (IS_PRODUCTION && origins.length === 0 && rejected.length === 0) {
+    logger.warn(
+      'config',
+      '[config] no extra CORS origins in production. Set CORS_ORIGINS to add another domain (comma-separated), e.g. CORS_ORIGINS=https://dashawy.app'
+    );
+  }
+
+  // A short, non-sensitive label describing where the list came from, so a
+  // blocked-origin log line can say which list was consulted without having to
+  // print anything that could be a credential.
+  const source = fromEnv.length
+    ? `the CORS allow-list from CORS_ORIGINS (${fromEnv.length} entr${fromEnv.length === 1 ? 'y' : 'ies'}: ${fromEnv.join(', ')})`
+    : 'the CORS allow-list (no CORS_ORIGINS set)';
+
+  return { origins, source };
 }
+
+const CORS = getAllowedOrigins();
 
 /**
  * Platform commission as a percentage of the service price.
@@ -136,7 +198,8 @@ function positiveIntEnv(name, fallback) {
 module.exports = {
   PORT: process.env.PORT || 3000,
   IS_PRODUCTION,
-  ALLOWED_ORIGINS: getAllowedOrigins(),
+  ALLOWED_ORIGINS: CORS.origins,
+  ALLOWED_ORIGINS_SOURCE: CORS.source,
   DATABASE_PATH: process.env.DATABASE_PATH || path.join(ROOT_DIR, 'database', 'fixrequest.db'),
   SCHEMA_PATH: path.join(ROOT_DIR, 'database', 'schema.sql'),
   JWT_SECRET: getJwtSecret(),

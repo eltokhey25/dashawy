@@ -32,7 +32,12 @@ const refs = require('./services/refs');
 const app = express();
 
 // Trust exactly one proxy hop in front of the app, so req.ip (used by the rate
-// limiter) is the real client and not a spoofable X-Forwarded-For value.
+// limiter) is the real client and not a spoofable X-Forwarded-For value — and
+// so req.secure reads X-Forwarded-Proto as https behind Railway, which is what
+// the CORS middleware uses to recognise a same-origin https request.
+// This MUST stay above the CORS middleware below: trust proxy has to be set
+// before req.protocol is read for the first time. A value of 0 or an unset
+// TRUST_PROXY_HOPS still means "one hop", which is Railway's topology.
 app.set(
   'trust proxy',
   Number(process.env.TRUST_PROXY_HOPS) > 0 ? Number(process.env.TRUST_PROXY_HOPS) : 1
@@ -54,9 +59,15 @@ app.use(
 );
 
 // FIX 3: CORS allow-list replaces the previous `Access-Control-Allow-Origin: *`.
+// Same-origin is always allowed — the frontend is served by this process, so
+// the request's own origin is the site's own domain and must never depend on
+// an env var being remembered. `allowedOrigins` only carries the EXTRA origins
+// from CORS_ORIGINS (a second domain, staging, a split dev frontend).
 app.use(
   corsPolicy({
     allowedOrigins: config.ALLOWED_ORIGINS,
+    allowSameOrigin: true,
+    allowlistSource: config.ALLOWED_ORIGINS_SOURCE,
     credentials: true,
   })
 );
