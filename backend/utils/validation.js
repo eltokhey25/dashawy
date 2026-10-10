@@ -148,6 +148,46 @@ function normalizePhone(v) {
   return (hadPlus ? '+' : '') + s;
 }
 
+// A real Egyptian MOBILE number, in the canonical +20 form: '+20' plus ten
+// national digits whose first is always 1, whose second is one of the prefixes
+// actually sold here (10 / 11 / 12 / 15 — the three operators plus the old
+// 012 range), and whose remaining eight are free.
+//
+// This is stricter than normalizePhone() on purpose. normalizePhone answers
+// "are these two strings the same number", which is the only question login
+// asks; here the question is "is this a mobile number a customer could be
+// reached on", and +201234567890 is neither a real prefix nor reachable. Land
+// lines, short codes and a too-short digit string all fail here.
+//
+// Only digits, spaces, dashes, plus and parentheses are accepted before
+// normalising: normalizePhone() throws away anything non-numeric, so without
+// this guard the string "abc01012345678" would normalise into a valid number.
+const EGYPTIAN_MOBILE_RE = /^\+201[0125]\d{8}$/;
+
+/**
+ * Normalises an Egyptian mobile number, or returns '' when the input is not
+ * one. Callers treat '' as "invalid" and never store it.
+ *
+ * @param {unknown} v
+ * @returns {string} '+201XXXXXXXXX', or '' when invalid.
+ */
+function normalizeEgyptianMobile(v) {
+  if (v === null || v === undefined) return '';
+  const raw = String(v).trim();
+  if (!raw) return '';
+  if (!/^[+\d\s\-()]+$/.test(raw)) return '';
+  const normalized = normalizePhone(raw);
+  return EGYPTIAN_MOBILE_RE.test(normalized) ? normalized : '';
+}
+
+/**
+ * @param {unknown} v
+ * @returns {boolean} whether v is a reachable Egyptian mobile number.
+ */
+function isValidEgyptianMobile(v) {
+  return normalizeEgyptianMobile(v) !== '';
+}
+
 module.exports = {
   isValidEmail,
   isValidPhone,
@@ -161,4 +201,6 @@ module.exports = {
   parseLatLng,
   normalizeEmail,
   normalizePhone,
+  normalizeEgyptianMobile,
+  isValidEgyptianMobile,
 };

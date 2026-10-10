@@ -10,10 +10,23 @@ CREATE TABLE IF NOT EXISTS users (
   -- legacy account whose phone collides with another profile. Uniqueness is
   -- enforced by the partial index idx_users_phone_unique (created in db.js),
   -- not by a column constraint, so that the backfill can run first.
+  --
+  -- A customer account with no phone here is INCOMPLETE: the API refuses every
+  -- customer route for them until POST /api/auth/complete-profile claims one.
+  -- That is the state a Google sign-in lands in, since Google never hands us a
+  -- number.
   phone         TEXT,
   password_hash TEXT NOT NULL,
   role          TEXT NOT NULL CHECK (role IN ('customer', 'technician', 'admin')),
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  -- Google's stable per-application account identifier, set the first time
+  -- this account signs in with Google and never changed afterwards. Linkage is
+  -- done on this rather than on the email because the email can change at
+  -- Google while `sub` cannot. NULL means "this account has never used Google".
+  -- Uniqueness is enforced by the partial index idx_users_google_sub_unique
+  -- (created in db.js), which is what stops two local accounts from ever
+  -- claiming the same Google identity.
+  google_sub    TEXT,
   must_change_password INTEGER DEFAULT 0,
   is_super_admin INTEGER DEFAULT 0,
   blocked INTEGER DEFAULT 0,
@@ -34,7 +47,19 @@ CREATE TABLE IF NOT EXISTS customers (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id       INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,
-  phone         TEXT NOT NULL,
+  -- Nullable on purpose: a profile is created the moment a Google sign-in
+  -- succeeds, from the name Google returned, and the number is claimed a step
+  -- later. Making this NOT NULL would have forced a placeholder value into the
+  -- column and every reader would then have to guess whether an empty string
+  -- meant "not claimed yet" or "broken row".
+  phone         TEXT,
+  -- The selected Alexandria neighbourhood, stored as the key from
+  -- config.ALEXANDRIA_AREAS rather than only being flattened into
+  -- location_text, so the "complete your profile" form can prefill itself and
+  -- an admin can filter on a neighbourhood rather than on free text.
+  -- Nullable: accounts registered before this column existed have their
+  -- neighbourhood only inside location_text.
+  area_key      TEXT,
   location_text TEXT,
   latitude      REAL,
   longitude     REAL,

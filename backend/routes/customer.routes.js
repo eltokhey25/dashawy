@@ -13,7 +13,7 @@ const express = require('express');
 const db = require('../db');
 const config = require('../config');
 const { wrap, AppError, badRequest, forbidden, serviceError } = require('../utils/errors');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, requireCompleteProfile } = require('../middleware/auth');
 const { isNonEmptyString, isValidSpecialty, parseLatLng } = require('../utils/validation');
 const { reassignAfterRejection } = require('../services/assignment');
 const broadcast = require('../services/broadcast');
@@ -23,6 +23,13 @@ const router = express.Router();
 
 // Every customer route requires a customer role.
 router.use(requireRole('customer'));
+
+// ...and a finished profile. Mounted over the whole router rather than on the
+// routes that happen to need a phone, so a customer who signed in with Google
+// and has not claimed a number yet is refused everywhere by construction —
+// including any route added later. Without a phone there is nobody to call
+// about an urgent repair, which is the entire point of the request.
+router.use(requireCompleteProfile);
 
 // Status for each typed failure from the payments service. Unlisted codes stay 500
 // on purpose rather than being flattened into a misleading 400.

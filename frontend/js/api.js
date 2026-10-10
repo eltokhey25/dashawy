@@ -43,6 +43,10 @@
       if (res.status === 401 && TokenGuard) TokenGuard(data.error);
       const err = new Error(data.error || 'حدث خطأ غير متوقع');
       err.status = res.status;
+      // Machine-readable tag from the server (e.g. 'profile_incomplete'), so a
+      // page can branch on behaviour without matching an Arabic sentence that a
+      // copy edit may reword.
+      if (data.code) err.code = data.code;
       throw err;
     }
     return data;

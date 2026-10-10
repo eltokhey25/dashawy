@@ -13,7 +13,7 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const config = require('../config');
-const { unauthorized, forbidden } = require('../utils/errors');
+const { unauthorized, forbidden, AppError } = require('../utils/errors');
 
 // Verifies the JWT and attaches req.user = { id, email, role, customerId?, technicianId? }.
 function authenticate(req, res, next) {
@@ -57,6 +57,14 @@ function authenticate(req, res, next) {
         return [];
       }
     })(),
+    // Re-derived from the database row on every request rather than read off
+    // the token, for the same reason as the role above: the token was minted
+    // before the customer finished their profile and stays valid for days
+    // afterwards, so a claim would freeze the answer at sign-in time.
+    //
+    // Only meaningful for customers — a technician or admin has no customer
+    // profile to complete, so they are always complete.
+    profile_complete: user.role !== config.LEVELS.customer || Boolean(user.phone),
   };
 
   if (user.role === config.LEVELS.customer) {
@@ -68,6 +76,28 @@ function authenticate(req, res, next) {
     req.user.technicianId = t ? t.id : null;
   }
   return next();
+}
+
+// Blocks a customer whose profile is not finished — currently, one who has not
+// claimed a phone number yet.
+//
+// Mounted over the whole customer router rather than on the individual routes
+// that happen to need a phone. The alternative is a rule that lives in the
+// create-request handler and is silently absent from every route added later,
+// which is how an incomplete account ends up able to do the one thing it was
+// gated out of. Here the gate is a property of the account, so it applies to
+// every customer endpoint by construction.
+//
+// 403 rather than 401: the token is valid and the session is real — the
+// account is simply not allowed to do this until it finishes onboarding, and
+// answering 401 would send the client's 401 handler into a logout loop.
+function requireCompleteProfile(req, res, next) {
+  if (!req.user) return next(unauthorized('Authentication required'));
+  if (req.user.role !== config.LEVELS.customer) return next();
+  if (req.user.profile_complete) return next();
+  return next(
+    new AppError('أكمل بياناتك (رقم الهاتف والمنطقة) للمتابعة', 403, 'profile_incomplete')
+  );
 }
 
 // Restricts a route to one or more roles.
@@ -108,4 +138,10 @@ function requirePermission(...requiredKeys) {
   };
 }
 
-module.exports = { authenticate, requireRole, requireSuperAdmin, requirePermission };
+module.exports = {
+  authenticate,
+  requireRole,
+  requireSuperAdmin,
+  requirePermission,
+  requireCompleteProfile,
+};
