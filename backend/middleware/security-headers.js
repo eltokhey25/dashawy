@@ -40,11 +40,21 @@ const CSP = [
   "default-src 'self'",
   // 'unsafe-inline' is required: every page has an inline <script> block.
   // A nonce-based policy would need a template change across the whole app.
-  "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net",
+  // accounts.google.com serves the Sign-In button and its popup, and
+  // google.gstatic.com the iframe document it loads inside.
+  "script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com cdn.jsdelivr.net accounts.google.com",
   "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdnjs.cloudflare.com",
   "font-src 'self' fonts.gstatic.com cdnjs.cloudflare.com data:",
-  "img-src 'self' data: blob:",
-  "connect-src 'self'",
+  "img-src 'self' data: blob: https://lh3.googleusercontent.com",
+  // The sign-in popup and its hidden credential iframe.
+  'frame-src https://accounts.google.com',
+  'child-src https://accounts.google.com',
+  // Service worker, declared explicitly. Without it worker-src falls back to
+  // child-src above, which is accounts.google.com only — so /sw.js was refused
+  // and the PWA never installed. This permits same-origin workers and nothing
+  // else: it is not a general loosening.
+  "worker-src 'self'",
+  "connect-src 'self' https://accounts.google.com",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

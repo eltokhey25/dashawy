@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>أكمل بياناتك — دشاوي</title>
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="دشاوي">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="auth-page">
+
+  <!-- Brand visual -->
+  <aside class="auth-visual-side">
+    <div class="auth-visual-inner">
+
+      <a href="/" class="auth-brand">
+        <img class="auth-brand-logo" src="/dashawy-brand/logo-icon.svg" alt="">
+        <span>دشاوي</span>
+      </a>
+
+      <div class="auth-visual-content">
+        <h2 class="auth-visual-title">
+          خطوة أخيرة<br>
+          <span class="grad">ونبدأ</span>
+        </h2>
+        <p class="auth-visual-desc">
+          محتاجين رقمك ومنطقتك عشان نوصلك بأقرب فني دش في دقايق.
+        </p>
+
+        <ul class="auth-features">
+          <li><i class="fa-solid fa-bolt"></i> أسرع في طلب الخدمة</li>
+          <li><i class="fa-solid fa-phone"></i> الفني بيتواصل معاك على رقمك</li>
+          <li><i class="fa-solid fa-location-dot"></i> أقرب فني في منطقتك بس</li>
+        </ul>
+      </div>
+
+      <div class="auth-visual-footer">
+        <span>© 2026 دشاوي</span>
+        <span>صُنع في مصر 🇪🇬</span>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Form -->
+  <main class="auth-form-side">
+    <div class="auth-form-inner">
+
+      <div class="auth-form-header">
+        <h1 class="auth-form-title">أكمل بياناتك ✨</h1>
+        <p class="auth-form-sub">دقيقة واحدة وتقدر تطلب خدمة</p>
+      </div>
+
+      <div class="auth-notice">
+        <i class="fa-solid fa-circle-info"></i>
+        لازم رقم الموبايل والمنطقة قبل ما تقدر تطلب خدمة أو تدخل لوحة العميل
+      </div>
+
+      <form id="profile-form" novalidate>
+
+        <div class="form-group">
+          <label class="form-label" for="cp-name">الاسم الكامل</label>
+          <input type="text" id="cp-name" class="input" placeholder="مثال: أحمد محمد" autocomplete="name">
+          <div class="form-hint">جاي من حساب جوجل — تقدر تعدّله</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cp-phone">رقم الموبايل</label>
+          <input type="tel" id="cp-phone" class="input" dir="ltr" style="text-align:right"
+                 placeholder="01xxxxxxxxx" autocomplete="tel" maxlength="15" inputmode="tel">
+          <div class="form-hint">11 رقم يبدأ بـ 01 — رقمك للتواصل، ومش بيتكرر في أكتر من حساب</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cp-area">المنطقة في الإسكندرية</label>
+          <select id="cp-area" class="input">
+            <option value="">اختر منطقتك…</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cp-location">العنوان بالتفصيل <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+          <input type="text" id="cp-location" class="input" maxlength="300" placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
+        </div>
+
+        <button type="submit" class="btn btn-brand btn-block btn-lg" id="cp-save" style="margin-top:6px">
+          <i class="fa-solid fa-floppy-disk"></i> حفظ ومتابعة
+        </button>
+
+      </form>
+
+      <div class="auth-footer" style="margin-top:18px">
+        <div>
+          <a href="javascript:void(0)" id="cp-signout">
+            <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // Three ways this page can be reached, and what each one means:
+    //   * no session at all        -> nothing to complete, go back to login
+    //   * a session that IS complete -> they finished already (or are an
+    //     admin/technician, who have no customer profile to fill in)
+    //   * an incomplete customer   -> the one case this page exists for
+    // Auth.requireRole is deliberately NOT used: it would redirect an
+    // incomplete customer away from the very form it is meant to show.
+    if (!Auth.isAuthed()) {
+      window.location.replace('/login.html');
+    } else if (Auth.isProfileComplete()) {
+      window.location.replace(Auth.homePath());
+    }
+
+    async function fillAreas(selectEl) {
+      try {
+        const data = await api('/api/alexandria-areas');
+        Ui.clear(selectEl);
+        selectEl.appendChild(Ui.el('option', { text: 'اختر منطقتك…', attrs: { value: '' } }));
+        (data.areas || []).forEach((a) => {
+          selectEl.appendChild(Ui.el('option', { text: a.label, attrs: { value: a.key } }));
+        });
+      } catch (e) {
+        console.error('Failed to load areas', e);
+      }
+    }
+
+    // Prefill whatever the account already knows, so a customer who is only
+    // missing the phone does not retype their name, and one who just abandons
+    // halfway picks up where they left off.
+    function prefill(profile) {
+      if (!profile) return;
+      if (profile.name) $('cp-name').value = profile.name;
+      if (profile.phone) $('cp-phone').value = String(profile.phone).replace(/^\+20/, '0');
+      if (profile.area_key) $('cp-area').value = profile.area_key;
+      if (profile.location_text) $('cp-location').value = profile.location_text;
+    }
+
+    // Mirrors the server's own rule so the obvious mistakes never cost a round
+    // trip: 11 digits, starting 01, second digit one of 0/1/2/5.
+    const PHONE_RE = /^01[0125]\d{8}$/;
+
+    $('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if ($('cp-save').disabled) return;
+      clearFormErrors(document);
+
+      const phone = $('cp-phone').value.trim();
+      const name = $('cp-name').value.trim();
+
+      let ok = true;
+      if (name.length < 2) { setFieldError($('cp-name'), 'أدخل اسماً صحيحاً'); ok = false; }
+      if (!PHONE_RE.test(phone)) { setFieldError($('cp-phone'), 'اكتب الرقم بالشكل 01xxxxxxxxx'); ok = false; }
+      if (!$('cp-area').value) { setFieldError($('cp-area'), 'اختر منطقتك'); ok = false; }
+      if (!ok) return;
+
+      const btn = $('cp-save');
+      Ui.btnLoading(btn, 'جارٍ الحفظ…');
+      try {
+        const body = {
+          name,
+          phone,
+          area_key: $('cp-area').value
+        };
+        const loc = $('cp-location').value.trim();
+        if (loc) body.location_text = loc;
+
+        const data = await api('/api/auth/complete-profile', { method: 'POST', body });
+        // Patch the cached session rather than re-issuing one: the token is
+        // still valid, but the cached user still says profile_complete:false
+        // and would bounce the customer straight back to this page.
+        Auth.updateSession(data);
+        toast('تم حفظ بياناتك بنجاح 🎉', 'success');
+        setTimeout(() => { window.location.href = Auth.homePath('customer'); }, 500);
+      } catch (err) {
+        // A number already in use is a field-level problem the customer can fix
+        // here and now, so it belongs on the phone field rather than only in a
+        // toast that disappears.
+        if (err.status === 400 && err.message && err.message.includes('مسجّل بالفعل')) {
+          setFieldError($('cp-phone'), err.message);
+          $('cp-phone').focus();
+        }
+        toast(err.message, 'error');
+        Ui.btnReset(btn);
+      }
+    });
+
+    $('cp-signout').addEventListener('click', () => {
+      if (confirm('تسجيل الخروج؟')) Auth.logout();
+    });
+
+    (async () => {
+      await fillAreas($('cp-area'));
+      // Ask the server rather than trusting localStorage: this is the first
+      // page a Google customer reaches, so the cached profile may be missing
+      // even though the row exists (an account created with a name from Google
+      // and no phone yet).
+      try {
+        const fresh = await api('/api/auth/me');
+        Auth.updateSession(fresh);
+        if (fresh.user && fresh.user.role !== 'customer') {
+          window.location.replace(Auth.homePath(fresh.user.role));
+          return;
+        }
+        prefill(fresh.profile);
+      } catch (e) {
+        console.warn('[complete-profile] could not load the profile', e);
+        prefill(Auth.getProfile());
+      }
+      Ui.initNav();
+    })();
+  </script>
+</body>
+</html>

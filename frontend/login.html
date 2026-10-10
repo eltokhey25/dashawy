@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
   <title>تسجيل الدخول — دشاوي</title>
   <!-- PWA -->
-  <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#4f46e5">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="دشاوي">
-  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
   <!-- iOS splash screen (universal fallback) -->
-  <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
-  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -28,7 +29,7 @@
     <div class="auth-visual-inner">
 
       <a href="/" class="auth-brand">
-        <span class="auth-brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <img class="auth-brand-logo" src="/dashawy-brand/logo-icon.svg" alt="">
         <span>دشاوي</span>
       </a>
 
@@ -96,7 +97,12 @@
 
       </form>
 
-      <div class="auth-divider">أو</div>
+      <div class="auth-divider" id="google-divider">أو</div>
+
+      <!-- Google sign-in. Stays hidden unless the server reports the feature as
+           configured (backend/config.js reads the credentials from the
+           environment), so a deployment without them shows no dead button. -->
+      <div id="google-btn"></div>
 
       <div class="auth-footer">
         <div>مش معاك حساب؟ <a href="/register.html">أنشئ حساب عميل</a></div>
@@ -115,9 +121,17 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/ui.js"></script>
+  <script src="/js/google-auth.js"></script>
   <script>
-    // Logged-in users go straight to their dashboard.
-    if (Auth.isAuthed()) window.location.replace(Auth.homePath());
+    // Logged-in users go straight to their dashboard — or, for a customer who
+    // still owes us a phone number, straight to the form that asks for it.
+    if (Auth.isAuthed()) {
+      window.location.replace(
+        Auth.role() === 'customer' && !Auth.isProfileComplete()
+          ? Auth.completeProfilePath()
+          : Auth.homePath()
+      );
+    }
 
     // Preserve the selected service across the login step.
     const serviceKey = new URLSearchParams(window.location.search).get('service');
@@ -132,6 +146,15 @@
         return '/customer/home.html';
       }
       return Auth.homePath(role);
+    }
+
+    // Where a customer goes once they have a session: the onboarding form while
+    // their profile is unfinished, otherwise the app.
+    function destinationAfterAuth(data) {
+      if (data.user && data.user.role === 'customer' && !data.user.profile_complete) {
+        return Auth.completeProfilePath();
+      }
+      return currentUserAfterAuth(data.user.role);
     }
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -164,12 +187,50 @@
         }
 
         toast('أهلًا بعودتك 👋', 'success');
-        setTimeout(() => { window.location.href = currentUserAfterAuth(data.user.role); }, 450);
+        setTimeout(() => { window.location.href = destinationAfterAuth(data); }, 450);
       } catch (err) {
         toast(err.message, 'error');
         Ui.btnReset(btn);
       }
     });
+
+    // Google sign-in (customers only).
+    //
+    // The button hands back an ID token; the server verifies it and decides who
+    // this is. The email is never read here — whatever identity the token
+    // carries is whatever the server concluded from it.
+    let signingInWithGoogle = false;
+
+    async function onGoogleCredential(credential) {
+      if (signingInWithGoogle) return;
+      signingInWithGoogle = true;
+      const container = document.getElementById('google-btn');
+      // Re-entry guard: Google's callback can fire again while the server is
+      // still answering, which would mint a second session for the same click.
+      container.style.pointerEvents = 'none';
+      container.style.opacity = '0.6';
+      try {
+        const data = await GoogleAuth.exchange(credential);
+        Auth.setSession(data);
+        toast('تم تسجيل الدخول بحساب جوجل', 'success');
+        setTimeout(() => { window.location.href = destinationAfterAuth(data); }, 400);
+      } catch (err) {
+        toast(err.message, 'error');
+        container.style.pointerEvents = '';
+        container.style.opacity = '';
+        signingInWithGoogle = false;
+      }
+    }
+
+    (async () => {
+      const mounted = await GoogleAuth.mount(
+        document.getElementById('google-btn'),
+        onGoogleCredential
+      );
+      // The divider above the button is meaningless on its own when there is
+      // no button, so it goes with it.
+      if (!mounted) document.getElementById('google-divider').style.display = 'none';
+    })();
 
     document.getElementById('forgot-pwd-link').addEventListener('click', () => {
       Ui.openModal(

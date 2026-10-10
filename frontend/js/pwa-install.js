@@ -49,7 +49,7 @@
     banner.setAttribute('role', 'dialog');
     banner.setAttribute('aria-label', 'تثبيت تطبيق دشاوي');
     banner.innerHTML = `
-      <img src="/icons/icon-96x96.png" alt="" class="pwa-icon">
+      <img src="/dashawy-brand/icon-192.png" alt="" class="pwa-icon">
       <div class="pwa-text">
         <b>ثبّت تطبيق دشاوي</b>
         <span>وصول أسرع + إشعارات فورية</span>
