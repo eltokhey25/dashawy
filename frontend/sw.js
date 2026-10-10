@@ -20,7 +20,7 @@
  * Version: bump CACHE_VERSION on every release to force a clean cache.
  */
 
-const CACHE_VERSION = 'dashawy-v8-2026-10-07';
+const CACHE_VERSION = 'dashawy-v10-2026-10-10';
 const RUNTIME_CACHE = 'dashawy-runtime-v3';
 
 const PRECACHE_URLS = ['/', '/index.html', '/offline.html', '/manifest.webmanifest'];
@@ -169,8 +169,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'دشاوي', {
       body: data.body || '',
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-96x96.png',
+      icon: '/dashawy-brand/icon-192.png',
+      badge: '/dashawy-brand/icon-192.png',
       dir: 'rtl',
       lang: 'ar',
       // The server sends a per-request tag ("new-request-42"). Reusing the tag

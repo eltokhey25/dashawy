@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
   <title>حساب عميل جديد — دشاوي</title>
   <!-- PWA -->
-  <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#4f46e5">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="دشاوي">
-  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
   <!-- iOS splash screen (universal fallback) -->
-  <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png">
-  <link rel="icon" type="image/png" href="/icons/favicon.png">
+  <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -28,7 +29,7 @@
     <div class="auth-visual-inner">
 
       <a href="/" class="auth-brand">
-        <span class="auth-brand-logo"><i class="fa-solid fa-satellite-dish"></i></span>
+        <img class="auth-brand-logo" src="/dashawy-brand/logo-icon.svg" alt="">
         <span>دشاوي</span>
       </a>
 
@@ -181,7 +182,13 @@
 
         </form>
 
-        <div class="auth-divider">أو</div>
+        <div class="auth-divider" id="google-divider">أو</div>
+
+        <!-- Google sign-in doubles as registration here: the server creates the
+             customer account on the first sign-in and drops straight into the
+             "complete your profile" form for a phone number. Hidden entirely
+             unless the server reports the feature as configured. -->
+        <div id="google-btn"></div>
 
         <div class="auth-footer">
           <div>عندك حساب؟ <a href="/login.html">سجّل دخول</a></div>
@@ -201,9 +208,16 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/ui.js"></script>
+  <script src="/js/google-auth.js"></script>
   <script>
     // Guests only — a signed-in user has nothing to register.
-    if (Auth.isAuthed()) window.location.replace(Auth.homePath());
+    if (Auth.isAuthed()) {
+      window.location.replace(
+        Auth.role() === 'customer' && !Auth.isProfileComplete()
+          ? Auth.completeProfilePath()
+          : Auth.homePath()
+      );
+    }
 
     const LAST_STEP = 3;
     const state = { step: 1, submitting: false };
@@ -391,6 +405,49 @@
         { enableHighAccuracy: true, timeout: 10000 }
       );
     });
+
+    // Google sign-in. On this page it also creates the account: the server
+    // makes the customer on first sign-in, then sends them to the form that
+    // asks for the phone number. Nothing about the identity is decided here.
+    let signingInWithGoogle = false;
+
+    async function onGoogleCredential(credential) {
+      if (signingInWithGoogle) return;
+      signingInWithGoogle = true;
+      const container = $('google-btn');
+      // Re-entry guard: Google's callback can fire again while the server is
+      // still answering, which would mint a second session for the same click.
+      container.style.pointerEvents = 'none';
+      container.style.opacity = '0.6';
+      try {
+        const data = await GoogleAuth.exchange(credential);
+        Auth.setSession(data);
+        // Record explicit consent for personal-data processing (Law 151/2020),
+        // same as the password path below — the account is created either way.
+        try {
+          await api('/api/consent', { method: 'POST', body: { consent_type: 'privacy_policy', policy_version: 'v1.0' } });
+        } catch (err) { console.warn('Consent recording failed', err); }
+
+        toast(data.profile_complete ? 'تم تسجيل الدخول بحساب جوجل 🎉' : 'تم إنشاء حسابك 🎉', 'success');
+        setTimeout(() => {
+          window.location.href = data.profile_complete
+            ? Auth.homePath('customer')
+            : Auth.completeProfilePath();
+        }, 500);
+      } catch (err) {
+        toast(err.message, 'error');
+        container.style.pointerEvents = '';
+        container.style.opacity = '';
+        signingInWithGoogle = false;
+      }
+    }
+
+    (async () => {
+      const mounted = await GoogleAuth.mount($('google-btn'), onGoogleCredential);
+      // The divider above the button is meaningless on its own when there is
+      // no button, so it goes with it.
+      if (!mounted) $('google-divider').style.display = 'none';
+    })();
 
     renderStep();
     Ui.initNav();

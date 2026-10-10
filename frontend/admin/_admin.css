@@ -170,6 +170,15 @@ body.adm-body {
   font-size: 1.1rem;
   box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
 }
+/* The sidebar tile is now the brand SVG, which ships its own navy
+   rounded square, so the decorative gradient + indigo glow behind it
+   would only show as a halo. */
+.adm-sidebar-brand img.asb-logo {
+  background: none;
+  box-shadow: none;
+  object-fit: contain;
+  flex-shrink: 0;
+}
 .adm-sidebar-brand .asb-info b {
   display: block;
   color: #fff;

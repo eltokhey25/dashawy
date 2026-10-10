@@ -9020,3 +9020,74 @@ main,
   place-items: center;
   pointer-events: none;
 }
+
+/* ============================================================
+   BRAND LOGOS — the official mark replaces the old
+   satellite-dish icon + text wordmark.
+   The SVGs are sized by height only: their intrinsic aspect
+   ratio (697x250 for the horizontal lockup) does the rest, so
+   the logo can never be squashed by a width rule.
+   ============================================================ */
+
+/* Header/navbar: the horizontal lockup, which already contains
+   the wordmark, so it replaces the icon AND the <span>دشاوي</span>. */
+.brand-logo-image {
+  display: block;
+  height: 34px;
+  width: auto;
+  max-width: 100%;
+}
+
+/* Footer / auth panel: the square icon tile, used next to a
+   wordmark that is already in the markup. */
+.brand-logo-icon {
+  display: block;
+  height: 38px;
+  width: 38px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.brand-logo-icon--sm {
+  height: 30px;
+  width: 30px;
+}
+
+/* The auth panel tile used to be a translucent square with a
+   glyph inside; the SVG carries its own rounded square, so the
+   decorative background is dropped and the img is sized.
+
+   The tile's own gradient is now the same indigo->violet as
+   .auth-visual-side behind it, which leaves it with almost no
+   contrast against the panel (~1.0:1 at the shared start colour).
+   A translucent white outline plus a soft drop shadow give the
+   edge back without touching the panel itself. border-radius is
+   inherited from the base .auth-brand-logo rule (12px), so the
+   outline traces the tile's rounded corners, and box-sizing is
+   border-box globally, so the 42px footprint does not grow. */
+img.auth-brand-logo {
+  height: 42px;
+  width: 42px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: none;
+  backdrop-filter: none;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+}
+
+@media (max-width: 700px) {
+  .brand-logo-image {
+    height: 28px;
+  }
+  .brand-logo-icon {
+    height: 32px;
+    width: 32px;
+  }
+}
+
+@media (max-width: 400px) {
+  .brand-logo-image {
+    height: 24px;
+  }
+}
