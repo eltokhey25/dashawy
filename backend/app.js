@@ -280,7 +280,7 @@ app.get('/sitemap.xml', (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const pages = [
     { url: '/', priority: '1.0', changefreq: 'weekly' },
-    { url: '/auth.html', priority: '0.8', changefreq: 'monthly' },
+    { url: '/login.html', priority: '0.8', changefreq: 'monthly' },
     { url: '/register.html', priority: '0.9', changefreq: 'monthly' },
     { url: '/register-tech.html', priority: '0.8', changefreq: 'monthly' },
     { url: '/privacy.html', priority: '0.3', changefreq: 'yearly' },
@@ -298,6 +298,32 @@ app.get('/sitemap.xml', (req, res) => {
   xml += '</urlset>';
   res.header('Content-Type', 'application/xml');
   res.send(xml);
+});
+
+// Robots policy, served from the route rather than a static file for the same
+// reason as the sitemap: the Sitemap: line below has to name the same host the
+// sitemap itself emits, and that host comes from SITE_URL. A committed
+// robots.txt would hardcode one host and drift from the sitemap the moment the
+// domain changed.
+//
+// /admin/ is disallowed because every page behind it is client-side gated and
+// carries no indexable content; /api/ because it is a JSON API with no HTML to
+// crawl. Disallowing does not secure either — the routes enforce their own auth
+// — it only keeps crawlers out of URLs with nothing to index.
+app.get('/robots.txt', (req, res) => {
+  const baseUrl = (process.env.SITE_URL || 'https://dashawy.app').replace(/\/+$/, '');
+  res
+    .type('text/plain')
+    .send(
+      [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /admin/',
+        'Disallow: /api/',
+        `Sitemap: ${baseUrl}/sitemap.xml`,
+        '',
+      ].join('\n')
+    );
 });
 
 // Serve the frontend from the same origin (simplifies deployment).
