@@ -189,8 +189,6 @@ function migrate() {
   migratePhoneIdentity();
 
   migrateGoogleIdentity();
-
-  migrateOtpSchema();
 }
 
 // Adds the waiting-queue columns to a requests table that predates them.
@@ -860,28 +858,6 @@ function migrateGoogleIdentity() {
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub_unique
        ON users(google_sub) WHERE google_sub IS NOT NULL AND google_sub != ''`
   ).run();
-}
-
-// Passwordless sign-in needs somewhere to put a one-time code.
-//
-// Like the reference tables above, this is CREATE TABLE IF NOT EXISTS, so it is
-// a no-op on a database created from schema.sql and on every boot after the
-// first. `email` is deliberately NOT a foreign key to users.id: request-otp
-// never issues a code to an unknown address (it answers generically without
-// writing), and a code row outliving the account it was for must never be able
-// to take a user row with it.
-function migrateOtpSchema() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS otps (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      email      TEXT NOT NULL,
-      otp_hash   TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      used       INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email, created_at);
-  `);
 }
 
 migrate();
