@@ -42,6 +42,33 @@ CREATE TABLE IF NOT EXISTS users (
   permissions TEXT DEFAULT '[]'
 );
 
+-- One-time passwords for the passwordless sign-in flow
+-- (POST /api/auth/request-otp -> POST /api/auth/verify-otp).
+--
+-- Only the SHA-256 of the code is stored, never the code itself: this table is
+-- read by nothing but the verify route, and a leaked database must not hand an
+-- attacker working codes for the next ten minutes. A 6-digit code has a small
+-- enough space that a hash is not a brute-force obstacle on its own, which is
+-- why the verify route is rate limited per email AND per IP.
+--
+-- expires_at is SQLite's own datetime('now', '+10 minutes') text, so the
+-- "is it still valid" test stays a comparison in SQL instead of a JS parse, and
+-- the column sorts as text against every other timestamp in the database.
+-- `used` is flipped to 1 the moment a code is spent, which is what stops the
+-- same code from being replayed for a second session.
+CREATE TABLE IF NOT EXISTS otps (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT NOT NULL,
+  otp_hash   TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used       INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- Backs both OTP queries: "the newest live code for this address" (verify) and
+-- "was a code issued for this address in the last minute" (the cooldown).
+CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email, created_at);
+
 -- Customers: profile data linked to a user account.
 CREATE TABLE IF NOT EXISTS customers (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
