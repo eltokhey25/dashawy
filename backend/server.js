@@ -19,6 +19,107 @@ const logger = require('./utils/logger');
 
 db.prepare('SELECT 1').get();
 
+// ---------------------------------------------------------------------------
+// TEMPORARY admin account recovery — REMOVE AFTER USE
+// ---------------------------------------------------------------------------
+// Creates or repairs the owner account on boot, so an admin can be recovered
+// without shell access to the box.
+//
+// Production is a separate database file from local, so an account that exists
+// on a laptop does not exist on Railway. Set these in Railway → Service →
+// Variables and redeploy; delete them AND this block as soon as you are back in.
+//
+//   FORCE_RESET_ADMIN      set to 1 to run the block at all
+//   RESET_ADMIN_EMAIL      REQUIRED — the address to own
+//   RESET_ADMIN_PASSWORD   REQUIRED — installed as the account's password
+//
+// Both are required here, unlike earlier revisions: this block also forces the
+// password on an account that already exists, so there is no path through it
+// that can do something useful with only one of the two.
+//
+// The password is never written here and never logged. It only ever exists in
+// the deployment's variable store, and these logs are readable in the Railway
+// dashboard by anyone with project access.
+if (process.env.FORCE_RESET_ADMIN === '1') {
+  try {
+    const bcrypt = require('bcryptjs');
+    // Shared with every route that writes an email. Required here rather than
+    // inlined because the login endpoint looks accounts up through it too
+    // (auth.routes.js:499), and users.email is a plain UNIQUE column — SQLite
+    // compares TEXT case-sensitively, so storing "Eltokhey@x.com" while login
+    // normalises to lowercase would create an account that can never sign in.
+    const { isValidEmail, normalizeEmail, passwordPolicyError } = require('./utils/validation');
+
+    const targetEmail = normalizeEmail(process.env.RESET_ADMIN_EMAIL || '');
+    const password = process.env.RESET_ADMIN_PASSWORD;
+
+    if (!targetEmail || !password) {
+      logger.warn(
+        'admin',
+        '[FORCE-RESET] Skipped: both RESET_ADMIN_EMAIL and RESET_ADMIN_PASSWORD must be set.'
+      );
+    } else if (!isValidEmail(targetEmail)) {
+      throw new Error(`RESET_ADMIN_EMAIL is not a valid address: ${targetEmail}`);
+    } else {
+      const pwProblem = passwordPolicyError(password);
+      if (pwProblem) {
+        // Refusing beats installing a password the rest of the app would have
+        // rejected: bcrypt would hash anything, including a typo.
+        throw new Error(`RESET_ADMIN_PASSWORD rejected: ${pwProblem}`);
+      }
+
+      // 12 rounds, matching admin.routes.js:175 and reset-admin.js rather than
+      // the seed's 10.
+      const hash = bcrypt.hashSync(password, 12);
+
+      const existing = db
+        .prepare('SELECT id, email, role, is_super_admin, blocked FROM users WHERE email = ?')
+        .get(targetEmail);
+
+      if (existing) {
+        // Unlike the create path, this one does overwrite a working password —
+        // that is the point when nobody can say what the current one is.
+        //
+        // The brute-force columns are cleared along with it, because leaving
+        // them set would defeat the whole recovery: isLocked() in
+        // auth.routes.js rejects the request before the password is ever
+        // compared, so a correct password would still be refused.
+        db.prepare(
+          `UPDATE users
+              SET role = 'admin',
+                  is_super_admin = 1,
+                  password_hash = ?,
+                  must_change_password = 0,
+                  failed_login_attempts = 0,
+                  login_locked_until = NULL
+            WHERE id = ?`
+        ).run(hash, existing.id);
+
+        logger.info('admin', `[FORCE-RESET] Admin created/updated for: ${targetEmail}`);
+
+        // 'blocked' is deliberately NOT cleared here: unlike the lock columns it
+        // is a decision someone made on purpose, and silently lifting it is not
+        // this block's call. Logged so a still-refused login is explainable.
+        if (existing.blocked) {
+          logger.warn(
+            'admin',
+            `[FORCE-RESET] ${targetEmail} is flagged blocked — login will still be refused until that is cleared.`
+          );
+        }
+      } else {
+        db.prepare(
+          `INSERT INTO users (email, password_hash, role, is_super_admin, blocked, must_change_password)
+           VALUES (?, ?, 'admin', 1, 0, 0)`
+        ).run(targetEmail, hash);
+
+        logger.info('admin', `[FORCE-RESET] Admin created/updated for: ${targetEmail}`);
+      }
+    }
+  } catch (err) {
+    logger.error('admin', `[FORCE-RESET] Admin recovery failed: ${err.message}`);
+  }
+}
+
 const server = app.listen(config.PORT, () => {
   logger.info('server', `Fix Request server running on http://localhost:${config.PORT}`);
   logger.info(
