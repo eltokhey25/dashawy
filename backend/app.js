@@ -284,6 +284,12 @@ app.get('/sitemap.xml', (req, res) => {
     { url: '/register.html', priority: '0.9', changefreq: 'monthly' },
     { url: '/register-tech.html', priority: '0.8', changefreq: 'monthly' },
     { url: '/privacy.html', priority: '0.3', changefreq: 'yearly' },
+    // The machine-readable project description and its human-readable twin. Listed
+    // here because a sitemap is how crawlers — including the ones that look for
+    // llms.txt — discover what else the site publishes; a file nobody links to
+    // from a sitemap is a file most crawlers never fetch.
+    { url: '/about-ai.html', priority: '0.5', changefreq: 'monthly' },
+    { url: '/llms.txt', priority: '0.5', changefreq: 'monthly' },
   ];
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
@@ -343,9 +349,16 @@ app.use(
       // Search Console verification file must never be served from a cache
       // that outlives the deploy — a cached pre-deploy 404 would otherwise
       // keep failing verification after the file is added.
+      //
+      // .txt joins them for llms.txt: it is a machine-readable statement about
+      // the project, read by models and crawlers that cache aggressively. A week
+      // of 7d max-age means a corrected phone number or a reverted feature stays
+      // published for a week after the fix, and there is no cache-busting query
+      // string to hand out.
       if (
         filePath.endsWith('index.html') ||
         filePath.endsWith('.webmanifest') ||
+        filePath.endsWith('.txt') ||
         filePath.endsWith('googleffb088e4331f6842.html')
       ) {
         res.setHeader('Cache-Control', 'no-cache');

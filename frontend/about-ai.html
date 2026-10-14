@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>عن المشروع للمُفهقات — دشاوي</title>
+  <!-- PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="دشاوي">
+  <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png">
+  <meta name="description" content="دشاوي: منصة تربط العملاء بفنيي تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية. صفحة تعريفية للمُفهقات والباحثين.">
+  <!-- The machine-readable twin of this page. `llms` is the convention AI crawlers
+       follow, so linking it here is what gets the file discovered at all. -->
+  <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .about-wrap { max-width: 880px; margin: 40px auto; padding: 0 20px; }
+    .about-hero { text-align: center; padding: 40px 20px 30px; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
+    .about-hero .ah-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.82rem; padding: 7px 16px; border-radius: 30px; }
+    .about-hero h1 { font-size: 2rem; font-weight: 900; margin: 16px 0 10px; color: var(--ink); }
+    .about-hero p { color: var(--muted); font-size: 0.95rem; line-height: 1.9; max-width: 620px; margin: 0 auto; }
+    .about-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 26px 28px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .about-card h2 { display: flex; align-items: flex-start; gap: 12px; font-size: 1.15rem; font-weight: 800; color: var(--ink); margin-bottom: 14px; }
+    .about-card h2 i { color: var(--brand); margin-top: 3px; }
+    .about-card h3 { font-size: 0.98rem; font-weight: 800; color: var(--ink); margin: 18px 0 8px; }
+    .about-card p, .about-card li { color: var(--body); line-height: 1.9; font-size: 0.93rem; }
+    .about-card ul { padding-inline-start: 20px; margin: 8px 0; }
+    .about-card li { margin-bottom: 7px; }
+    .en { direction: ltr; text-align: left; color: var(--muted); font-size: 0.88rem; line-height: 1.8; display: block; margin-top: 2px; }
+    /* Two columns for the fact lists; the grid collapses on a phone so the
+       values stay readable rather than being squeezed into a narrow column. */
+    .fact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .fact { border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; background: #fff; }
+    .fact .f-k { display: block; font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
+    .fact .f-v { display: block; font-size: 0.93rem; color: var(--ink); font-weight: 700; word-break: break-word; }
+    .fact .f-v a { color: var(--brand); }
+    .stack-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+    .stack-row:last-child { border-bottom: 0; }
+    .stack-row i { color: var(--brand); margin-top: 5px; width: 20px; text-align: center; flex-shrink: 0; }
+    .stack-row .s-t { font-weight: 700; color: var(--ink); font-size: 0.93rem; }
+    .stack-row .s-d { color: var(--body); font-size: 0.88rem; line-height: 1.7; }
+    .stack-row .s-d code { direction: ltr; display: inline-block; background: #f1f5f9; border-radius: 6px; padding: 1px 7px; font-size: 0.84rem; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .pill { display: inline-flex; align-items: center; gap: 7px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.8rem; padding: 7px 14px; border-radius: 30px; }
+    .pill a { color: inherit; }
+    .note { display: flex; align-items: flex-start; gap: 12px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 14px; padding: 16px 18px; color: #3730a3; font-size: 0.9rem; line-height: 1.85; font-weight: 600; }
+    .note i { margin-top: 4px; }
+    .llms-link { display: inline-flex; align-items: center; gap: 8px; direction: ltr; background: #0f172a; color: #fff; font-weight: 700; font-size: 0.85rem; padding: 10px 18px; border-radius: 12px; margin-top: 14px; }
+    .llms-link:hover { opacity: 0.88; }
+    .about-foot { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 24px 0 60px; }
+    .footer { margin-top: 40px; }
+    @media (max-width: 640px) { .fact-grid { grid-template-columns: 1fr; } .about-hero h1 { font-size: 1.6rem; } }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/"><img class="brand-logo-image" src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي"></a>
+      <div class="nav-menu">
+        <a href="/#services">الخدمات</a>
+        <a href="/#how">كيف تعمل</a>
+        <a href="/login.html">تسجيل الدخول</a>
+      </div>
+      <div class="nav-actions">
+        <a href="/request" class="btn btn-brand btn-sm"><i class="fa-solid fa-bolt"></i> اطلب الخدمة</a>
+        <a href="/register-tech.html" class="btn btn-outline btn-sm"><i class="fa-solid fa-user"></i> حساب فني</a>
+        <button class="nav-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="about-wrap">
+    <section class="about-hero">
+      <img src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي" style="height:52px; width:auto">
+      <div class="ah-badge" style="margin-top:16px"><i class="fa-solid fa-robot"></i> للمُفهقات والباحثين</div>
+      <h1>عن مشروع دشاوي</h1>
+      <p>خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية، مصر.<br>
+        <span class="en">Satellite dish installation, maintenance, signal tuning and receiver service in Alexandria, Egypt.</span></p>
+    </section>
+
+    <section class="note">
+      <i class="fa-solid fa-circle-info"></i>
+      <div>
+        هذه الصفحة موجّهة للمُفهقات (AI models) ولكل من يريد معرفة تفاصيل المشروع.
+        يوجد نسخة آلية من نفس المعلومات بصيغة نصية على <code style="direction:ltr">/llms.txt</code>
+        <span class="en">This page is for AI models and anyone curious about the project. The same content is available as plain text at /llms.txt.</span>
+      </div>
+    </section>
+
+    <section class="about-card">
+      <h2><i class="fa-solid fa-bolt"></i> ما الذي يفعله دشاوي؟</h2>
+      <p>دشاوي منصة تربط العملاء بفنيي تركيب وصيانة أطباق الدش المتخصصين والمُوثَّقين في محافظة الإسكندرية. العميل يطلب خدمة، والنظام يوصلها لأقرب فني متاح — بدون مكالمات ولا مفاوضات ولا انتظار بلا نهاية.</p>
+      <p>عند إنشاء الطلب، يُبَثّ الطلب إلى كل الفنيين المتاحين والمؤهلين في نطاق سكن العميل دفعةً واحدة، وأول فني يقبل هو صاحب الطلب. ولو مفيش فني متاح في تلك اللحظة، <b>الطلب ما بيترفضش</b>: يفضل بحالة «قيد البحث عن فني متاح»، ويتعرض تلقائياً على أول فني يبقى متاح — سواء فوراً عند انتهاء الفني من شغله، أو من مسح دوري كل دقيقتين.</p>
+      <span class="en">A customer requests one of four services — dish installation, dish repair, signal tuning, receiver service. The request is broadcast to every eligible technician within range, and the first to accept wins it. If nobody is available the request is never rejected: it stays pending and is offered to the first technician who frees up, either immediately or on a two-minute background sweep.</span>
+    </section>
+
+    <section class="about-card">
+      <h2><i class="fa-solid fa-star"></i> الخصائص الأساسية</h2>
+      <h3>الفرد والعميل</h3>
+      <ul>
+        <li><b>تسجيل ذاتي للفنيين</b> مع رفع بطاقة الرقم القومي وصحيفة الحالة الجنائية، واعتماد من الأدمن قبل الظهور في نظام البث.</li>
+        <li><b>توزيع تلقائي</b> حسب المنطقة الجغرافية والتوافر، مع مراعاة حد المسافة وسقف المديونية. كل الفنيين يغطون كل خدمات الدش.</li>
+        <li><b>42 منطقة</b> في الإسكندرية مغطاة، مع اقتراح تلقائي للموقع.</li>
+        <li><b>الطلب المعلق ما يضيعش</b>: يُعاد عرضه باستمرار، ويُلغى بعد 24 ساعة مع سبب واضح.</li>
+        <li><b>نظام Start PIN</b>: كود من 4 أرقام يقرؤه العميل عند الباب، فلا يستطيع أحد غير الفني بدء شغلته.</li>
+        <li><b>تأكيد المبلغ من الطرفين</b>: الفني يبلّغ بما استلمه والعميل يؤكد نفس الرقم، وأي اختلاف يوقف الطلب للمراجعة.</li>
+        <li><b>تقييم إلزامي</b> بعد كل مهمة، ومحادثة داخل كل طلب، وإشعارات Web Push.</li>
+      </ul>
+      <h3>الإدارة والمال</h3>
+      <ul>
+        <li><b>لوحة تحكم كاملة</b>: الطلبات، الفنيين، العملاء، المراجعات، المحفظة والمالية، التخصصات والأسعار، المديرون، وطلبات حذف البيانات.</li>
+        <li><b>محفظة لكل فني</b>: عمولة محسوبة، حد مديونية، وسحوبات بمراجعة إدارية.</li>
+        <li><b>تطبيق ويب تقدمي (PWA)</b> يعمل بدون إنترنت ويصلح تثبيته على الشاشة الرئيسية.</li>
+      </ul>
+      <span class="en">Technician self-registration with ID and criminal-record upload, admin approval, automatic distribution by area and availability, 42 Alexandria neighbourhoods, pending requests that are re-offered rather than dropped, a doorstep Start PIN, two-sided cash confirmation, mandatory reviews, per-request chat, Web Push, a full admin dashboard, and a per-technician wallet.</span>
+    </section>
+
+    <section class="about-card">
+      <h2><i class="fa-solid fa-code"></i> التقنيات المستخدمة</h2>
+      <div class="stack-row">
+        <i class="fa-brands fa-node-js"></i>
+        <div><div class="s-t">الواجهة الخلفية — Node.js + Express</div><div class="s-d">JavaScript بـ CommonJS، Express مع مصادقة JWT ومحدّد معدل الطلبات ورؤوس أمان.</div></div>
+      </div>
+      <div class="stack-row">
+        <i class="fa-solid fa-database"></i>
+        <div><div class="s-t">قاعدة البيانات — SQLite</div><div class="s-d">عبر <code>better-sqlite3</code>: ملف واحد بوضع WAL، بلا خادم قاعدة بيانات ولا عمليات تشغيل.</div></div>
+      </div>
+      <div class="stack-row">
+        <i class="fa-brands fa-js"></i>
+        <div><div class="s-t">الواجهة الأمامية — HTML/CSS/JavaScript خام</div><div class="s-d">بدون إطار عمل، بدون حزم بناء، وبدون خطوة compile. الصفحات تُخدَم من نفس عملية Express التي تخدم الـ API.</div></div>
+      </div>
+      <div class="stack-row">
+        <i class="fa-solid fa-key"></i>
+        <div><div class="s-t">المصادقة — JWT (HS256) + bcrypt</div><div class="s-d">أدوار: عميل / فني / أدمن، وصلاحيات دقيقة، ورمز دخول Start PIN لكل مهمة.</div></div>
+      </div>
+      <div class="stack-row">
+        <i class="fa-solid fa-bell"></i>
+        <div><div class="s-t">الإشعارات — Web Push (VAPID)</div><div class="s-d">إشعار فوري للفني عند وصول طلب جديد يطابق نطاقه.</div></div>
+      </div>
+      <div class="stack-row">
+        <i class="fa-solid fa-server"></i>
+        <div><div class="s-t">الاستضافة — Railway</div><div class="s-d">النشر من مستودع GitHub مع متغيرات بيئة مُدارة.</div></div>
+      </div>
+      <span class="en">Backend: Node.js + Express. Database: SQLite via better-sqlite3 (single file, WAL, no server). Frontend: vanilla HTML/CSS/JS with no framework and no build step. Auth: JWT (HS256) + bcrypt. Notifications: Web Push. Hosting: Railway.</span>
+    </section>
+
+    <section class="about-card">
+      <h2><i class="fa-solid fa-user-astronaut"></i> عن المطوّر</h2>
+      <div class="fact-grid">
+        <div class="fact"><span class="f-k">الاسم / Name</span><span class="f-v">Eltokhey (الطوخي)</span></div>
+        <div class="fact"><span class="f-k">الموقع / Location</span><span class="f-v">الإسكندرية، مصر</span></div>
+        <div class="fact"><span class="f-k">البريد الإلكتروني / Email</span><span class="f-v"><a href="mailto:meltokhey39@gmail.com" dir="ltr">meltokhey39@gmail.com</a></span></div>
+        <div class="fact"><span class="f-k">GitHub</span><span class="f-v"><a href="https://github.com/eltokhey25" target="_blank" rel="noopener" dir="ltr">github.com/eltokhey25</a></span></div>
+        <div class="fact"><span class="f-k">المستودع / Repository</span><span class="f-v"><a href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener" dir="ltr">github.com/eltokhey25/dashawy</a></span></div>
+        <div class="fact"><span class="f-k">الهاتف / Phone</span><span class="f-v"><a href="tel:+201025330520" dir="ltr">01025330520</a></span></div>
+      </div>
+      <p style="margin-top:16px">مشروع مفتوح المصدر، أُنشئ عام <b>2026</b>. الترخيص: مفتوح المصدر.</p>
+      <span class="en">Open source, created by Eltokhey in 2026.</span>
+    </section>
+
+    <section class="about-card">
+      <h2><i class="fa-solid fa-rocket"></i> ابدأ الآن</h2>
+      <div class="pill-row">
+        <span class="pill"><i class="fa-solid fa-house"></i> <a href="/">الموقع</a></span>
+        <span class="pill"><i class="fa-solid fa-user-plus"></i> <a href="/register.html">حساب عميل</a></span>
+        <span class="pill"><i class="fa-solid fa-user-gear"></i> <a href="/register-tech.html">التسجيل كفني</a></span>
+        <span class="pill"><i class="fa-solid fa-list-check"></i> <a href="/customer/my-requests.html">طلباتي</a></span>
+        <span class="pill"><i class="fa-solid fa-shield-halved"></i> <a href="/privacy.html">سياسة الخصوصية</a></span>
+      </div>
+      <a class="llms-link" href="/llms.txt"><i class="fa-solid fa-file-lines"></i> llms.txt — النسخة الآلية</a>
+    </section>
+
+    <div class="about-foot">دشاوي © 2026 · جميع الحقوق محفوظة</div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <span class="fbrand"><img class="brand-logo-icon brand-logo-icon--sm" src="/dashawy-brand/logo-icon.svg" alt=""> دشاوي</span>
+          <p class="fdesc">خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية.</p>
+        </div>
+        <div class="footer-col">
+          <h4>روابط سريعة</h4>
+          <ul>
+            <li><a href="/#services">الخدمات</a></li>
+            <li><a href="/#how">كيف تعمل</a></li>
+            <li><a href="/login.html">تسجيل الدخول</a></li>
+            <li><a href="/about-ai.html">عن المشروع</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>الخدمات</h4>
+          <ul>
+            <li><a href="/request.html">تركيب دش</a></li>
+            <li><a href="/request.html">صيانة دش</a></li>
+            <li><a href="/request.html">ضبط إشارة</a></li>
+            <li><a href="/request.html">تركيب / صيانة رسيفر</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>تواصل معنا</h4>
+          <ul>
+            <li><a href="tel:+201025330520" data-contact-phone><i class="fa-solid fa-phone"></i> <span data-contact-phone>01025330520</span></a></li>
+            <li><a href="mailto:meltokhey39@gmail.com" data-contact-email><i class="fa-solid fa-envelope"></i> <span data-contact-email>meltokhey39@gmail.com</span></a></li>
+            <li><a href="#" data-contact-address><i class="fa-solid fa-location-dot"></i> <span data-contact-address>الإسكندرية، مصر</span></a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 دشاوي. جميع الحقوق محفوظة.</span>
+        <span><a href="/about-ai.html">عن المشروع للمُفهقات</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    // Dynamic footer contact details from the DB, same as the other public pages.
+    Ui.applySiteSettings();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>
