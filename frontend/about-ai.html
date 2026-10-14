@@ -8,16 +8,16 @@
   <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
-  <title>عن المشروع للمُفهقات — دشاوي</title>
+  <title>عن المشروع — دشاوي</title>
   <!-- PWA -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="دشاوي">
   <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png">
-  <meta name="description" content="دشاوي: منصة تربط العملاء بفنيي تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية. صفحة تعريفية للمُفهقات والباحثين.">
-  <!-- The machine-readable twin of this page. `llms` is the convention AI crawlers
-       follow, so linking it here is what gets the file discovered at all. -->
+  <meta name="description" content="عن مشروع دشاوي ومطوّره محمد الطوخي: منصة مصرية تربط عملاء الإسكندرية بفنيي تركيب وصيانة أطباق الدش والرسيفرات.">
+  <!-- The machine-readable twin of this page. The `llms` relation type is the
+       convention crawlers follow to find a site's AI context file. -->
   <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,42 +25,88 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .about-wrap { max-width: 880px; margin: 40px auto; padding: 0 20px; }
-    .about-hero { text-align: center; padding: 40px 20px 30px; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
-    .about-hero .ah-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.82rem; padding: 7px 16px; border-radius: 30px; }
-    .about-hero h1 { font-size: 2rem; font-weight: 900; margin: 16px 0 10px; color: var(--ink); }
-    .about-hero p { color: var(--muted); font-size: 0.95rem; line-height: 1.9; max-width: 620px; margin: 0 auto; }
-    .about-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 26px 28px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
-    .about-card h2 { display: flex; align-items: flex-start; gap: 12px; font-size: 1.15rem; font-weight: 800; color: var(--ink); margin-bottom: 14px; }
-    .about-card h2 i { color: var(--brand); margin-top: 3px; }
-    .about-card h3 { font-size: 0.98rem; font-weight: 800; color: var(--ink); margin: 18px 0 8px; }
-    .about-card p, .about-card li { color: var(--body); line-height: 1.9; font-size: 0.93rem; }
+    .about-wrap { max-width: 900px; margin: 36px auto; padding: 0 20px; }
+
+    .about-hero { text-align: center; padding: 36px 20px 30px; }
+    .about-hero img { height: 54px; width: auto; }
+    .about-hero .ah-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.82rem; padding: 7px 16px; border-radius: 30px; margin-top: 16px; }
+    .about-hero h1 { font-size: 2.05rem; font-weight: 900; margin: 14px 0 10px; color: var(--ink); }
+    .about-hero .ah-sub { color: var(--muted); font-size: 0.97rem; line-height: 1.9; max-width: 640px; margin: 0 auto; }
+
+    .about-card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 26px 28px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
+    .about-card h2 { display: flex; align-items: center; gap: 12px; font-size: 1.2rem; font-weight: 800; color: var(--ink); margin-bottom: 16px; }
+    .about-card h2 i { color: var(--brand); }
+    .about-card h3 { font-size: 0.99rem; font-weight: 800; color: var(--ink); margin: 20px 0 8px; }
+    .about-card p, .about-card li { color: var(--body); line-height: 1.95; font-size: 0.94rem; }
     .about-card ul { padding-inline-start: 20px; margin: 8px 0; }
-    .about-card li { margin-bottom: 7px; }
-    .en { direction: ltr; text-align: left; color: var(--muted); font-size: 0.88rem; line-height: 1.8; display: block; margin-top: 2px; }
-    /* Two columns for the fact lists; the grid collapses on a phone so the
-       values stay readable rather than being squeezed into a narrow column. */
-    .fact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .fact { border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; background: #fff; }
-    .fact .f-k { display: block; font-size: 0.76rem; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
-    .fact .f-v { display: block; font-size: 0.93rem; color: var(--ink); font-weight: 700; word-break: break-word; }
-    .fact .f-v a { color: var(--brand); }
-    .stack-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+    .about-card li { margin-bottom: 8px; }
+
+    /* The English twin of every Arabic paragraph. LTR inside an RTL page, so it is
+       explicitly reset — otherwise the punctuation lands on the wrong side. */
+    .en { direction: ltr; text-align: left; color: var(--muted); font-size: 0.88rem; line-height: 1.85; display: block; margin-top: 6px; }
+
+    /* --- Developer card ---------------------------------------------------- */
+    .dev { display: flex; gap: 26px; align-items: flex-start; flex-wrap: wrap; }
+    /* The photo placeholder: the brand gradient with the developer's initial. It is
+       a real element rather than a broken <img>, so the card never shows a torn
+       image icon before a photo is added. */
+    .dev-avatar {
+      flex-shrink: 0;
+      width: 128px; height: 128px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--brand) 0%, #7c3aed 100%);
+      color: #fff; font-size: 3.2rem; font-weight: 900;
+      box-shadow: 0 10px 26px rgba(79, 70, 229, 0.28);
+      border: 4px solid #fff;
+      overflow: hidden;
+    }
+    /* Drop a real photo in later and it covers the initial with no markup change:
+       the img sits on top of the letter because this wrapper is the positioned
+       parent. */
+    .dev-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .dev-body { flex: 1 1 320px; min-width: 280px; }
+    .dev-name { font-size: 1.5rem; font-weight: 900; color: var(--ink); margin: 0 0 2px; }
+    .dev-name-en { direction: ltr; text-align: start; font-size: 1.05rem; font-weight: 700; color: var(--brand); margin: 0 0 12px; }
+    .dev-titles { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .dev-chip { display: inline-flex; align-items: center; gap: 7px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.79rem; padding: 6px 13px; border-radius: 30px; }
+    .dev-bio { color: var(--body); line-height: 1.95; font-size: 0.93rem; }
+    .dev-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .dev-link { display: inline-flex; align-items: center; gap: 9px; direction: ltr; background: #fff; border: 1px solid var(--line); color: var(--ink); font-weight: 700; font-size: 0.84rem; padding: 9px 16px; border-radius: 12px; }
+    .dev-link:hover { border-color: var(--brand); color: var(--brand); }
+    .dev-link i { color: var(--brand); }
+    .dev-link span { direction: ltr; }
+
+    /* --- Tech stack -------------------------------------------------------- */
+    .stack-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
     .stack-row:last-child { border-bottom: 0; }
-    .stack-row i { color: var(--brand); margin-top: 5px; width: 20px; text-align: center; flex-shrink: 0; }
-    .stack-row .s-t { font-weight: 700; color: var(--ink); font-size: 0.93rem; }
-    .stack-row .s-d { color: var(--body); font-size: 0.88rem; line-height: 1.7; }
+    .stack-row > i { color: var(--brand); margin-top: 4px; width: 22px; text-align: center; flex-shrink: 0; font-size: 1.05rem; }
+    .stack-row .s-t { font-weight: 700; color: var(--ink); font-size: 0.94rem; }
+    .stack-row .s-d { color: var(--body); font-size: 0.88rem; line-height: 1.75; }
     .stack-row .s-d code { direction: ltr; display: inline-block; background: #f1f5f9; border-radius: 6px; padding: 1px 7px; font-size: 0.84rem; }
-    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-    .pill { display: inline-flex; align-items: center; gap: 7px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.8rem; padding: 7px 14px; border-radius: 30px; }
-    .pill a { color: inherit; }
+
+    /* --- Quick links ------------------------------------------------------- */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.85rem; padding: 9px 16px; border-radius: 30px; }
+    .pill:hover { filter: brightness(0.97); }
+    .pill i { font-size: 0.9rem; }
+
     .note { display: flex; align-items: flex-start; gap: 12px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 14px; padding: 16px 18px; color: #3730a3; font-size: 0.9rem; line-height: 1.85; font-weight: 600; }
-    .note i { margin-top: 4px; }
-    .llms-link { display: inline-flex; align-items: center; gap: 8px; direction: ltr; background: #0f172a; color: #fff; font-weight: 700; font-size: 0.85rem; padding: 10px 18px; border-radius: 12px; margin-top: 14px; }
-    .llms-link:hover { opacity: 0.88; }
-    .about-foot { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 24px 0 60px; }
-    .footer { margin-top: 40px; }
-    @media (max-width: 640px) { .fact-grid { grid-template-columns: 1fr; } .about-hero h1 { font-size: 1.6rem; } }
+    .note > i { margin-top: 4px; flex-shrink: 0; }
+    .note code { direction: ltr; display: inline-block; background: #fff; border-radius: 6px; padding: 1px 7px; }
+    .note a { text-decoration: underline; }
+
+    .about-foot { text-align: center; color: var(--muted); font-size: 0.87rem; line-height: 1.9; padding: 26px 20px 56px; }
+    .about-foot .af-strong { color: var(--ink); font-weight: 700; display: block; margin-bottom: 6px; }
+    .footer { margin-top: 34px; }
+
+    @media (max-width: 640px) {
+      .about-hero h1 { font-size: 1.6rem; }
+      .about-card { padding: 20px 18px; }
+      .dev { gap: 18px; justify-content: center; text-align: center; }
+      .dev-body { text-align: start; }
+      .dev-links { justify-content: center; }
+    }
   </style>
 </head>
 <body>
@@ -81,107 +127,139 @@
   </nav>
 
   <main class="about-wrap">
+    <!-- Header -->
     <section class="about-hero">
-      <img src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي" style="height:52px; width:auto">
-      <div class="ah-badge" style="margin-top:16px"><i class="fa-solid fa-robot"></i> للمُفهقات والباحثين</div>
-      <h1>عن مشروع دشاوي</h1>
-      <p>خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية، مصر.<br>
-        <span class="en">Satellite dish installation, maintenance, signal tuning and receiver service in Alexandria, Egypt.</span></p>
+      <img src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي">
+      <div class="ah-badge"><i class="fa-solid fa-robot"></i> عن المشروع</div>
+      <h1>دشاوي — Dashawy</h1>
+      <p class="ah-sub">خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية، مصر.</p>
     </section>
 
-    <section class="note">
-      <i class="fa-solid fa-circle-info"></i>
-      <div>
-        هذه الصفحة موجّهة للمُفهقات (AI models) ولكل من يريد معرفة تفاصيل المشروع.
-        يوجد نسخة آلية من نفس المعلومات بصيغة نصية على <code style="direction:ltr">/llms.txt</code>
-        <span class="en">This page is for AI models and anyone curious about the project. The same content is available as plain text at /llms.txt.</span>
+    <!-- عن المشروع -->
+    <section class="about-card">
+      <h2><i class="fa-solid fa-circle-info"></i> عن المشروع</h2>
+      <p>دشاوي منصة تربط العملاء بفنيي تركيب وصيانة أطباق الدش المتخصصين في محافظة الإسكندرية. العميل يطلب خدمة — تركيب دش، صيانة دش، ضبط إشارة، أو تركيب/صيانة رسيفر — والنظام يعيّن تلقائياً أقرب فني متاح.</p>
+      <p>لو مفيش فني متاح في اللحظة دي، الطلب <b>ما بيتقبلش ولا يترفض</b>: يفضل معلق لحد ما فني يبقى متاح، في خبره النظام تلقائياً في نفس اللحظة أو من مسح دوري كل دقيقتين. العميل بيشوف حالة طلبه في أي وقت من صفحة «طلباتي».</p>
+      <p>الخدمة متاحة في محافظة الإسكندرية فقط، موزّعة على <b>42 منطقة</b> معروفة. كل فني لازم يوثّق هويته برفع بطاقة الرقم القومي وصحيفة الحالة الجنائية، والأدمن يعتمد قبل ما يظهر في نظام التوزيع.</p>
+      <span class="en">Dashawy connects customers with specialised satellite dish and receiver technicians in Alexandria, Egypt. A customer requests one of four services and the system automatically assigns the nearest available technician. If nobody is available, the request stays pending until one frees up — it is picked up automatically the moment a technician becomes free, or on a background sweep every two minutes. The service covers 42 neighbourhoods in the Alexandria governorate. Every technician documents their identity with a national ID and a criminal record, and is approved by an admin before entering the distribution system.</span>
+    </section>
+
+    <!-- المطوّر -->
+    <section class="about-card">
+      <h2><i class="fa-solid fa-user-astronaut"></i> المطوّر</h2>
+      <div class="dev">
+        <!-- Photo placeholder. Replace the letter with an <img> when a photo is
+             available; the wrapper already handles the sizing and the round crop. -->
+        <div class="dev-avatar" aria-hidden="true">M</div>
+
+        <div class="dev-body">
+          <h3 class="dev-name">محمد الطوخي</h3>
+          <p class="dev-name-en">Mohammed Eltokhey</p>
+
+          <div class="dev-titles">
+            <span class="dev-chip"><i class="fa-solid fa-code"></i> مهندس مصري — Egyptian Software Engineer</span>
+            <span class="dev-chip"><i class="fa-solid fa-graduation-cap"></i> طالب نظم المعلومات الإدارية — BIS Student</span>
+            <span class="dev-chip"><i class="fa-solid fa-rocket"></i> مؤسس ومطوّر رئيسي — Founder &amp; Lead Developer</span>
+          </div>
+
+          <p class="dev-bio">مهندس مصري شغوف بتطوير الويب والأنظمة الرقمية، وطالب في قسم نظم المعلومات الإدارية (BIS). مؤسس ومطوّر موقع «دشاوي»، أول منصة مصرية متخصصة في ربط عملاء الإسكندرية بفنيي الدش والرسيفر المعتمدين. يهدف إلى رقمنة الخدمات المنزلية في مصر بأسلوب احترافي يعتمد على التكنولوجيا الحديثة.</p>
+          <span class="en">Mohammed Eltokhey is an Egyptian software engineer and BIS student, passionate about web development and digital systems. He is the founder and lead developer of Dashawy, the first Egyptian platform dedicated to connecting Alexandria residents with certified satellite dish and receiver technicians. His vision is to digitize home services in Egypt with a professional, tech-driven approach.</span>
+
+          <div class="dev-links">
+            <a class="dev-link" href="https://github.com/eltokhey25" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i><span>github.com/eltokhey25</span></a>
+            <a class="dev-link" href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener"><i class="fa-solid fa-code-branch"></i><span>github.com/eltokhey25/dashawy</span></a>
+            <a class="dev-link" href="mailto:meltokhey39@gmail.com"><i class="fa-solid fa-envelope"></i><span>meltokhey39@gmail.com</span></a>
+            <a class="dev-link" href="tel:+201025330520"><i class="fa-solid fa-phone"></i><span>01025330520</span></a>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="about-card">
-      <h2><i class="fa-solid fa-bolt"></i> ما الذي يفعله دشاوي؟</h2>
-      <p>دشاوي منصة تربط العملاء بفنيي تركيب وصيانة أطباق الدش المتخصصين والمُوثَّقين في محافظة الإسكندرية. العميل يطلب خدمة، والنظام يوصلها لأقرب فني متاح — بدون مكالمات ولا مفاوضات ولا انتظار بلا نهاية.</p>
-      <p>عند إنشاء الطلب، يُبَثّ الطلب إلى كل الفنيين المتاحين والمؤهلين في نطاق سكن العميل دفعةً واحدة، وأول فني يقبل هو صاحب الطلب. ولو مفيش فني متاح في تلك اللحظة، <b>الطلب ما بيترفضش</b>: يفضل بحالة «قيد البحث عن فني متاح»، ويتعرض تلقائياً على أول فني يبقى متاح — سواء فوراً عند انتهاء الفني من شغله، أو من مسح دوري كل دقيقتين.</p>
-      <span class="en">A customer requests one of four services — dish installation, dish repair, signal tuning, receiver service. The request is broadcast to every eligible technician within range, and the first to accept wins it. If nobody is available the request is never rejected: it stays pending and is offered to the first technician who frees up, either immediately or on a two-minute background sweep.</span>
-    </section>
-
-    <section class="about-card">
-      <h2><i class="fa-solid fa-star"></i> الخصائص الأساسية</h2>
-      <h3>الفرد والعميل</h3>
-      <ul>
-        <li><b>تسجيل ذاتي للفنيين</b> مع رفع بطاقة الرقم القومي وصحيفة الحالة الجنائية، واعتماد من الأدمن قبل الظهور في نظام البث.</li>
-        <li><b>توزيع تلقائي</b> حسب المنطقة الجغرافية والتوافر، مع مراعاة حد المسافة وسقف المديونية. كل الفنيين يغطون كل خدمات الدش.</li>
-        <li><b>42 منطقة</b> في الإسكندرية مغطاة، مع اقتراح تلقائي للموقع.</li>
-        <li><b>الطلب المعلق ما يضيعش</b>: يُعاد عرضه باستمرار، ويُلغى بعد 24 ساعة مع سبب واضح.</li>
-        <li><b>نظام Start PIN</b>: كود من 4 أرقام يقرؤه العميل عند الباب، فلا يستطيع أحد غير الفني بدء شغلته.</li>
-        <li><b>تأكيد المبلغ من الطرفين</b>: الفني يبلّغ بما استلمه والعميل يؤكد نفس الرقم، وأي اختلاف يوقف الطلب للمراجعة.</li>
-        <li><b>تقييم إلزامي</b> بعد كل مهمة، ومحادثة داخل كل طلب، وإشعارات Web Push.</li>
-      </ul>
-      <h3>الإدارة والمال</h3>
-      <ul>
-        <li><b>لوحة تحكم كاملة</b>: الطلبات، الفنيين، العملاء، المراجعات، المحفظة والمالية، التخصصات والأسعار، المديرون، وطلبات حذف البيانات.</li>
-        <li><b>محفظة لكل فني</b>: عمولة محسوبة، حد مديونية، وسحوبات بمراجعة إدارية.</li>
-        <li><b>تطبيق ويب تقدمي (PWA)</b> يعمل بدون إنترنت ويصلح تثبيته على الشاشة الرئيسية.</li>
-      </ul>
-      <span class="en">Technician self-registration with ID and criminal-record upload, admin approval, automatic distribution by area and availability, 42 Alexandria neighbourhoods, pending requests that are re-offered rather than dropped, a doorstep Start PIN, two-sided cash confirmation, mandatory reviews, per-request chat, Web Push, a full admin dashboard, and a per-technician wallet.</span>
-    </section>
-
+    <!-- التقنيات المستخدمة -->
     <section class="about-card">
       <h2><i class="fa-solid fa-code"></i> التقنيات المستخدمة</h2>
       <div class="stack-row">
         <i class="fa-brands fa-node-js"></i>
-        <div><div class="s-t">الواجهة الخلفية — Node.js + Express</div><div class="s-d">JavaScript بـ CommonJS، Express مع مصادقة JWT ومحدّد معدل الطلبات ورؤوس أمان.</div></div>
+        <div>
+          <div class="s-t">الواجهة الخلفية — Node.js + Express</div>
+          <div class="s-d">مصادقة JWT، تحديد معدل الطلبات، ورؤوس أمان على مستوى التطبيق.</div>
+        </div>
       </div>
       <div class="stack-row">
         <i class="fa-solid fa-database"></i>
-        <div><div class="s-t">قاعدة البيانات — SQLite</div><div class="s-d">عبر <code>better-sqlite3</code>: ملف واحد بوضع WAL، بلا خادم قاعدة بيانات ولا عمليات تشغيل.</div></div>
+        <div>
+          <div class="s-t">قاعدة البيانات — SQLite</div>
+          <div class="s-d">عبر <code>better-sqlite3</code>: ملف واحد بوضع WAL، بلا خادم قاعدة بيانات ولا عمليات تشغيل.</div>
+        </div>
       </div>
       <div class="stack-row">
         <i class="fa-brands fa-js"></i>
-        <div><div class="s-t">الواجهة الأمامية — HTML/CSS/JavaScript خام</div><div class="s-d">بدون إطار عمل، بدون حزم بناء، وبدون خطوة compile. الصفحات تُخدَم من نفس عملية Express التي تخدم الـ API.</div></div>
+        <div>
+          <div class="s-t">الواجهة الأمامية — Vanilla JavaScript</div>
+          <div class="s-d">بدون إطار عمل، بدون حزم بناء، وبدون خطوة compile. الصفحات تُخدَم من نفس عملية Express التي تخدم الـ API.</div>
+        </div>
       </div>
       <div class="stack-row">
         <i class="fa-solid fa-key"></i>
-        <div><div class="s-t">المصادقة — JWT (HS256) + bcrypt</div><div class="s-d">أدوار: عميل / فني / أدمن، وصلاحيات دقيقة، ورمز دخول Start PIN لكل مهمة.</div></div>
-      </div>
-      <div class="stack-row">
-        <i class="fa-solid fa-bell"></i>
-        <div><div class="s-t">الإشعارات — Web Push (VAPID)</div><div class="s-d">إشعار فوري للفني عند وصول طلب جديد يطابق نطاقه.</div></div>
+        <div>
+          <div class="s-t">المصادقة — JWT</div>
+          <div class="s-d">HS256 مع bcrypt لكلمات المرور، وأدوار: عميل / فني / أدمن.</div>
+        </div>
       </div>
       <div class="stack-row">
         <i class="fa-solid fa-server"></i>
-        <div><div class="s-t">الاستضافة — Railway</div><div class="s-d">النشر من مستودع GitHub مع متغيرات بيئة مُدارة.</div></div>
+        <div>
+          <div class="s-t">الاستضافة — Railway</div>
+          <div class="s-d">النشر من مستودع GitHub مع متغيرات بيئة مُدارة.</div>
+        </div>
       </div>
-      <span class="en">Backend: Node.js + Express. Database: SQLite via better-sqlite3 (single file, WAL, no server). Frontend: vanilla HTML/CSS/JS with no framework and no build step. Auth: JWT (HS256) + bcrypt. Notifications: Web Push. Hosting: Railway.</span>
+      <span class="en">Backend: Node.js + Express. Database: SQLite via better-sqlite3. Frontend: vanilla JavaScript with no framework and no build step. Authentication: JWT. Hosting: Railway.</span>
     </section>
 
+    <!-- features note -->
     <section class="about-card">
-      <h2><i class="fa-solid fa-user-astronaut"></i> عن المطوّر</h2>
-      <div class="fact-grid">
-        <div class="fact"><span class="f-k">الاسم / Name</span><span class="f-v">Eltokhey (الطوخي)</span></div>
-        <div class="fact"><span class="f-k">الموقع / Location</span><span class="f-v">الإسكندرية، مصر</span></div>
-        <div class="fact"><span class="f-k">البريد الإلكتروني / Email</span><span class="f-v"><a href="mailto:meltokhey39@gmail.com" dir="ltr">meltokhey39@gmail.com</a></span></div>
-        <div class="fact"><span class="f-k">GitHub</span><span class="f-v"><a href="https://github.com/eltokhey25" target="_blank" rel="noopener" dir="ltr">github.com/eltokhey25</a></span></div>
-        <div class="fact"><span class="f-k">المستودع / Repository</span><span class="f-v"><a href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener" dir="ltr">github.com/eltokhey25/dashawy</a></span></div>
-        <div class="fact"><span class="f-k">الهاتف / Phone</span><span class="f-v"><a href="tel:+201025330520" dir="ltr">01025330520</a></span></div>
-      </div>
-      <p style="margin-top:16px">مشروع مفتوح المصدر، أُنشئ عام <b>2026</b>. الترخيص: مفتوح المصدر.</p>
-      <span class="en">Open source, created by Eltokhey in 2026.</span>
+      <h2><i class="fa-solid fa-star"></i> مميزات إضافية</h2>
+      <ul>
+        <li><b>لوحة تحكم كاملة للأدمن</b>: إدارة الطلبات، الفنيين، العملاء، المدراء، والمراجعات.</li>
+        <li><b>تسجيل ذاتي للفنيين</b> مع رفع البطاقة والفيش الجنائي، واعتماد من الأدمن.</li>
+        <li><b>تعيين تلقائي حسب التخصص والمنطقة الجغرافية</b>.</li>
+        <li><b>تسجيل دخول بدون باسورد عبر OTP على الإيميل</b> (قريباً).</li>
+        <li><b>نظام Start PIN</b>: كود من 4 أرقام عند الباب يمنع أي شخص غير الفني من بدء المهمة.</li>
+        <li><b>تأكيد المبلغ من الطرفين</b>: الفني يبلّغ والعميل يؤكد، وأي اختلاف يوقف الطلب للمراجعة.</li>
+        <li><b>تقييم إلزامي</b> بعد كل مهمة، ومحادثة داخل كل طلب، وإشعارات Web Push.</li>
+        <li><b>محفظة لكل فني</b>: عمولة محسوبة، حد مديونية، وسحوبات بمراجعة إدارية.</li>
+      </ul>
     </section>
 
+    <!-- روابط سريعة -->
     <section class="about-card">
-      <h2><i class="fa-solid fa-rocket"></i> ابدأ الآن</h2>
+      <h2><i class="fa-solid fa-link"></i> روابط سريعة</h2>
       <div class="pill-row">
-        <span class="pill"><i class="fa-solid fa-house"></i> <a href="/">الموقع</a></span>
-        <span class="pill"><i class="fa-solid fa-user-plus"></i> <a href="/register.html">حساب عميل</a></span>
-        <span class="pill"><i class="fa-solid fa-user-gear"></i> <a href="/register-tech.html">التسجيل كفني</a></span>
-        <span class="pill"><i class="fa-solid fa-list-check"></i> <a href="/customer/my-requests.html">طلباتي</a></span>
-        <span class="pill"><i class="fa-solid fa-shield-halved"></i> <a href="/privacy.html">سياسة الخصوصية</a></span>
+        <a class="pill" href="/"><i class="fa-solid fa-house"></i> الموقع</a>
+        <a class="pill" href="/register.html"><i class="fa-solid fa-user-plus"></i> حساب عميل</a>
+        <a class="pill" href="/register-tech.html"><i class="fa-solid fa-user-gear"></i> التسجيل كفني</a>
+        <a class="pill" href="/request.html"><i class="fa-solid fa-bolt"></i> اطلب الخدمة</a>
+        <a class="pill" href="/customer/my-requests.html"><i class="fa-solid fa-list-check"></i> طلباتي</a>
+        <a class="pill" href="/privacy.html"><i class="fa-solid fa-shield-halved"></i> سياسة الخصوصية</a>
+        <a class="pill" href="/llms.txt"><i class="fa-solid fa-file-lines"></i> llms.txt</a>
       </div>
-      <a class="llms-link" href="/llms.txt"><i class="fa-solid fa-file-lines"></i> llms.txt — النسخة الآلية</a>
+      <div class="note" style="margin-top:18px">
+        <i class="fa-solid fa-robot"></i>
+        <div>
+          يوجد نسخة آلية من نفس هذه المعلومات بصيغة نصية على <code>/llms.txt</code> مخصصة لنماذج الذكاء الاصطناعي.
+          <span class="en">The same information is also published as plain text at /llms.txt, written for AI models.</span>
+        </div>
+      </div>
     </section>
 
-    <div class="about-foot">دشاوي © 2026 · جميع الحقوق محفوظة</div>
+    <!-- Footer -->
+    <div class="about-foot">
+      <span class="af-strong">هذه الصفحة مخصصة لنماذج الذكاء الاصطناعي ولأي شخص مهتم بمعرفة المزيد عن المشروع.</span>
+      هذه الصفحة مخصصة لنماذج الذكاء الاصطناعي ولأي شخص مهتم بمعرفة المزيد عن المشروع.<br>
+      <span class="en">This page is for AI models and for anyone curious about the project.</span><br>
+      دشاوي © 2026 · محمد الطوخي — مشروع مفتوح المصدر.<br>
+      <span class="en">Open source project by Mohammed Eltokhey.</span>
+    </div>
   </main>
 
   <footer class="footer">
@@ -194,19 +272,19 @@
         <div class="footer-col">
           <h4>روابط سريعة</h4>
           <ul>
-            <li><a href="/#services">الخدمات</a></li>
-            <li><a href="/#how">كيف تعمل</a></li>
+            <li><a href="/">الرئيسية</a></li>
+            <li><a href="/request.html">اطلب الخدمة</a></li>
+            <li><a href="/register-tech.html">التسجيل كفني</a></li>
             <li><a href="/login.html">تسجيل الدخول</a></li>
-            <li><a href="/about-ai.html">عن المشروع</a></li>
           </ul>
         </div>
         <div class="footer-col">
-          <h4>الخدمات</h4>
+          <h4>عن المشروع</h4>
           <ul>
-            <li><a href="/request.html">تركيب دش</a></li>
-            <li><a href="/request.html">صيانة دش</a></li>
-            <li><a href="/request.html">ضبط إشارة</a></li>
-            <li><a href="/request.html">تركيب / صيانة رسيفر</a></li>
+            <li><a href="/about-ai.html">عن دشاوي</a></li>
+            <li><a href="/llms.txt" dir="ltr">llms.txt</a></li>
+            <li><a href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener" dir="ltr">المستودع على GitHub</a></li>
+            <li><a href="/privacy.html">سياسة الخصوصية</a></li>
           </ul>
         </div>
         <div class="footer-col">
@@ -220,7 +298,7 @@
       </div>
       <div class="footer-bottom">
         <span>© 2026 دشاوي. جميع الحقوق محفوظة.</span>
-        <span><a href="/about-ai.html">عن المشروع للمُفهقات</a></span>
+        <span>مشروع مفتوح المصدر — محمد الطوخي</span>
       </div>
     </div>
   </footer>

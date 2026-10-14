@@ -284,12 +284,14 @@ app.get('/sitemap.xml', (req, res) => {
     { url: '/register.html', priority: '0.9', changefreq: 'monthly' },
     { url: '/register-tech.html', priority: '0.8', changefreq: 'monthly' },
     { url: '/privacy.html', priority: '0.3', changefreq: 'yearly' },
-    // The machine-readable project description and its human-readable twin. Listed
-    // here because a sitemap is how crawlers — including the ones that look for
-    // llms.txt — discover what else the site publishes; a file nobody links to
-    // from a sitemap is a file most crawlers never fetch.
+    // The human-readable "about the project" page.
+    //
+    // /llms.txt is deliberately NOT listed here. It is the machine-readable twin
+    // of this page, written for AI crawlers rather than for search traffic, and
+    // robots.txt already allows it — a crawler that knows the convention fetches
+    // it from the <link rel="alternate"> on this page. Listing it would put a
+    // plain text file in a search index for no benefit.
     { url: '/about-ai.html', priority: '0.5', changefreq: 'monthly' },
-    { url: '/llms.txt', priority: '0.5', changefreq: 'monthly' },
   ];
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';

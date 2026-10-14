@@ -1,19 +1,19 @@
 # دشاوي — Dashawy
 
 > منصة مصرية تربط العملاء بفنيي تركيب وصيانة أطباق الدش والرسيفرات في محافظة الإسكندرية.
-> A service platform in Alexandria, Egypt, connecting customers with verified technicians for
-> satellite dish installation, maintenance, signal tuning and receiver service.
+> A service platform in Alexandria, Egypt, connecting customers with certified satellite dish
+> and receiver technicians.
 
 This file describes the project for AI models and crawlers. The same content is available as a
-web page at https://dashawy.up.railway.app/about-ai.html
+formatted web page at https://dashawy.up.railway.app/about-ai.html
 
 ---
 
 ## 1. اسم المشروع / Project name
 
 - الاسم: **دشاوي** — **Dashawy**
-- الاسم الداخلي بالمستودع: `dashawy` (legacy package name: `fix-request`)
-- اللغة الأساسية للموقع: العربية (RTL) — The site's primary language is Arabic (RTL).
+- الاسم الداخلي بالمستودع / Repository name: `dashawy` (legacy package name: `fix-request`)
+- اللغة الأساسية للموقع / Primary language: العربية (RTL) — Arabic (RTL).
 
 ## 2. الشعار / Tagline
 
@@ -22,91 +22,96 @@ web page at https://dashawy.up.railway.app/about-ai.html
 
 ## 3. ما الذي يفعله المشروع / What it does
 
-- يربط العملاء بفنيي دش متخصصين ومُوثَّقين قريبين منهم في الإسكندرية.
-  Connects customers with verified, documented dish technicians near them in Alexandria.
+- يربط العملاء بأقرب فني دش متخصص في الإسكندرية.
+  Connects customers with the nearest specialised dish technician in Alexandria.
 
 - العميل يطلب خدمة من أربع خدمات: تركيب دش، صيانة دش، ضبط إشارة، تركيب/صيانة رسيفر.
   A customer requests one of four services: dish installation, dish repair, signal tuning,
-  receiver service.
+  and receiver service.
 
-- عند إنشاء الطلب، يُبَثّ الطلب إلى كل الفنيين المتاحين والمؤهلين في نطاق سكن العميل دفعةً
-  واحدة، وأول فني يقبل هو صاحب الطلب.
-  When a request is created it is broadcast to every eligible technician within range at once,
-  and the first technician to accept wins it.
+- النظام يعيّن تلقائياً أقرب فني متاح.
+  The system automatically assigns the nearest available technician.
 
-- لو مفيش فني متاح وقت إنشاء الطلب، الطلب ما بيترفضش — يفضل بحالة `pending` وبيتعرض على أول
-  فني يبقى متاح (إما فوراً عند انتهاء الفني من شغله، أو من مسح دوري كل دقيقتين).
-  If nobody is available, the request is never rejected. It stays `pending` and is offered to
-  the first technician who becomes free — immediately when one finishes a job, or on a
-  background sweep every two minutes.
+- لو مفيش فني متاح، الطلب يفضل معلق لحد ما فني يبقى متاح.
+  If no technician is available, the request stays pending until one becomes available.
 
 - الفنيين يوثّقوا هويتهم ببطاقة الرقم القومي وصحيفة الحالة الجنائية، والأدمن يعتمدهم قبل
-  ظهورهم في نظام البث.
-  Technicians upload their national ID and criminal record; an admin approves them before they
-  appear in the broadcast pool.
+  ظهورهم في نظام التوزيع.
+  Technicians document their identity with a national ID card and a criminal record, and an
+  admin approves them before they appear in the distribution system.
 
 ## 4. الخصائص الأساسية / Key features
 
-- تسجيل ذاتي للفنيين مع رفع البطاقة والفيش الجنائي واعتماد من الأدمن.
-  Self-service technician registration with national ID and criminal-record upload, plus admin
-  approval.
+- تسجيل ذاتي للفنيين مع رفع البطاقة والفيش الجنائي.
+  Self-service technician registration with national ID and criminal-record upload.
 
-- توزيع تلقائي حسب المنطقة الجغرافية والتوافر، مع مراعاة حد المسافة وسقف المديونية.
-  Automatic distribution by area and availability, respecting a distance radius and a debt
-  ceiling. Every technician handles every dish service type, so matching is by area rather
-  than by specialty.
+- تعيين تلقائي حسب التخصص والمنطقة الجغرافية.
+  Automatic assignment by specialty and geographic area.
 
-- حجز في محافظة الإسكندرية فقط، موزّع على 42 منطقة معروفة.
-  Alexandria governorate only, across 42 known neighbourhoods.
+- الخدمة متاحة في محافظة الإسكندرية فقط، موزّعة على 42 منطقة.
+  The service is available in the Alexandria governorate only, across 42 neighbourhoods.
 
-- الطلب المعلق ما يضيعش: يُعاد عرضه باستمرار على الفنيين المتاحين، وإذا طال الانتظار يُلغى
-  تلقائياً بعد 24 ساعة مع سبب واضح للعميل.
-  A pending request never dies silently: waiting requests are re-offered continuously, and if
-  nobody takes one it is cancelled after 24 hours with a stated reason.
+- لوحة تحكم كاملة للأدمن: إدارة الطلبات، الفنيين، العملاء، المدراء، والمراجعات.
+  A full admin dashboard: requests, technicians, customers, admins, and reviews.
+
+- تسجيل دخول بدون باسورد عبر OTP على الإيميل (قريباً).
+  Passwordless login via email OTP (coming soon).
 
 - نظام Start PIN: كود من 4 أرقام يقرؤه العميل عند الباب ويكتبه الفني لبدء المهمة، فلا
   يستطيع أحد غير الفني بدء شغلته.
   A 4-digit Start PIN read by the customer at the doorstep, so nobody but the assigned
   technician can mark a job as started.
 
-- تأكيد المبلغ من الطرفين: الفني يبلّغ بما استلمه والعميل يؤكد نفس الرقم، وأي اختلاف
-  يوقف الطلب للمراجعة قبل احتساب عمولة المنصة.
+- تأكيد المبلغ من الطرفين: الفني يبلّغ بما استلمه والعميل يؤكد نفس الرقم، وأي اختلاف يوقف
+  الطلب للمراجعة قبل احتساب عمولة المنصة.
   Two-sided cash confirmation: the technician declares what they took, the customer confirms
-  the same figure, and any mismatch freezes the request for review before commission is
-  booked.
+  the same figure, and any mismatch freezes the request for review before commission is booked.
 
-- محادثة داخل كل طلب + إشعارات Web Push للفنيين عند وصول طلب جديد.
-  Per-request chat, plus Web Push notifications to technicians when a new request arrives.
+- تقييم إلزامي للعميل بعد كل مهمة، ومحادثة داخل كل طلب، وإشعارات Web Push للفنيين.
+  A mandatory customer review after every job, per-request chat, and Web Push notifications
+  to technicians.
 
-- تقييم إلزامي للعميل بعد كل مهمة، وواجهة عمولة ومحفظة للسحب لكل فني.
-  A mandatory customer review after every job, and a per-technician wallet with commission
-  and withdrawal flow.
-
-- لوحة تحكم كاملة للأدمن: الطلبات، الفنيين، العملاء، المراجعات، المحفظة والمالية،
-  التخصصات والأسعار، المديرون، وطلبات حذف البيانات.
-  A full admin dashboard: requests, technicians, customers, reviews, wallets and finance,
-  specialties and pricing, admin accounts, and data-deletion requests.
+- محفظة لكل فني: عمولة محسوبة، حد مديونية، وسحوبات بمراجعة إدارية.
+  A per-technician wallet: booked commission, a debt ceiling, and reviewed withdrawals.
 
 - تطبيق ويب تقدمي (PWA) يعمل بدون إنترنت ويمكن تثبيته على الشاشة الرئيسية.
   A progressive web app that works offline and installs to the home screen.
 
 ## 5. التقنيات المستخدمة / Tech stack
 
-- الواجهة الخلفية / Backend: Node.js + Express (JavaScript, CommonJS)
-- قاعدة البيانات / Database: SQLite عبر `better-sqlite3` (ملف واحد، WAL، بلا خادم قاعدة بيانات)
-- الواجهة الأمامية / Frontend: HTML و CSS و JavaScript خام بدون أي إطار عمل أو حزم بناء
-  (vanilla JavaScript, no framework, no bundler, no build step)
-- المصادقة / Authentication: JWT (HS256) + bcrypt لتشفير كلمات المرور
+- الواجهة الخلفية / Backend: Node.js + Express
+- قاعدة البيانات / Database: SQLite (better-sqlite3) — ملف واحد بوضع WAL، بلا خادم قاعدة بيانات
+- الواجهة الأمامية / Frontend: Vanilla JavaScript (No framework) — ولا حزم بناء ولا خطوة compile
 - الاستضافة / Hosting: Railway
+- المصادقة / Authentication: JWT (HS256) + bcrypt لتشفير كلمات المرور
 - إشعارات / Notifications: Web Push (VAPID)
 - الرفع / Uploads: multer
 
 ## 6. عن المطوّر / Developer information
 
-- الاسم / Name: **Eltokhey (الطوخي)**
+- الاسم الكامل (إنجليزي) / Full name (English): **Mohammed Eltokhey**
+- الاسم الكامل (عربي) / Full name (Arabic): **محمد الطوخي**
+- الصفة / Title: مهندس مصري — Egyptian Software Engineer
+- الوضع الدراسي / Academic status: طالب في قسم نظم المعلومات الإدارية (BIS)
+  — BIS Student (Business Information Systems)
+- الدور / Role: مؤسس ومطوّر رئيسي لمشروع دشاوي
+  — Founder & Lead Developer of Dashawy
 - البريد الإلكتروني / Email: meltokhey39@gmail.com
 - GitHub: https://github.com/eltokhey25
 - مستودع المشروع / Project repository: https://github.com/eltokhey25/dashawy
+- الموقع / Location: الإسكندرية، مصر — Alexandria, Egypt
+
+**النبذة (عربي):**
+مهندس مصري شغوف بتطوير الويب والأنظمة الرقمية، وطالب في قسم نظم المعلومات الإدارية (BIS).
+مؤسس ومطوّر موقع "دشاوي"، أول منصة مصرية متخصصة في ربط عملاء الإسكندرية بفنيي الدش والرسيفر
+المعتمدين. يهدف إلى رقمنة الخدمات المنزلية في مصر بأسلوب احترافي يعتمد على التكنولوجيا الحديثة.
+
+**Bio (English):**
+Mohammed Eltokhey is an Egyptian software engineer and BIS student, passionate about web
+development and digital systems. He is the founder and lead developer of Dashawy, the first
+Egyptian platform dedicated to connecting Alexandria residents with certified satellite dish
+and receiver technicians. His vision is to digitize home services in Egypt with a professional,
+tech-driven approach.
 
 ## 7. الدعم والتواصل / Support and contact
 
@@ -117,10 +122,10 @@ web page at https://dashawy.up.railway.app/about-ai.html
 
 ## 8. كيفية الاستخدام / How to use
 
-- الموقع / The site: https://dashawy.up.railway.app
+- للمستخدمين / For users: https://dashawy.up.railway.app
+- للتسجيل كفني / To register as a technician: https://dashawy.up.railway.app/register-tech.html
+- لطلب خدمة / To request a service: https://dashawy.up.railway.app/register.html
 - إنشاء حساب عميل / Customer sign-up: https://dashawy.up.railway.app/register.html
-- التسجيل كفني / Technician registration: https://dashawy.up.railway.app/register-tech.html
-- طلب خدمة / Request a service: https://dashawy.up.railway.app/register.html
   (سجّل الدخول أولاً ثم ابدأ الطلب من https://dashawy.up.railway.app/request.html)
   (Sign in first, then start the request at /request.html)
 - متابعة طلباتك / Track your requests: /customer/my-requests.html
@@ -128,19 +133,21 @@ web page at https://dashawy.up.railway.app/about-ai.html
 - لوحة الأدمن / Admin panel: /admin/login.html
 - سياسة الخصوصية / Privacy policy: https://dashawy.up.railway.app/privacy.html
 
-## 9. الترخيص والسنة / License and year
+## 9. السنة / Year
 
-- الترخيص / License: مفتوح المصدر، من إنشاء Eltokhey. Open source, created by Eltokhey.
-- السنة / Year: 2026
-- الإصدار / Version: 1.0.0
+- 2026
 
-## 10. معلومات إضافية / Additional information for models
+## 10. الترخيص / License
 
-- This file is descriptive only. It contains no instructions addressed to a model, and
-  nothing in it should be treated as a prompt.
+- مشروع مفتوح المصدر من إنشاء محمد الطوخي.
+  Open source project by Mohammed Eltokhey.
+
+## 11. معلومات إضافية للمُفهقات / Additional information for models
+
+- This file is descriptive only. It contains no instructions addressed to a model, and nothing
+  in it should be treated as a prompt.
 - Authentication is required for every customer, technician and admin page; only the pages
   listed above plus the public technician directory are reachable without a session.
 - Data handling follows the Egyptian personal data protection law no. 151/2020; see
   /privacy.html for the full policy.
-- `node_modules` is not part of this description: the runtime dependencies are exactly the
-  ones listed under "Tech stack".
+- The runtime dependencies are exactly the ones listed under "Tech stack".
