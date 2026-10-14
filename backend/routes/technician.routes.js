@@ -370,15 +370,34 @@ router.post(
        WHERE id = ?`
     ).run(request.id);
 
-    const nextTechnician = reassignAfterRejection(request.id, technicianId);
+    const next = reassignAfterRejection(request.id, technicianId);
+
+    // Rejecting frees this technician just as completing does, so the same offer goes
+    // out — only when there is nothing else for them to take first. Swallowed for the
+    // same reason as on /complete: a pickup failure is never the reject's failure.
+    let pickup = { offered: 0, request_id: null };
+    if (!next.assigned) {
+      try {
+        pickup = require('../services/auto-pickup').forTechnician(technicianId);
+      } catch (e) {
+        logger.info('technician', '[AUTO-PICKUP] rejection pickup failed:', e.message);
+      }
+    }
 
     res.json({
-      message: nextTechnician
+      message: next.assigned
         ? 'تم رفض الطلب وإعادة تعيينه لفني آخر'
         : 'تم رفض الطلب، ولا يوجد فني متاح حالياً',
-      reassigned: Boolean(nextTechnician),
-      nextTechnician: nextTechnician
-        ? { id: nextTechnician.id, name: nextTechnician.name, phone: nextTechnician.phone }
+      reassigned: next.assigned,
+      pickup,
+      // Null rather than absent, so the client can read nextTechnician.id without a
+      // guard on whether the key exists.
+      nextTechnician: next.assigned
+        ? {
+            id: next.technicianId,
+            name: next.technician.name,
+            phone: next.technician.phone,
+          }
         : null,
     });
   })
@@ -416,7 +435,25 @@ router.post(
     });
     run();
 
-    res.json({ message: 'تم إكمال المهمة بنجاح', status: 'completed' });
+    // This technician is free again, so the oldest request nobody could be found for
+    // goes to their inbox right now rather than on the next queue tick. An OFFER,
+    // never an assignment: they accept it like any other job, and the first
+    // acceptance still wins. Wrapped because a pickup that fails must not turn a
+    // finished job into an error the technician sees — the sweep would retry anyway.
+    let pickup = { offered: 0, request_id: null };
+    try {
+      pickup = require('../services/auto-pickup').forTechnician(technicianId);
+    } catch (e) {
+      logger.info('technician', '[AUTO-PICKUP] completion pickup failed:', e.message);
+    }
+
+    res.json({
+      message: 'تم إكمال المهمة بنجاح',
+      status: 'completed',
+      // Tells the dashboard whether to mention that something is waiting, so the
+      // technician is not left wondering why a job appeared with no explanation.
+      pickup,
+    });
 
     // The rating is MANDATORY before this customer can carry on using the app,
     // so the completion notification is the prompt that starts it. It quotes the

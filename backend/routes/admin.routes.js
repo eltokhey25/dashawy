@@ -16,6 +16,8 @@ const path = require('path');
 const db = require('../db');
 const config = require('../config');
 const broadcast = require('../services/broadcast');
+const autoPickup = require('../services/auto-pickup');
+const logger = require('../utils/logger');
 const { wrap, AppError, badRequest, forbidden, serviceError } = require('../utils/errors');
 const { requireRole, requireSuperAdmin, requirePermission } = require('../middleware/auth');
 const {
@@ -339,7 +341,17 @@ router.post(
            approved_by = ?
        WHERE id = ?`
     ).run(req.user.id, t.id);
-    res.json({ message: 'تم قبول الفني وتفعيل حسابه' });
+
+    // Approval is the moment a technician joins the available pool, so any request
+    // that has been waiting for one reaches them now instead of on the next sweep.
+    let pickup = { offered: 0, request_id: null };
+    try {
+      pickup = autoPickup.forTechnician(t.id);
+    } catch (e) {
+      logger.info('admin', '[AUTO-PICKUP] approval pickup failed:', e.message);
+    }
+
+    res.json({ message: 'تم قبول الفني وتفعيل حسابه', pickup });
   })
 );
 
@@ -550,7 +562,21 @@ router.put(
          WHERE t.id = ?`
       )
       .get(technician.id);
-    res.json({ message: 'تم تحديث بيانات الفني', technician: updated });
+
+    // An admin flipping somebody to 'available' is the other way a technician frees
+    // up (the first being finishing a job), so the waiting requests get the same
+    // instant offer — offered, not assigned; the technician still accepts it. Only on
+    // a real transition, and swallowed so a pickup failure cannot fail an edit.
+    let pickup = { offered: 0, request_id: null };
+    if (updates.availability === 'available' && technician.availability !== 'available') {
+      try {
+        pickup = autoPickup.forTechnician(technician.id);
+      } catch (e) {
+        logger.info('admin', '[AUTO-PICKUP] availability pickup failed:', e.message);
+      }
+    }
+
+    res.json({ message: 'تم تحديث بيانات الفني', technician: updated, pickup });
   })
 );
 

@@ -1103,8 +1103,9 @@
                   // backend refuses a report on a request that is not completed, so
                   // reporting first would fail. The notes are only sent when they
                   // changed, which keeps a retry from re-completing a finished job.
+                  let completion = null;
                   if (!amountOnly && notes !== ((request && request.work_notes) || '').trim()) {
-                    await api('/api/technician/requests/' + requestId + '/complete', {
+                    completion = await api('/api/technician/requests/' + requestId + '/complete', {
                       method: 'POST',
                       body: { work_notes: notes },
                     });
@@ -1126,9 +1127,29 @@
                     toast('تم تسجيل المبلغ — بانتظار تأكيد العميل', 'success');
                   }
 
+                  // Finishing a job is what makes this technician available again, so
+                  // the server offers them the oldest request nobody was free for at
+                  // the time. Saying it out loud is the difference between "why is
+                  // there a new job I never touched" and a technician who knows the
+                  // system is working.
+                  //
+                  // Only when /complete actually ran: on the amount-only retry path the
+                  // technician was freed by the earlier call, and claiming it again
+                  // would repeat a message they have already read.
+                  if (completion && completion.pickup && completion.pickup.offered) {
+                    toast(
+                      'أنت متاح الآن. سيتم إرسال الطلبات المعلقة إليك تلقائياً.' +
+                        (completion.pickup.request_id
+                          ? ' — طلب #' + completion.pickup.request_id + ' في طلباتك الجديدة.'
+                          : ''),
+                      'success'
+                    );
+                  }
+
                   if (modalHandle) modalHandle.close();
-                  // Completion moves the job out of 'active' and the report changes
-                  // the wallet, so pull both.
+                  // Completion moves the job out of 'active', the report changes the
+                  // wallet, and a pickup puts something in the incoming list, so pull
+                  // all of them.
                   switchTab('active');
                   await pollAll(true);
                 } catch (err) {
