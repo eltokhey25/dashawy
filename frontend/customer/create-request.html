@@ -201,9 +201,9 @@
       </aside>
     </div>
 
-    <div id="result-card" style="margin-top:18px; display:none;">
-      <div class="card" style="border-color:var(--success-500); border-inline-start:5px solid var(--success-500);"></div>
-    </div>
+    <!-- The result of a submission is a toast plus a hop to the request list, not a
+         card on this form: the form is finished the moment the request exists, and
+         "طلباتي" is where the customer watches it move. -->
   </div>
 
   <script src="/js/api.js"></script>
@@ -403,32 +403,35 @@
       );
     });
 
-    function showResult(data) {
-      const card = document.getElementById('result-card');
-      const box = card.querySelector('.card');
-      Ui.clear(box);
-      card.style.display = 'block';
-      box.appendChild(Ui.el('div', { class: 'req-top' }, [
-        Ui.el('div', { class: 'req-title' }, [
-          Ui.iconBadge(data.request.specialty),
-          'تم استلام طلبك #' + data.request.id
-        ]),
-        Ui.statusBadge(data.request.status)
-      ]));
-      if (data.assigned && data.request.technician_name) {
-        box.appendChild(Ui.el('div', { class: 'detail-grid', style: 'margin-top:12px' }, [
-          Ui.el('div', { class: 'detail-row' }, [Ui.el('span', { class: 'dk' }, ['الفني المكلّف']), Ui.el('span', { class: 'dv' }, [data.request.technician_name + (data.request.technician_phone ? ' · ' + data.request.technician_phone : '')])]),
-          Ui.el('div', { class: 'detail-row' }, [Ui.el('span', { class: 'dk' }, ['التخصص']), Ui.el('span', { class: 'dv' }, [Ui.specialtyLabel(data.request.specialty)])])
-        ]));
-      } else {
-        box.appendChild(Ui.el('p', { style: 'margin-top:10px;color:var(--body)' }, [
-          'لا يوجد فني متاح حالياً لهذا التخصص. الطلب قيد الانتظار وسيُحدد فني أوتوماتيكياً بمجرد توفره — تابع الحالة من «طلباتي».'
-        ]));
-      }
-      box.appendChild(Ui.el('div', { style: 'margin-top:16px' }, [
-        Ui.el('a', { class: 'btn btn-brand', attrs: { href: '/customer/my-requests.html' } }, [Ui.ic('fa-solid fa-list-check'), 'متابعة حالة الطلب'])
-      ]));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Announces a created request and moves the customer to the list.
+    //
+    // `assignment.assigned === false` is NOT an error and must never look like one.
+    // The request was created, priced and put in front of technicians; there simply
+    // was nobody free at the second it was sent. Saying so — and saying what happens
+    // next — is the difference between a customer who waits and one who opens this
+    // form again three minutes later to submit a second request for the same job.
+    //
+    // The wait before the hop is not decoration: the toast has to be on screen long
+    // enough to be read, since this page is about to be replaced.
+    const ASSIGNED_MESSAGE = 'تم تعيين فني لطلبك، هيوصلك قريب!';
+    const WAITING_MESSAGE =
+      'تم استلام طلبك بنجاح! سيتم التواصل معاك في أقرب وقت من قبل أحد الفنيين.';
+    const REDIRECT_DELAY_MS = 2500;
+
+    function announceResult(data) {
+      const assignment = data.assignment || {};
+      const message = assignment.assigned
+        ? assignment.message || ASSIGNED_MESSAGE
+        : WAITING_MESSAGE;
+
+      toast(message, 'success');
+      // Left disabled rather than reset: the request exists, the form is done, and
+      // the button must not fire a second identical request while the hop is pending.
+      document.getElementById('submit-btn').disabled = true;
+
+      setTimeout(() => {
+        window.location.href = '/customer/my-requests.html';
+      }, REDIRECT_DELAY_MS);
     }
 
     document.getElementById('req-form').addEventListener('submit', async (e) => {
@@ -459,12 +462,11 @@
         if (latitude && longitude) { body.latitude = Number(latitude); body.longitude = Number(longitude); }
         if (preferredTechId) body.technician_id = preferredTechId;
         const data = await api('/api/customer/requests', { method: 'POST', body });
-        showResult(data);
-        toast(data.message, 'success');
+        announceResult(data);
       } catch (err) {
         toast(err.message, 'error');
+        Ui.btnReset(btn);
       }
-      Ui.btnReset(btn);
     });
   </script>
   <script src="/js/pwa-install.js"></script>

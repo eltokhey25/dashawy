@@ -297,6 +297,20 @@
         const displayLabel =
           r.specialty === 'other' && r.custom_specialty_text ? r.custom_specialty_text : m.label;
         const card = Ui.el('div', { class: 'req-card' });
+        // A request nobody has taken yet is not a failure, and the badge must not
+        // read like one. 'قيد الانتظار' on its own is accurate and says nothing about
+        // what happens next; this says the search is still running. Scoped to this
+        // screen on purpose — the same badge on the technician dashboard and the
+        // admin list means "not yet assigned" in a context where that IS the thing
+        // being looked at.
+        const badge =
+          r.status === 'pending'
+            ? Ui.el('span', { class: 'badge b-pending' }, [
+                Ui.ic('fa-solid fa-magnifying-glass'),
+                'قيد البحث عن فني متاح',
+              ])
+            : Ui.statusBadge(r.status);
+
         card.appendChild(
           Ui.el('div', { class: 'req-top' }, [
             Ui.el('div', { class: 'req-title' }, [
@@ -307,7 +321,7 @@
               ),
               displayLabel + ' — طلب #' + r.id,
             ]),
-            Ui.statusBadge(r.status),
+            badge,
           ])
         );
         const meta = [
@@ -332,9 +346,12 @@
               'أُنجز: ' + Ui.dateTime(r.completed_at),
             ])
           );
-        if (['pending', 'assigned'].includes(r.status) && !r.technician_name)
+        // Pending already says "we are looking" in the badge, so repeating it here would
+        // be the same sentence twice on one card. Left for 'assigned', where the
+        // badge claims a technician exists but the card cannot name one.
+        if (r.status === 'assigned' && !r.technician_name)
           meta.push(
-            Ui.el('span', {}, [Ui.ic('fa-solid fa-magnifying-glass'), 'جارٍ البحث عن فني…'])
+            Ui.el('span', {}, [Ui.ic('fa-solid fa-magnifying-glass'), 'جارٍ تأكيد بيانات الفني…'])
           );
         card.appendChild(Ui.el('div', { class: 'req-meta' }, meta));
 

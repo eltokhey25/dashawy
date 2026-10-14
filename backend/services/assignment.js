@@ -2,8 +2,13 @@
  * @file   Automatic job assignment service
  * @module assignment
  *
- * Picks the best technician for a new request using specialty, distance and availability, with
+ * Picks the best technician for a request using specialty, distance and availability, with
  * the matching logic kept as small pure functions.
+ *
+ * Every entry point here REPORTS rather than throws: "nobody is available right now" is
+ * an ordinary outcome, not an error, and a caller that has to catch an exception to find
+ * out will eventually let one escape into a customer's face. The results are
+ * `{ assigned: true, technicianId, technician }` or `{ assigned: false, reason }`.
  *
  * @author Eltokhey
  * @since  2026-09
@@ -12,8 +17,12 @@
 // The matching + assignment logic lives here as a small set of pure-ish
 // functions so it can easily be extended (optimised routes, priority tiers, etc.)
 const db = require('../db');
-const { AppError } = require('../utils/errors');
 const startPinService = require('./startPin');
+const logger = require('../utils/logger');
+
+// Reasons a request could not be assigned, so a caller can log or report something
+// more useful than "false" without re-deriving it.
+const NO_TECHNICIAN = 'no_technician_available';
 
 // Haversine distance between two coordinates in kilometres.
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -112,37 +121,63 @@ function rankTechnicians(candidates, request) {
 // Tries to assign the best available technician to the request:
 //   1. closest distance (or location-text match).
 // All technicians handle all dish service types, so specialty is irrelevant.
-// Returns the assigned technician object, or null if no candidate is available.
+//
+// Returns a result object instead of a technician-or-null:
+//   { assigned: true,  technicianId, technician }
+//   { assigned: false, reason: 'request_not_found' | 'request_not_pending' | 'no_technician_available' }
+//
+// It never throws, because every caller of this function is on a path where "no
+// technician yet" has to stay a normal outcome: a request that cannot be assigned
+// now is still a valid request that simply waits.
 function assignTechnician(requestId) {
   const request = db.prepare('SELECT * FROM requests WHERE id = ?').get(requestId);
-  if (!request) throw new AppError('Request not found', 404);
+  if (!request) return { assigned: false, reason: 'request_not_found' };
 
-  // Only pending requests can be assigned.
-  if (request.status !== 'pending') return null;
+  // Only pending requests can be assigned. Already-reported rather than treated as a
+  // failure: a request somebody else claimed first is not this call's problem to solve.
+  if (request.status !== 'pending') return { assigned: false, reason: 'request_not_pending' };
 
   const declined = getDeclinedTechnicians(request.declined_technicians);
   const candidates = candidateTechnicians(request.specialty, declined);
   const ranked = rankTechnicians(candidates, request);
 
-  if (ranked.length === 0) return null;
+  if (ranked.length === 0) return { assigned: false, reason: NO_TECHNICIAN };
 
   const best = ranked[0];
 
+  // The claim is guarded on the request still being pending, and the technician is
+  // only marked busy when the claim actually landed. Doing both unconditionally is
+  // how a technician ends up 'busy' holding no job at all: the loser of a race has
+  // nothing to do, so taking them off the roster helps nobody.
+  let claimed = false;
   const run = db.transaction(() => {
-    db.prepare(
-      `UPDATE requests
-       SET technician_id = ?, status = 'assigned', assigned_at = datetime('now'),
-           updated_at = datetime('now'),
-           start_pin = ?, start_pin_attempts = 0, start_pin_locked_until = NULL,
-           started_at = NULL
-       WHERE id = ? AND status = 'pending'`
-    ).run(best.id, startPinService.mint(), requestId);
+    const result = db
+      .prepare(
+        `UPDATE requests
+         SET technician_id = ?, status = 'assigned', assigned_at = datetime('now'),
+             updated_at = datetime('now'),
+             start_pin = ?, start_pin_attempts = 0, start_pin_locked_until = NULL,
+             started_at = NULL
+         WHERE id = ? AND status = 'pending'`
+      )
+      .run(best.id, startPinService.mint(), requestId);
+
+    if (result.changes === 0) return;
+    claimed = true;
 
     db.prepare("UPDATE technicians SET availability = 'busy' WHERE id = ?").run(best.id);
   });
 
   run();
-  return db.prepare('SELECT * FROM technicians WHERE id = ?').get(best.id);
+  if (!claimed) return { assigned: false, reason: 'request_not_pending' };
+
+  logger.info(
+    'assignment',
+    `[AUTO-PICKUP] Assigned pending request #${requestId} to technician #${best.id}`
+  );
+
+  const technician = db.prepare('SELECT * FROM technicians WHERE id = ?').get(best.id);
+  return { assigned: true, technicianId: best.id, technician };
 }
 
 // Marks a technician as available again (after reject, complete, or cancel).
@@ -152,10 +187,11 @@ function releaseTechnician(technicianId) {
 }
 
 // Attempts to reassign a request that was just rejected by a technician.
-// Returns the new technician or null.
+// Returns the same result object as assignTechnician(); it never throws, because a
+// rejection with nobody else free is the normal worst case of the rejection flow.
 function reassignAfterRejection(requestId, rejectedTechnicianId) {
   const request = db.prepare('SELECT * FROM requests WHERE id = ?').get(requestId);
-  if (!request) throw new AppError('Request not found', 404);
+  if (!request) return { assigned: false, reason: 'request_not_found' };
 
   const declined = getDeclinedTechnicians(request.declined_technicians);
   if (rejectedTechnicianId && !declined.includes(rejectedTechnicianId)) {
@@ -169,6 +205,7 @@ function reassignAfterRejection(requestId, rejectedTechnicianId) {
 }
 
 module.exports = {
+  NO_TECHNICIAN,
   haversineKm,
   areaMatchScore,
   assignTechnician,

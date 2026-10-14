@@ -249,6 +249,13 @@ function acceptBroadcast(broadcastId, technicianId) {
     };
   }
 
+  // Read BEFORE the claim: the claim clears is_queued, and that flag is the whole
+  // evidence that this request sat with nobody available. A request that was queued
+  // and is now being won is the auto-pickup path finishing, and it is the one that
+  // deserves the line in the log — "request #41 finally went somewhere after
+  // waiting" is exactly what is invisible when a request has no technician for hours.
+  const wasStranded = Number(request.is_queued) === 1;
+
   let conflict = false;
   const startPin = startPinService.mint();
   const run = db.transaction(() => {
@@ -306,6 +313,14 @@ function acceptBroadcast(broadcastId, technicianId) {
   // can notify them without re-reading the request: this service deliberately
   // sends nothing itself.
   const winner = db.prepare('SELECT name FROM technicians WHERE id = ?').get(technicianId);
+
+  if (wasStranded) {
+    logger.info(
+      'auto-pickup',
+      `[AUTO-PICKUP] Assigned pending request #${request.id} to technician #${technicianId}`
+    );
+  }
+
   return {
     ok: true,
     request_id: request.id,

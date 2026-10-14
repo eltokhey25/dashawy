@@ -156,15 +156,45 @@ router.post(
       notified.forEach((t) => push.notify(t.user_id, payload));
     }
 
+    // The customer-facing answer to "did somebody take this yet?".
+    //
+    // Read from the row rather than assumed, so it cannot claim an assignment that
+    // did not happen. `assigned: false` is NOT a failure: the request is created,
+    // priced, on the waiting queue and reachable by services/auto-pickup.js the
+    // moment a technician frees up. The wording is deliberately "received, we will
+    // be in touch" rather than "nobody is available", because that is the truth from
+    // the customer's side and the second reads as a failure to something that has
+    // only just been submitted.
+    const assigned = request.status === 'assigned' && Boolean(request.technician_id);
+    const assignment = assigned
+      ? {
+          assigned: true,
+          technician_id: request.technician_id,
+          technician_name: request.technician_name,
+          message: 'تم تعيين فني لطلبك، هيوصلك قريب!',
+        }
+      : {
+          assigned: false,
+          reason: queued ? 'no_technician_available' : 'awaiting_technician',
+          technician_id: null,
+          message: 'تم استلام طلبك بنجاح وسيتم التواصل معاك في أقرب وقت',
+        };
+
     res.status(201).json({
-      message:
-        broadcastResult.count > 0
+      message: assigned
+        ? assignment.message
+        : broadcastResult.count > 0
           ? 'تم إرسال طلبك إلى ' + broadcastResult.count + ' فني. في انتظار القبول...'
           : queued
-            ? 'مفيش فني متاح دلوقتي — حطينا طلبك في قائمة الانتظار وهنوصفّلك أول فني يتفرّغ.'
+            ? 'تم استلام طلبك بنجاح وسيتم التواصل معاك في أقرب وقت'
             : 'تم استلام طلبك. سيتم إخطار الفنيين المتاحين.',
       request,
-      assigned: false,
+      assignment,
+      // Kept as a top-level flag: the cached client bundle from before `assignment`
+      // existed still reads this one, and a removed field would read as `undefined`
+      // (falsy) — i.e. as "not assigned", which happens to be right today but for the
+      // wrong reason.
+      assigned,
       queued,
       broadcast: {
         sent_to: broadcastResult.count,
