@@ -756,22 +756,57 @@ router.get(
   })
 );
 
-// POST /api/auth/telegram-link
-// Issues a single-use token and, when the bot username is known, the deep link
-// that carries it. Starting the bot with /start <token> consumes both.
+// POST /api/auth/telegram-link  body: { email }
+//
+// PUBLIC, because the page that needs it is reached from the forgot-password
+// flow, where the visitor has no session yet. The address identifies the
+// account; no req.user is consulted.
+//
+// SECURITY NOTE: this is deliberately unauthenticated, which means anyone who
+// knows an email can attach a Telegram chat to that account and then receive
+// its login codes. The flow is bounded — the token expires in 15 minutes, is
+// single-use, and an account that is already linked is refused — but it is
+// still weaker than requiring proof of ownership. Revisit this if the product
+// ever needs stronger account-recovery guarantees.
+const telegramLinkLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  name: 'auth-telegram-link',
+  keyBy: otpEmailKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'محاولات كثيرة. حاول بعد 15 دقيقة.' },
+});
+
 router.post(
   '/telegram-link',
-  authenticate,
+  telegramLinkLimiter,
   wrap(async (req, res) => {
+    const address = normalizeEmail((req.body || {}).email || '');
+    if (!isValidEmail(address)) throw badRequest('البريد الإلكتروني غير صالح');
+
+    const user = db.prepare('SELECT id, telegram_chat_id FROM users WHERE email = ?').get(address);
+
+    if (!user) {
+      throw new AppError('لا يوجد حساب مسجل بهذا البريد الإلكتروني', 404, 'email_not_found');
+    }
+
+    // Do not let an anonymous caller steal an existing link. Changing the chat
+    // for an already-linked account needs the authenticated route on an account
+    // page, not this recovery path.
+    if (user.telegram_chat_id) {
+      throw new AppError('هذا الحساب مرتبط بتليجرام بالفعل.', 409, 'telegram_already_linked');
+    }
+
     const token = crypto.randomBytes(24).toString('hex');
 
     db.transaction(() => {
       // One live token per account; a fresh one makes the previous link dead.
-      db.prepare('DELETE FROM telegram_link_tokens WHERE user_id = ?').run(req.user.id);
+      db.prepare('DELETE FROM telegram_link_tokens WHERE user_id = ?').run(user.id);
       db.prepare("DELETE FROM telegram_link_tokens WHERE expires_at <= datetime('now')").run();
       db.prepare(
         "INSERT INTO telegram_link_tokens (token, user_id, expires_at) VALUES (?, ?, datetime('now', ?))"
-      ).run(token, req.user.id, '+' + TELEGRAM_LINK_TTL_MINUTES + ' minutes');
+      ).run(token, user.id, '+' + TELEGRAM_LINK_TTL_MINUTES + ' minutes');
     })();
 
     let botUsername = telegram.getBotUsername();
@@ -788,6 +823,7 @@ router.post(
 
     res.json({
       token,
+      email: address,
       expires_in_minutes: TELEGRAM_LINK_TTL_MINUTES,
       bot_username: botUsername,
       deep_link: botUsername ? `https://t.me/${botUsername}?start=${token}` : null,
