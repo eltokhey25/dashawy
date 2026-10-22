@@ -232,30 +232,11 @@
       if (!mounted) document.getElementById('google-divider').style.display = 'none';
     })();
 
-    document.getElementById('forgot-pwd-link').addEventListener('click', () => {
-      Ui.openModal(
-        { title: 'استرجاع كلمة المرور', icon: { cls: 'fa-solid fa-key', bg: '#fef3c7', color: '#b45309' } },
-        Ui.el('div', {}, [
-          Ui.el('p', { style: 'line-height:1.9;color:var(--body);font-size:0.9rem;margin-bottom:14px' }, [
-            'لاسترجاع كلمة المرور، يرجى التواصل مع الإدارة على:'
-          ]),
-          Ui.el('a', {
-            class: 'btn btn-outline btn-block',
-            attrs: { href: 'tel:+201025330520', style: 'margin-bottom:10px' }
-          }, [Ui.ic('fa-solid fa-phone'), ' 01025330520']),
-          Ui.el('a', {
-            class: 'btn btn-outline btn-block',
-            attrs: { href: 'https://wa.me/201025330520', target: '_blank' }
-          }, [Ui.ic('fa-brands fa-whatsapp'), ' واتساب']),
-          Ui.el('p', { style: 'font-size:0.8rem;color:var(--muted);margin-top:14px;line-height:1.7;text-align:center' }, [
-            'الإدارة ستتحقق من هويتك وتعيد تعيين كلمة المرور خلال دقائق.'
-          ])
-        ]),
-        Ui.el('button', {
-          class: 'btn btn-soft',
-          on: { click: () => Ui.openModal(null, null, null, { onClose: null }) }
-        }, ['إغلاق'])
-      );
+    document.getElementById('forgot-pwd-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      // Password recovery is now a Telegram code, so send the user straight to
+      // the OTP page instead of the old "contact the admin" modal.
+      window.location.href = '/verify-otp.html';
     });
 
     Ui.initNav();
