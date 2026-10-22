@@ -58,11 +58,17 @@
         <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px">
           كود الدخول
         </h1>
-        <p id="sent-message" style="color: #334155; font-size: 0.95rem; font-weight: 700; line-height: 1.7">
-          تم إرسال الكود إلى تليجرام الخاص بك.
+        <p
+          id="sent-message"
+          style="color: #334155; font-size: 0.95rem; font-weight: 700; line-height: 1.7"
+        >
+          أدخل بريدك الإلكتروني لاستلام كود الدخول.
         </p>
-        <p style="color: #64748b; font-size: 0.82rem; line-height: 1.7; margin-top: 4px">
-          الكود صالح لمدة 10 دقائق. لو مش وصلك، اطلبه تاني من هنا.
+        <p
+          id="sent-hint"
+          style="color: #64748b; font-size: 0.82rem; line-height: 1.7; margin-top: 4px"
+        >
+          هيوصلك كود مكوّن من 6 أرقام على تليجرام، صالح لمدة 10 دقائق.
         </p>
       </div>
 
@@ -81,7 +87,7 @@
             />
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="otp-code-group" hidden>
             <label class="form-label" for="otp-code">كود الدخول</label>
             <input
               type="text"
@@ -93,6 +99,7 @@
               maxlength="6"
               pattern="\d{6}"
               dir="ltr"
+              disabled
               style="
                 text-align: center;
                 letter-spacing: 0.5em;
@@ -138,28 +145,11 @@
         </div>
 
         <div
-          id="sent-ok"
-          hidden
-          style="
-            margin-top: 16px;
-            padding: 14px;
-            border-radius: 12px;
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            color: #065f46;
-            font-size: 0.88rem;
-            line-height: 1.8;
-          "
-        >
-          <i class="fa-solid fa-circle-check"></i>
-          تم إرسال الكود إلى تليجرام الخاص بك.
-        </div>
-
-        <div
           style="
             display: flex;
             justify-content: center;
-            gap: 18px;
+            flex-wrap: wrap;
+            gap: 12px 18px;
             margin-top: 18px;
             padding-top: 16px;
             border-top: 1px solid #e2e8f0;
@@ -167,7 +157,8 @@
         >
           <button
             type="button"
-            id="verify-btn"
+            id="resend-btn"
+            hidden
             style="
               background: none;
               border: none;
@@ -178,7 +169,23 @@
               font-family: inherit;
             "
           >
-            <i class="fa-solid fa-right-to-bracket"></i> عندي كود — دخول
+            <i class="fa-solid fa-rotate-right"></i> إعادة إرسال الكود
+          </button>
+          <button
+            type="button"
+            id="change-email-btn"
+            hidden
+            style="
+              background: none;
+              border: none;
+              color: #4f46e5;
+              font-size: 0.85rem;
+              font-weight: 700;
+              cursor: pointer;
+              font-family: inherit;
+            "
+          >
+            <i class="fa-solid fa-pen"></i> تغيير البريد
           </button>
           <a
             href="/login.html"
@@ -208,18 +215,48 @@
       const btn = document.getElementById('submit-btn');
       const emailEl = document.getElementById('otp-email');
       const codeEl = document.getElementById('otp-code');
+      const codeGroup = document.getElementById('otp-code-group');
       const notLinkedBox = document.getElementById('not-linked-box');
-      const sentOk = document.getElementById('sent-ok');
+      const sentMessage = document.getElementById('sent-message');
+      const sentHint = document.getElementById('sent-hint');
+      const resendBtn = document.getElementById('resend-btn');
+      const changeEmailBtn = document.getElementById('change-email-btn');
+
+      let step = 'request';
 
       const sessionUser = Auth.getUser();
       const emailFromQuery = new URLSearchParams(window.location.search).get('email') || '';
       emailEl.value = emailFromQuery || (sessionUser && sessionUser.email) || '';
 
-      if (emailEl.value) {
-        emailEl.setAttribute('readonly', 'readonly');
-        codeEl.focus();
-      } else {
-        emailEl.focus();
+      if (emailEl.value) emailEl.setAttribute('readonly', 'readonly');
+
+      /**
+       * Switches the single form between its two jobs. In `request` it only asks
+       * the server to send a code; in `verify` it exchanges the code for a
+       * session. Keeping one form means Enter works naturally in both steps.
+       *
+       * @param {'request'|'verify'} next
+       */
+      function setStep(next) {
+        step = next;
+        const verifying = step === 'verify';
+
+        codeGroup.hidden = !verifying;
+        codeEl.disabled = !verifying;
+        resendBtn.hidden = !verifying;
+        changeEmailBtn.hidden = !verifying;
+
+        if (verifying) {
+          btn.innerHTML = '<i class="fa-solid fa-key"></i> تأكيد الكود';
+          sentMessage.textContent = 'تم إرسال الكود إلى تليجرام الخاص بك.';
+          sentHint.textContent =
+            'اكتب الكود المكوّن من 6 أرقام اللي وصلك، أو اضغط إعادة إرسال لو مش وصلك.';
+          codeEl.focus();
+        } else {
+          btn.innerHTML = '<i class="fa-brands fa-telegram"></i> إرسال الكود إلى تليجرام';
+          sentMessage.textContent = 'أدخل بريدك الإلكتروني لاستلام كود الدخول.';
+          sentHint.textContent = 'هيوصلك كود مكوّن من 6 أرقام على تليجرام، صالح لمدة 10 دقائق.';
+        }
       }
 
       // Digits only, capped at six. A pasted " 123456 " would otherwise be
@@ -230,13 +267,7 @@
 
       function resetAlerts() {
         notLinkedBox.hidden = true;
-        sentOk.hidden = true;
         clearFormErrors(form);
-      }
-
-      function showNotLinked() {
-        notLinkedBox.hidden = false;
-        sentOk.hidden = true;
       }
 
       // The server tags this failure with code === 'telegram_not_linked'. The
@@ -263,60 +294,73 @@
         return Auth.homePath(user.role);
       }
 
-      // The form's submit requests a fresh code from /api/auth/request-otp, as
-      // the page that sends codes does. The OTP field stays here for the user to
-      // type the code into, and the separate button below trades it for a
-      // session; making every submit send a new code would invalidate the one
-      // the user is reading at that moment.
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+      /**
+       * Requests a code and keeps the page in whichever step it was already in.
+       * Returns the API payload on success, or null when the caller should stop.
+       *
+       * @param {HTMLButtonElement} trigger
+       * @param {string} loadingText
+       * @returns {Promise<object|null>}
+       */
+      async function requestCode(trigger, loadingText) {
         resetAlerts();
 
         const email = emailEl.value.trim();
         if (!email) {
           setFieldError(emailEl, 'اكتب البريد الإلكتروني');
-          return;
+          emailEl.focus();
+          return null;
         }
 
-        Ui.btnLoading(btn, 'جارٍ الإرسال…');
+        Ui.btnLoading(trigger, loadingText);
         try {
-          const data = await api('/api/auth/request-otp', {
+          return await api('/api/auth/request-otp', {
             method: 'POST',
             body: { email },
           });
-          sentOk.hidden = false;
-          toast((data && data.message) || 'تم إرسال الكود إلى تليجرام الخاص بك.', 'success');
-          codeEl.focus();
         } catch (err) {
-          if (isNotLinked(err)) {
-            showNotLinked();
-            toast(err.message, 'error');
-          } else {
-            toast(err.message, 'error');
-          }
+          if (isNotLinked(err)) notLinkedBox.hidden = false;
+          toast(err.message, 'error');
+          return null;
         } finally {
-          Ui.btnReset(btn);
+          Ui.btnReset(trigger);
         }
-      });
+      }
 
-      // Secondary action, not the form submit: exchange the code the user
-      // already received for a session.
-      document.getElementById('verify-btn').addEventListener('click', async () => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Step 1: ask for the code. Nothing about the OTP field is shown until
+        // this succeeds, so a user cannot submit an empty code by mistake.
+        if (step === 'request') {
+          const data = await requestCode(btn, 'جارٍ الإرسال…');
+          if (!data) return;
+
+          codeEl.value = '';
+          emailEl.setAttribute('readonly', 'readonly');
+          setStep('verify');
+          toast((data && data.message) || 'تم إرسال الكود إلى تليجرام الخاص بك.', 'success');
+          return;
+        }
+
+        // Step 2: the same submit button now exchanges the code for a session.
+        // Sending a new code here would invalidate the one being typed.
         resetAlerts();
 
         const email = emailEl.value.trim();
         const otp = codeEl.value.trim();
         if (!email) {
           setFieldError(emailEl, 'اكتب البريد الإلكتروني');
+          emailEl.focus();
           return;
         }
         if (!/^\d{6}$/.test(otp)) {
           setFieldError(codeEl, 'اكتب الكود المكوّن من 6 أرقام');
+          codeEl.focus();
           return;
         }
 
-        const verifyBtn = document.getElementById('verify-btn');
-        Ui.btnLoading(verifyBtn, 'جارٍ الدخول…');
+        Ui.btnLoading(btn, 'جارٍ الدخول…');
         try {
           const data = await api('/api/auth/verify-otp', {
             method: 'POST',
@@ -328,13 +372,37 @@
             window.location.href = destinationAfterAuth(data);
           }, 600);
         } catch (err) {
-          if (isNotLinked(err)) showNotLinked();
+          if (isNotLinked(err)) notLinkedBox.hidden = false;
           toast(err.message, 'error');
           codeEl.value = '';
           codeEl.focus();
-          Ui.btnReset(verifyBtn);
+          Ui.btnReset(btn);
         }
       });
+
+      // Optional helper: ask for another code without leaving the verify step.
+      // The server's cooldown still applies, so a fast double-click cannot spam.
+      resendBtn.addEventListener('click', async () => {
+        const data = await requestCode(resendBtn, 'جارٍ الإرسال…');
+        if (!data) return;
+
+        codeEl.value = '';
+        toast((data && data.message) || 'تم إرسال الكود إلى تليجرام الخاص بك.', 'success');
+        codeEl.focus();
+      });
+
+      // Optional helper: go back to step 1 and unlock the address so it can be
+      // corrected, for example when the account is not linked to Telegram.
+      changeEmailBtn.addEventListener('click', function () {
+        resetAlerts();
+        codeEl.value = '';
+        setStep('request');
+        emailEl.removeAttribute('readonly');
+        emailEl.focus();
+      });
+
+      setStep('request');
+      if (!emailEl.value) emailEl.focus();
     </script>
     <script src="/js/pwa-install.js"></script>
   </body>
