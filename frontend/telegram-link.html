@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png" />
+    <meta name="theme-color" content="#4f46e5" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>ربط تليجرام — دشاوي</title>
+    <!-- PWA -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="دشاوي" />
+    <!-- iOS splash screen (universal fallback) -->
+    <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body
+    style="
+      background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 100%);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    "
+  >
+    <div style="max-width: 520px; width: 100%">
+      <div style="text-align: center; margin-bottom: 24px">
+        <div
+          style="
+            display: inline-grid;
+            place-items: center;
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #229ed9, #4f46e5);
+            color: #fff;
+            font-size: 1.8rem;
+            box-shadow: 0 16px 40px -10px rgba(34, 158, 217, 0.5);
+            margin-bottom: 14px;
+          "
+        >
+          <i class="fa-brands fa-telegram"></i>
+        </div>
+        <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px">
+          ربط حسابك بتليجرام
+        </h1>
+        <p style="color: #64748b; font-size: 0.9rem; line-height: 1.8">
+          بعد الربط، هنبعت كود الدخول على تليجرام بدل البريد الإلكتروني.
+        </p>
+      </div>
+
+      <div class="card" style="padding: 26px">
+        <div
+          id="already-linked"
+          hidden
+          style="
+            padding: 14px;
+            border-radius: 12px;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            font-size: 0.9rem;
+            line-height: 1.8;
+          "
+        >
+          <i class="fa-solid fa-circle-check"></i> حسابك مرتبط بتليجرام بالفعل.
+        </div>
+
+        <div id="link-panel">
+          <p style="color: #475569; font-size: 0.88rem; line-height: 1.9; margin-bottom: 16px">
+            اضغط الزر التالي، وبعدها اضغط <b>Start</b> في تليجرام. الرابط صالح لمدة 15 دقيقة
+            ولمرة واحدة فقط.
+          </p>
+
+          <button type="button" class="btn btn-brand btn-block btn-lg" id="create-btn">
+            <i class="fa-solid fa-link"></i> إنشاء رابط الربط
+          </button>
+
+          <div id="link-result" hidden style="margin-top: 18px">
+            <a
+              id="deep-link"
+              class="btn btn-block btn-lg"
+              href="#"
+              target="_blank"
+              rel="noopener"
+              style="background: #229ed9; color: #fff; margin-bottom: 12px"
+            >
+              <i class="fa-brands fa-telegram"></i> افتح تليجرام واربط الحساب
+            </a>
+
+            <div id="token-box" hidden>
+              <p style="color: #475569; font-size: 0.85rem; line-height: 1.8">
+                لو زر تليجرام مش شغال، ابعت الرسالة دي للبوت:
+              </p>
+              <code
+                id="link-token"
+                dir="ltr"
+                style="
+                  display: block;
+                  padding: 12px;
+                  border-radius: 10px;
+                  background: #f1f5f9;
+                  border: 1px solid #e2e8f0;
+                  word-break: break-all;
+                  font-size: 0.82rem;
+                "
+              ></code>
+            </div>
+
+            <p style="color: #94a3b8; font-size: 0.78rem; line-height: 1.8; margin-top: 12px">
+              بعد ما تبعت <b>/start</b> للبوت، ارجع لصفحة كود الدخول واطلب الكود تاني.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 18px">
+        <a href="/verify-otp.html" style="color: #4f46e5; font-size: 0.88rem; font-weight: 700">
+          <i class="fa-solid fa-arrow-left"></i> رجوع لصفحة كود الدخول
+        </a>
+      </div>
+    </div>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script>
+      // Any signed-in role may link a chat: login codes are useful to customers,
+      // technicians and admins alike.
+      if (Auth.requireRole()) {
+        const createBtn = document.getElementById('create-btn');
+        const result = document.getElementById('link-result');
+        const deepLink = document.getElementById('deep-link');
+        const tokenBox = document.getElementById('token-box');
+        const tokenEl = document.getElementById('link-token');
+        const alreadyLinked = document.getElementById('already-linked');
+        const panel = document.getElementById('link-panel');
+
+        async function refreshStatus() {
+          try {
+            const data = await api('/api/auth/telegram-link');
+            if (data.linked) {
+              alreadyLinked.hidden = false;
+              panel.hidden = true;
+            }
+          } catch (err) {
+            // Status is advisory; the create button still works if it fails.
+          }
+        }
+
+        createBtn.addEventListener('click', async () => {
+          Ui.btnLoading(createBtn, 'جارٍ إنشاء الرابط…');
+          result.hidden = true;
+          try {
+            const data = await api('/api/auth/telegram-link', { method: 'POST' });
+
+            if (data.deep_link) {
+              deepLink.href = data.deep_link;
+              deepLink.hidden = false;
+            } else {
+              deepLink.hidden = true;
+            }
+
+            // The token is shown as a fallback when the bot username is not
+            // known yet (a cold boot before getMe completes).
+            tokenEl.textContent = '/start ' + data.token;
+            tokenBox.hidden = Boolean(data.deep_link);
+            result.hidden = false;
+          } catch (err) {
+            toast(err.message, 'error');
+          } finally {
+            Ui.btnReset(createBtn);
+          }
+        });
+
+        refreshStatus();
+      }
+    </script>
+    <script src="/js/pwa-install.js"></script>
+  </body>
+</html>

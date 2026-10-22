@@ -16,6 +16,7 @@ const db = require('./db');
 const broadcast = require('./services/broadcast');
 const queue = require('./services/queue');
 const autoPickup = require('./services/auto-pickup');
+const telegram = require('./services/telegram');
 const logger = require('./utils/logger');
 
 db.prepare('SELECT 1').get();
@@ -138,6 +139,11 @@ const server = app.listen(config.PORT, () => {
   // request created during a quiet hour reaches somebody the moment the app is
   // idle enough for the sweep to matter.
   autoPickup.start();
+
+  // Telegram is started from the same callback: the bot consumes /start links
+  // and sends login codes, so it must be listening as soon as the site is. A
+  // missing TELEGRAM_BOT_TOKEN disables the bot without stopping the server.
+  telegram.start();
 });
 
 // Periodic expiry sweep for the broadcast window, so an offer nobody answers is
@@ -190,6 +196,7 @@ function shutdown(signal) {
   // Stop the workers writing to requests before the server stops accepting, so
   // nothing new starts mid-shutdown.
   clearInterval(sweepTimer);
+  telegram.stop();
   autoPickup.stop();
   if (typeof queue.stop === 'function') {
     try {
