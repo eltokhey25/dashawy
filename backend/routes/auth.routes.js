@@ -22,6 +22,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const rateLimit = require('../middleware/rate-limit');
 const { verifyGoogleIdToken } = require('../services/google-identity');
 const telegram = require('../services/telegram');
+const logger = require('../utils/logger');
 
 // Strict limiter for the credential endpoints: brute-forcing a password or
 // spamming registrations is the only thing an attacker wants from these.
@@ -198,6 +199,39 @@ function signToken(user) {
       expiresIn: config.JWT_EXPIRES_IN,
     }
   );
+}
+
+/**
+ * Sends the "new sign-in" notice to a linked Telegram chat.
+ *
+ * Deliberately fire-and-forget: Telegram being slow, unreachable, or having
+ * revoked the bot must never fail or delay a login that has already been
+ * authenticated. The promise is returned only so tests can await it; every
+ * caller ignores it.
+ *
+ * @param {{id:number, telegram_chat_id?:string|null}} user
+ * @returns {Promise<void>|undefined}
+ */
+function notifyTelegramLogin(user) {
+  if (!user || !user.telegram_chat_id) return undefined;
+
+  let when;
+  try {
+    when = new Date().toLocaleString('ar-EG', {
+      timeZone: 'Africa/Cairo',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch (err) {
+    when = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  }
+
+  const text = '🔔 تم تسجيل الدخول إلى حسابك في دشاوي بنجاح.\nالوقت: ' + when;
+
+  return telegram.sendMessage(user.telegram_chat_id, text).catch((err) => {
+    // Login succeeded; a notification failure is logged, never surfaced.
+    logger.warn('auth', '[auth] Telegram login notification failed:', err.message);
+  });
 }
 
 // Includes the role-specific profile object (customer / technician record).
@@ -528,6 +562,10 @@ router.post(
 
     const safe = safeUserFor(user);
 
+    // Fire-and-forget: a Telegram outage must not turn a valid login into an
+    // error or hold the response open.
+    notifyTelegramLogin(user);
+
     res.json({
       token: signToken(user),
       user: safe,
@@ -723,6 +761,8 @@ router.post(
 
     assertAccountCanSignIn(user);
     clearFailedLogins(user.id);
+
+    notifyTelegramLogin(user);
 
     res.json({
       token: signToken(user),
@@ -1004,6 +1044,8 @@ router.post(
 
     assertAccountCanSignIn(user);
     clearFailedLogins(user.id);
+
+    notifyTelegramLogin(user);
 
     // A returning customer who is complete is a plain sign-in. Anyone without a
     // phone — a brand-new Google account, or an existing customer whose phone
