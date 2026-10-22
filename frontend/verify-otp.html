@@ -106,46 +106,54 @@
           <button type="submit" class="btn btn-brand btn-block btn-lg" id="submit-btn">
             <i class="fa-brands fa-telegram"></i> إرسال الكود إلى تليجرام
           </button>
-
-          <div
-            id="not-linked-box"
-            hidden
-            style="
-              margin-top: 16px;
-              padding: 14px;
-              border-radius: 12px;
-              background: #fff7ed;
-              border: 1px solid #fed7aa;
-              color: #9a3412;
-              font-size: 0.88rem;
-              line-height: 1.8;
-            "
-          >
-            <i class="fa-solid fa-link"></i>
-            حسابك غير مرتبط بتليجرام.
-            <a href="/telegram-link.html" style="color: #c2410c; font-weight: 800; text-decoration: underline">
-              اضغط هنا لربط حسابك بتليجرام
-            </a>
-          </div>
-
-          <div
-            id="sent-ok"
-            hidden
-            style="
-              margin-top: 16px;
-              padding: 14px;
-              border-radius: 12px;
-              background: #ecfdf5;
-              border: 1px solid #a7f3d0;
-              color: #065f46;
-              font-size: 0.88rem;
-              line-height: 1.8;
-            "
-          >
-            <i class="fa-solid fa-circle-check"></i>
-            تم إرسال الكود إلى تليجرام الخاص بك.
-          </div>
         </form>
+
+        <!-- Kept outside the form on purpose: this is a plain navigation link,
+             not a form action. No click handler is attached, so the browser
+             follows href directly. -->
+        <div
+          id="not-linked-box"
+          hidden
+          style="
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 12px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            font-size: 0.88rem;
+            line-height: 1.8;
+          "
+        >
+          <i class="fa-solid fa-link"></i>
+          حسابك غير مرتبط بتليجرام.
+          <a
+            id="telegram-link"
+            href="/telegram-link.html"
+            target="_top"
+            style="color: #c2410c; font-weight: 800; text-decoration: underline"
+          >
+            اضغط هنا لربط حسابك بتليجرام
+          </a>
+        </div>
+
+        <div
+          id="sent-ok"
+          hidden
+          style="
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 12px;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            font-size: 0.88rem;
+            line-height: 1.8;
+          "
+        >
+          <i class="fa-solid fa-circle-check"></i>
+          تم إرسال الكود إلى تليجرام الخاص بك.
+        </div>
 
         <div
           style="
