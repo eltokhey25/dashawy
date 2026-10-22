@@ -78,17 +78,35 @@
           "
         >
           <i class="fa-solid fa-circle-check"></i> حسابك مرتبط بتليجرام بالفعل.
+          <a href="/verify-otp.html" style="color: #047857; font-weight: 800; text-decoration: underline">
+            اطلب كود الدخول من هنا
+          </a>
         </div>
 
         <div id="link-panel">
           <p style="color: #475569; font-size: 0.88rem; line-height: 1.9; margin-bottom: 16px">
-            اضغط الزر التالي، وبعدها اضغط <b>Start</b> في تليجرام. الرابط صالح لمدة 15 دقيقة
-            ولمرة واحدة فقط.
+            اكتب البريد الإلكتروني المسجل في حسابك، وبعدها اضغط <b>Start</b> في تليجرام. الرابط
+            صالح لمدة 15 دقيقة ولمرة واحدة فقط.
           </p>
 
-          <button type="button" class="btn btn-brand btn-block btn-lg" id="create-btn">
-            <i class="fa-solid fa-link"></i> إنشاء رابط الربط
-          </button>
+          <form id="link-form" novalidate>
+            <div class="form-group">
+              <label class="form-label" for="link-email">البريد الإلكتروني</label>
+              <input
+                type="email"
+                id="link-email"
+                class="input"
+                placeholder="you@example.com"
+                autocomplete="email"
+                dir="ltr"
+                required
+              />
+            </div>
+
+            <button type="submit" class="btn btn-brand btn-block btn-lg" id="create-btn">
+              <i class="fa-solid fa-link"></i> إنشاء رابط الربط
+            </button>
+          </form>
 
           <div id="link-result" hidden style="margin-top: 18px">
             <a
@@ -139,56 +157,69 @@
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>
     <script>
-      // Any signed-in role may link a chat: login codes are useful to customers,
-      // technicians and admins alike.
-      if (Auth.requireRole()) {
-        const createBtn = document.getElementById('create-btn');
-        const result = document.getElementById('link-result');
-        const deepLink = document.getElementById('deep-link');
-        const tokenBox = document.getElementById('token-box');
-        const tokenEl = document.getElementById('link-token');
-        const alreadyLinked = document.getElementById('already-linked');
-        const panel = document.getElementById('link-panel');
+      // This page is PUBLIC on purpose: it is reached from the forgot-password
+      // flow, so requiring a session would bounce the visitor to login. The
+      // email entered here identifies the account; nobody is trusted from a
+      // session.
+      const form = document.getElementById('link-form');
+      const emailEl = document.getElementById('link-email');
+      const createBtn = document.getElementById('create-btn');
+      const result = document.getElementById('link-result');
+      const deepLink = document.getElementById('deep-link');
+      const tokenBox = document.getElementById('token-box');
+      const tokenEl = document.getElementById('link-token');
+      const alreadyLinked = document.getElementById('already-linked');
 
-        async function refreshStatus() {
-          try {
-            const data = await api('/api/auth/telegram-link');
-            if (data.linked) {
-              alreadyLinked.hidden = false;
-              panel.hidden = true;
-            }
-          } catch (err) {
-            // Status is advisory; the create button still works if it fails.
-          }
+      // Prefill from the query string (verify-otp.html can pass it along) or
+      // from a signed-in session when there happens to be one. Neither is
+      // required for the request to work.
+      const sessionUser = Auth.getUser();
+      const emailFromQuery = new URLSearchParams(window.location.search).get('email') || '';
+      emailEl.value = emailFromQuery || (sessionUser && sessionUser.email) || '';
+
+      if (!emailEl.value) emailEl.focus();
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        alreadyLinked.hidden = true;
+        result.hidden = true;
+
+        const email = emailEl.value.trim();
+        if (!email) {
+          setFieldError(emailEl, 'اكتب البريد الإلكتروني');
+          return;
         }
 
-        createBtn.addEventListener('click', async () => {
-          Ui.btnLoading(createBtn, 'جارٍ إنشاء الرابط…');
-          result.hidden = true;
-          try {
-            const data = await api('/api/auth/telegram-link', { method: 'POST' });
+        Ui.btnLoading(createBtn, 'جارٍ إنشاء الرابط…');
+        try {
+          const data = await api('/api/auth/telegram-link', {
+            method: 'POST',
+            body: { email },
+          });
 
-            if (data.deep_link) {
-              deepLink.href = data.deep_link;
-              deepLink.hidden = false;
-            } else {
-              deepLink.hidden = true;
-            }
-
-            // The token is shown as a fallback when the bot username is not
-            // known yet (a cold boot before getMe completes).
-            tokenEl.textContent = '/start ' + data.token;
-            tokenBox.hidden = Boolean(data.deep_link);
-            result.hidden = false;
-          } catch (err) {
-            toast(err.message, 'error');
-          } finally {
-            Ui.btnReset(createBtn);
+          if (data.deep_link) {
+            deepLink.href = data.deep_link;
+            deepLink.hidden = false;
+          } else {
+            deepLink.hidden = true;
           }
-        });
 
-        refreshStatus();
-      }
+          // The token is shown as a fallback when the bot username is not
+          // known yet (a cold boot before getMe completes).
+          tokenEl.textContent = '/start ' + data.token;
+          tokenBox.hidden = Boolean(data.deep_link);
+          result.hidden = false;
+        } catch (err) {
+          // An already-linked account does not need another handshake; do not
+          // let an anonymous caller replace a chat that is already attached.
+          if (err.code === 'telegram_already_linked') {
+            alreadyLinked.hidden = false;
+          }
+          toast(err.message, 'error');
+        } finally {
+          Ui.btnReset(createBtn);
+        }
+      });
     </script>
     <script src="/js/pwa-install.js"></script>
   </body>
