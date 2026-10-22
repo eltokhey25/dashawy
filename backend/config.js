@@ -11,6 +11,13 @@
  */
 // Central application configuration.
 const path = require('path');
+
+// Load .env before anything reads process.env. This is the first module every
+// entry point pulls in (directly or through db.js), so doing it here means the
+// Telegram token, JWT secret and the rest are present no matter how the process
+// was started — `node backend/server.js`, `npm start`, or a test harness.
+require('./utils/env')();
+
 const logger = require('./utils/logger');
 
 const ROOT_DIR = path.resolve(__dirname, '..');

@@ -860,6 +860,63 @@ function migrateGoogleIdentity() {
   ).run();
 }
 
+// ---------------------------------------------------------------------------
+// Telegram linking + login codes
+// ---------------------------------------------------------------------------
+//
+// users.telegram_chat_id is added with a plain ALTER because it is nullable and
+// every existing account starts unlinked. The partial UNIQUE index is created
+// separately: a column-level UNIQUE would treat the NULL of every unlinked
+// account as a value and allow only one of them.
+//
+// telegram_link_tokens is the short-lived handshake between the website (which
+// knows the user) and the bot (which knows the chat). `token` is the row's
+// primary key, so a second /start with the same token cannot link twice — the
+// bot deletes the row in the same transaction it links the chat.
+//
+// otps mirrors the email-OTP design: only a SHA-256 digest is stored, codes are
+// single-use, and `used` is what the verify route flips atomically.
+function migrateTelegramSchema() {
+  const columns = db
+    .prepare('PRAGMA table_info(users)')
+    .all()
+    .map((c) => c.name);
+
+  if (!columns.includes('telegram_chat_id')) {
+    db.prepare('ALTER TABLE users ADD COLUMN telegram_chat_id TEXT').run();
+    logger.info('db', `[db] users.telegram_chat_id column added.`);
+  }
+
+  db.prepare(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_chat_unique
+       ON users(telegram_chat_id)
+       WHERE telegram_chat_id IS NOT NULL AND telegram_chat_id != ''`
+  ).run();
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS otps (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      email      TEXT NOT NULL,
+      otp_hash   TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used       INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email, created_at);
+
+    CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+      token      TEXT PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user
+      ON telegram_link_tokens(user_id);
+  `);
+}
+
+migrateTelegramSchema();
+
 migrate();
 
 module.exports = db;

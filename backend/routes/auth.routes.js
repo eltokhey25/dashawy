@@ -21,6 +21,7 @@ const { wrap, AppError, badRequest, unauthorized, forbidden } = require('../util
 const { authenticate, requireRole } = require('../middleware/auth');
 const rateLimit = require('../middleware/rate-limit');
 const { verifyGoogleIdToken } = require('../services/google-identity');
+const telegram = require('../services/telegram');
 
 // Strict limiter for the credential endpoints: brute-forcing a password or
 // spamming registrations is the only thing an attacker wants from these.
@@ -536,6 +537,264 @@ router.post(
   })
 );
 
+// ---------------------------------------------------------------------------
+// Passwordless sign-in (Telegram OTP)
+// ---------------------------------------------------------------------------
+//
+// A user who cannot remember their password enters their address, receives a
+// six-digit code in the Telegram chat linked to the account, and trades it for
+// a session. No password is reset and no code is ever emailed.
+//
+// Security properties, same shape as the email flow this replaces:
+//
+//   * Only a SHA-256 digest of the code is stored. A database dump inside the
+//     ten-minute window is not a set of working codes.
+//   * An unknown address gets the ordinary success answer, so the endpoint
+//     cannot be used to enumerate accounts.
+//   * A registered address with no Telegram link gets a distinct 409 tagged
+//     `telegram_not_linked`. That is deliberate: the browser must be able to
+//     offer the linking page, and the address is one the caller just typed.
+//   * Codes are single-use and retired when a newer one is issued.
+//   * verify-otp passes through assertAccountCanSignIn, the same gate /login
+//     applies, so a blocked or unapproved account cannot get in this way.
+
+const OTP_TTL_MINUTES = 10;
+const OTP_REQUEST_COOLDOWN_SECONDS = 60;
+
+const OTP_SENT_MESSAGE = 'تم إرسال الكود إلى تليجرام الخاص بك.';
+const OTP_RATE_LIMIT_MESSAGE = 'من فضلك استنى دقيقة قبل ما تطلب كود جديد';
+const TELEGRAM_NOT_LINKED_MESSAGE =
+  'حسابك غير مرتبط بتليجرام. اربط حسابك أولاً عشان توصلك أكواد الدخول.';
+
+/**
+ * Buckets OTP requests by the address rather than the IP, because the attack
+ * this limits is one host grinding codes for one account.
+ *
+ * @param {import('express').Request} req
+ * @returns {string}
+ */
+function otpEmailKey(req) {
+  const address = normalizeEmail((req.body || {}).email || '');
+  if (!address) return 'ip:' + (req.ip || (req.socket && req.socket.remoteAddress) || 'unknown');
+  return 'email:' + address;
+}
+
+// Three per minute, not one: a user who arrives here before linking Telegram
+// must be able to come straight back from /telegram-link.html and request the
+// code they came for. The durable cooldown below is still one code a minute;
+// this bucket exists to bound the unauthenticated endpoint.
+const otpRequestLimiter = rateLimit({
+  windowMs: OTP_REQUEST_COOLDOWN_SECONDS * 1000,
+  max: 3,
+  name: 'auth-request-otp',
+  keyBy: otpEmailKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: OTP_RATE_LIMIT_MESSAGE },
+});
+
+const otpVerifyLimiter = authLimiter('auth-verify-otp', 10, otpEmailKey);
+const otpVerifyIpLimiter = authLimiter('auth-verify-otp-ip', 10);
+
+/**
+ * @param {string} otp
+ * @returns {string} SHA-256 hex digest stored in otps.otp_hash
+ */
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(String(otp)).digest('hex');
+}
+
+/**
+ * Constant-time comparison of a submitted code against a stored digest.
+ *
+ * @param {string} storedHash
+ * @param {string} otp
+ * @returns {boolean}
+ */
+function otpMatches(storedHash, otp) {
+  const submitted = Buffer.from(hashOtp(otp), 'hex');
+  const stored = Buffer.from(String(storedHash), 'hex');
+  if (stored.length !== submitted.length) return false;
+  return crypto.timingSafeEqual(submitted, stored);
+}
+
+/**
+ * @returns {AppError} the shared "link Telegram first" failure
+ */
+function telegramNotLinked() {
+  return new AppError(TELEGRAM_NOT_LINKED_MESSAGE, 409, 'telegram_not_linked');
+}
+
+// POST /api/auth/request-otp  body: { email }
+//
+// PUBLIC. The code is delivered through the Telegram bot, so the account must
+// already be linked; that is the one case where this endpoint says something
+// account-specific.
+router.post(
+  '/request-otp',
+  otpRequestLimiter,
+  wrap(async (req, res) => {
+    const address = normalizeEmail((req.body || {}).email || '');
+    if (!isValidEmail(address)) throw badRequest('البريد الإلكتروني غير صالح');
+
+    const user = db
+      .prepare('SELECT id, email, telegram_chat_id FROM users WHERE email = ?')
+      .get(address);
+
+    // Unknown address: identical answer to a registered one, and nothing is
+    // written or sent. Everything below only happens for a real account.
+    if (!user) {
+      res.json({ success: true, message: OTP_SENT_MESSAGE });
+      return;
+    }
+
+    if (!user.telegram_chat_id) throw telegramNotLinked();
+
+    // Durable half of the cooldown: survives a restart and holds across
+    // instances, where each rate-limit bucket is in its own memory.
+    const recent = db
+      .prepare("SELECT 1 AS hit FROM otps WHERE email = ? AND created_at > datetime('now', ?)")
+      .get(address, '-' + OTP_REQUEST_COOLDOWN_SECONDS + ' seconds');
+    if (recent) throw new AppError(OTP_RATE_LIMIT_MESSAGE, 429, 'otp_rate_limited');
+
+    const otp = String(crypto.randomInt(100000, 1000000));
+    const otpHash = hashOtp(otp);
+
+    // scrypt is overkill for a six-digit code; the digest plus the strict
+    // verify limiter is the design. Purge is bounded so this table cannot grow
+    // forever from an endpoint anonymous callers can reach.
+    db.transaction(() => {
+      db.prepare('UPDATE otps SET used = 1 WHERE email = ? AND used = 0').run(address);
+      db.prepare(
+        "INSERT INTO otps (email, otp_hash, expires_at) VALUES (?, ?, datetime('now', ?))"
+      ).run(address, otpHash, '+' + OTP_TTL_MINUTES + ' minutes');
+      db.prepare("DELETE FROM otps WHERE expires_at < datetime('now', '-1 day')").run();
+    })();
+
+    try {
+      await telegram.sendOtp(user.telegram_chat_id, otp);
+    } catch (err) {
+      // The code never reached a chat, so it must not stay valid.
+      db.prepare('DELETE FROM otps WHERE email = ? AND otp_hash = ?').run(address, otpHash);
+
+      if (err.code === 'telegram_blocked') {
+        // The stored chat id is unusable (blocked bot / deleted chat). Clear it
+        // so the next request-otp answers with the not-linked code and the
+        // browser offers the linking page instead of failing forever.
+        db.prepare('UPDATE users SET telegram_chat_id = NULL WHERE id = ?').run(user.id);
+        throw telegramNotLinked();
+      }
+
+      throw new AppError('تعذر إرسال الكود حالياً، حاول مرة أخرى بعد قليل', 503);
+    }
+
+    res.json({ success: true, message: OTP_SENT_MESSAGE });
+  })
+);
+
+// POST /api/auth/verify-otp  body: { email, otp }
+//
+// PUBLIC, for the same reason as its counterpart above.
+router.post(
+  '/verify-otp',
+  otpVerifyLimiter,
+  otpVerifyIpLimiter,
+  wrap(async (req, res) => {
+    const address = normalizeEmail((req.body || {}).email || '');
+    const code = String((req.body || {}).otp || '').trim();
+    if (!isValidEmail(address) || !/^\d{6}$/.test(code)) throw badRequest('الكود غير صحيح');
+
+    const record = db
+      .prepare(
+        `SELECT id, otp_hash FROM otps
+          WHERE email = ? AND used = 0 AND expires_at > datetime('now')
+          ORDER BY id DESC LIMIT 1`
+      )
+      .get(address);
+
+    if (!record || !otpMatches(record.otp_hash, code)) throw badRequest('الكود غير صحيح');
+
+    // Conditional UPDATE: two requests racing with one code mint one session.
+    const spent = db.prepare('UPDATE otps SET used = 1 WHERE id = ? AND used = 0').run(record.id);
+    if (spent.changes !== 1) throw badRequest('الكود غير صحيح');
+
+    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(address);
+    if (!user) throw new AppError('الحساب غير موجود', 404);
+
+    assertAccountCanSignIn(user);
+    clearFailedLogins(user.id);
+
+    res.json({
+      token: signToken(user),
+      user: safeUserFor(user),
+      profile: profileFor(user),
+      must_change_password: Boolean(user.must_change_password),
+    });
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Telegram account linking
+// ---------------------------------------------------------------------------
+
+// 15 minutes is long enough to open Telegram and press Start, short enough that
+// a token left in browser history is not a lasting key to the account.
+const TELEGRAM_LINK_TTL_MINUTES = 15;
+
+// GET /api/auth/telegram-link
+// Reports whether the signed-in account is linked, so the page can show the
+// right state without a second endpoint.
+router.get(
+  '/telegram-link',
+  authenticate,
+  wrap(async (req, res) => {
+    const user = db.prepare('SELECT telegram_chat_id FROM users WHERE id = ?').get(req.user.id);
+    res.json({
+      linked: Boolean(user && user.telegram_chat_id),
+      bot_username: telegram.getBotUsername(),
+    });
+  })
+);
+
+// POST /api/auth/telegram-link
+// Issues a single-use token and, when the bot username is known, the deep link
+// that carries it. Starting the bot with /start <token> consumes both.
+router.post(
+  '/telegram-link',
+  authenticate,
+  wrap(async (req, res) => {
+    const token = crypto.randomBytes(24).toString('hex');
+
+    db.transaction(() => {
+      // One live token per account; a fresh one makes the previous link dead.
+      db.prepare('DELETE FROM telegram_link_tokens WHERE user_id = ?').run(req.user.id);
+      db.prepare("DELETE FROM telegram_link_tokens WHERE expires_at <= datetime('now')").run();
+      db.prepare(
+        "INSERT INTO telegram_link_tokens (token, user_id, expires_at) VALUES (?, ?, datetime('now', ?))"
+      ).run(token, req.user.id, '+' + TELEGRAM_LINK_TTL_MINUTES + ' minutes');
+    })();
+
+    let botUsername = telegram.getBotUsername();
+    if (!botUsername) {
+      // The bot may not have completed getMe yet. Asking here means the page
+      // still gets a usable deep link on the first request after a cold boot;
+      // a failure is not fatal, the page can show the token instead.
+      try {
+        botUsername = await telegram.fetchBotUsername();
+      } catch (err) {
+        botUsername = null;
+      }
+    }
+
+    res.json({
+      token,
+      expires_in_minutes: TELEGRAM_LINK_TTL_MINUTES,
+      bot_username: botUsername,
+      deep_link: botUsername ? `https://t.me/${botUsername}?start=${token}` : null,
+    });
+  })
+);
+
 // GET /api/auth/me
 // Returns the current user's fresh data (including permissions, flags).
 // The frontend caches the user in localStorage, so every admin page calls this
@@ -546,7 +805,7 @@ router.get(
   wrap(async (req, res) => {
     const user = db
       .prepare(
-        'SELECT id, email, phone, role, is_super_admin, must_change_password, permissions FROM users WHERE id = ?'
+        'SELECT id, email, phone, role, is_super_admin, must_change_password, permissions, telegram_chat_id FROM users WHERE id = ?'
       )
       .get(req.user.id);
 
@@ -564,6 +823,10 @@ router.get(
       // localStorage value and bouncing the customer off a page they have
       // legitimately finished.
       profile_complete: user.role !== config.LEVELS.customer || Boolean(user.phone),
+      // Lets the account page show "linked" without exposing the chat id
+      // itself: it is an identifier for a private conversation, not a public
+      // profile field.
+      telegram_linked: Boolean(user.telegram_chat_id),
       permissions: (() => {
         try {
           return JSON.parse(user.permissions || '[]');

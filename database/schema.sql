@@ -39,8 +39,48 @@ CREATE TABLE IF NOT EXISTS users (
   -- locked account gets a fresh budget once the window passes.
   failed_login_attempts INTEGER NOT NULL DEFAULT 0,
   login_locked_until     TEXT,
-  permissions TEXT DEFAULT '[]'
+  permissions TEXT DEFAULT '[]',
+  -- Telegram chat id this account receives login codes on. NULL means the
+  -- account has not linked Telegram yet; /api/auth/request-otp refuses with a
+  -- machine-readable `telegram_not_linked` code so the browser can offer the
+  -- linking page. Uniqueness is enforced by a partial index in db.js because a
+  -- plain UNIQUE column would also constrain the NULLs of unlinked accounts.
+  telegram_chat_id TEXT
 );
+
+-- One-time passwords for the passwordless sign-in flow
+-- (POST /api/auth/request-otp -> POST /api/auth/verify-otp).
+--
+-- Only the SHA-256 of the code is stored, never the code itself. The code is
+-- delivered to the account's linked Telegram chat rather than by email. `email`
+-- rather than `user_id` keeps the row independent of account deletion and
+-- matches the identifier the login form asks for.
+CREATE TABLE IF NOT EXISTS otps (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT NOT NULL,
+  otp_hash   TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used       INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_otps_email ON otps(email, created_at);
+
+-- Single-use tokens that link a Telegram chat to an account.
+--
+-- A signed-in user asks the site for a token, opens
+-- https://t.me/<bot>?start=<token>, and the bot consumes the row: it records the
+-- chat id on users.telegram_chat_id and deletes the token. Rows are short-lived
+-- (15 minutes) and deleting one is what makes the handshake single-use.
+CREATE TABLE IF NOT EXISTS telegram_link_tokens (
+  token      TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_telegram_link_tokens_user
+  ON telegram_link_tokens(user_id);
 
 -- Customers: profile data linked to a user account.
 CREATE TABLE IF NOT EXISTS customers (
