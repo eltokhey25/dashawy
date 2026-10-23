@@ -9,6 +9,7 @@ confirmation, mandatory customer reviews, per-request chat, and Web Push.
 ## Requirements
 
 - Node.js **18+** (developed on 20.x)
+- Python **3.10+** for the Django migration (developed on 3.12, Django 5.2 LTS)
 - SQLite — created automatically on first boot, no server to install
 
 No build step. No bundler. The frontend is plain HTML/CSS/JS served by the same
@@ -27,6 +28,31 @@ Open <http://localhost:3000>.
 > `npm start` does **not** load `.env` (Node's `--env-file` flag is required), so
 > use the explicit command above. Production additionally requires `JWT_SECRET`
 > — the server refuses to boot without it when `NODE_ENV=production`.
+
+## Django backend (Phase 1 migration)
+
+The project is being migrated from Express to Django for hosting on
+PythonAnywhere. Phase 1 stands the Django project up **alongside** the existing
+Node backend: `core/models.py` maps every legacy SQLite table (with matching
+`db_table` names) and `core/migrations/0001_initial.py` is applied with
+`--fake-initial`, because the tables already exist. Express still serves the
+application; later phases move the API and frontend over.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# First run only: the legacy tables already exist, so fake the initial app
+# migration instead of trying to CREATE them again.
+python manage.py migrate --fake-initial
+
+python manage.py runserver
+```
+
+Django is configured in `dashawy_backend/settings.py`, reads the same `.env`
+file, and points at `database/fixrequest.db`. The `.venv`, `__pycache__` and
+SQLite artifacts are git-ignored.
 
 ## Tests / checks
 
@@ -140,6 +166,10 @@ carries placeholders only.
 ## Project layout
 
 ```
+dashawy_backend/    Django project (settings, URLs, WSGI/ASGI)
+core/               Django app: legacy schema translated to models
+manage.py           Django entry point
+requirements.txt    pinned Python dependencies
 backend/
   app.js            middleware chain, routing table, error handler
   server.js         bootstrap, workers, graceful shutdown
