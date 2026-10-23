@@ -79,7 +79,8 @@ ROOT_URLCONF = 'dashawy_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Django serves the existing frontend directly from this directory.
+        'DIRS': [BASE_DIR / 'frontend'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -220,8 +221,11 @@ SIMPLE_JWT = {
 # CORS
 # ---------------------------------------------------------------------------
 #
-# Wide open for Phase 1 so the existing frontend can be pointed at Django
-# during testing. Narrow this to CORS_ALLOWED_ORIGINS before production.
+# Wide open for the migration so the existing frontend can be pointed at
+# Django during testing, including http://localhost:8000. Once the frontend is
+# served same-origin by Django, CORS is not needed for normal page loads; this
+# stays permissive for split-port development. Narrow this to
+# CORS_ALLOWED_ORIGINS before production.
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -246,7 +250,12 @@ USE_TZ = False
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+# The frontend directory holds the CSS, JS and image assets as well as the
+# HTML pages. Registering it lets `collectstatic` (and the staticfiles finder)
+# see the same files the catch-all frontend view serves during development.
+STATICFILES_DIRS = [BASE_DIR / 'frontend']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

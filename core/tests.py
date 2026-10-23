@@ -11,6 +11,7 @@ from .models import (
     Specialty,
     Technician,
     User,
+    utc_now,
 )
 
 PASSWORD = 'TesterPass123'
@@ -367,3 +368,226 @@ class RequestApiTests(APITestCase):
         other = self.create_request(specialty='other')
         self.assertEqual(other.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', other.json())
+
+
+class FrontendServingTests(APITestCase):
+    """Django serves the legacy frontend without changing its files."""
+
+    def test_root_serves_index(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertContains(response, 'دشاوي')
+
+    def test_admin_pages_and_extensionless_routes(self):
+        login = self.client.get('/admin/login.html')
+        self.assertEqual(login.status_code, status.HTTP_200_OK)
+        self.assertContains(login, 'دخول لوحة التحكم')
+
+        alias = self.client.get('/admin')
+        self.assertEqual(alias.status_code, status.HTTP_200_OK)
+        self.assertContains(alias, 'دخول لوحة التحكم')
+
+        dashboard = self.client.get('/admin/dashboard')
+        self.assertEqual(dashboard.status_code, status.HTTP_200_OK)
+        self.assertContains(dashboard, 'لوحة التحكم')
+
+    def test_css_js_and_images_are_served(self):
+        css = self.client.get('/css/style.css')
+        self.assertEqual(css.status_code, status.HTTP_200_OK)
+        self.assertIn('text/css', css['Content-Type'])
+
+        js = self.client.get('/js/api.js')
+        self.assertEqual(js.status_code, status.HTTP_200_OK)
+        self.assertIn('javascript', js['Content-Type'])
+
+        icon = self.client.get('/dashawy-brand/favicon.svg')
+        self.assertEqual(icon.status_code, status.HTTP_200_OK)
+
+        static_css = self.client.get('/static/css/style.css')
+        self.assertEqual(static_css.status_code, status.HTTP_200_OK)
+        self.assertIn('text/css', static_css['Content-Type'])
+
+    def test_api_routes_take_precedence_over_frontend_catch_all(self):
+        response = self.client.get('/api/auth/me')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertIn('error', response.json())
+
+
+class AdminApiTests(APITestCase):
+    """Phase 4 admin dashboard endpoints."""
+
+    def setUp(self):
+        Specialty.objects.create(key='dish_install', label='تركيب دش')
+        Specialty.objects.create(key='dish_repair', label='صيانة دش')
+
+        self.admin_user = User.objects.create(
+            email='admin@example.com',
+            password_hash=hash_password(PASSWORD),
+            role='admin',
+            is_super_admin=True,
+        )
+        self.customer_user = User.objects.create(
+            email='admin-test-customer@example.com',
+            phone='+201000000101',
+            password_hash=hash_password(PASSWORD),
+            role='customer',
+        )
+        self.customer = Customer.objects.create(
+            user=self.customer_user,
+            name='Admin Test Customer',
+            phone='+201000000101',
+        )
+        self.tech_user = User.objects.create(
+            email='admin-test-tech@example.com',
+            phone='+201000000102',
+            password_hash=hash_password(PASSWORD),
+            role='technician',
+        )
+        self.technician = Technician.objects.create(
+            user=self.tech_user,
+            name='Admin Test Technician',
+            phone='+201000000102',
+            specialty='dish_install',
+            availability='available',
+            approval_status='approved',
+            documents_verified=False,
+        )
+        self.assigned = Request.objects.create(
+            customer=self.customer,
+            technician=self.technician,
+            specialty='dish_install',
+            description='Assigned request',
+            status='assigned',
+            assigned_at=utc_now(),
+        )
+        self.pending = Request.objects.create(
+            customer=self.customer,
+            specialty='dish_repair',
+            description='Pending request',
+            status='pending',
+        )
+        RequestBroadcast.objects.create(
+            request=self.assigned,
+            technician=self.technician,
+            status='sent',
+        )
+
+    def authenticate_admin(self):
+        self.client.force_authenticate(user=self.admin_user)
+
+    def test_stats_returns_flat_and_dashboard_shapes(self):
+        self.authenticate_admin()
+        response = self.client.get('/api/admin/stats')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+
+        self.assertEqual(body['totalRequests'], 2)
+        self.assertEqual(body['pendingRequests'], 1)
+        self.assertEqual(body['activeTechnicians'], 1)
+        self.assertEqual(body['totalCustomers'], 1)
+        self.assertEqual(body['completedRequests'], 0)
+        self.assertEqual(body['cancelledRequests'], 0)
+
+        self.assertEqual(body['byStatus']['pending'], 1)
+        self.assertEqual(body['byStatus']['assigned'], 1)
+        self.assertEqual(len(body['newestRequests']), 2)
+        self.assertEqual(body['newestRequests'][0]['customer_name'], 'Admin Test Customer')
+
+    def test_requests_list_filters_by_status_and_specialty(self):
+        self.authenticate_admin()
+
+        pending = self.client.get('/api/admin/requests?status=pending')
+        self.assertEqual(pending.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [row['id'] for row in pending.json()['requests']], [self.pending.id]
+        )
+
+        specialty = self.client.get('/api/admin/requests?specialty=dish_install')
+        self.assertEqual(specialty.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [row['id'] for row in specialty.json()['requests']], [self.assigned.id]
+        )
+
+        completed = self.client.get('/api/admin/requests?status=completed')
+        self.assertEqual(completed.status_code, status.HTTP_200_OK)
+        self.assertEqual(completed.json()['requests'], [])
+
+    def test_technicians_list_and_verify_toggle(self):
+        self.authenticate_admin()
+        response = self.client.get('/api/admin/technicians')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        technician = response.json()['technicians'][0]
+        self.assertEqual(technician['id'], self.technician.id)
+        self.assertEqual(technician['email'], self.tech_user.email)
+        self.assertEqual(technician['account_phone'], self.tech_user.phone)
+        self.assertEqual(technician['availability'], 'available')
+        self.assertFalse(technician['documents_verified'])
+
+        first = self.client.post(
+            f'/api/admin/technicians/{self.technician.id}/verify'
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertTrue(first.json()['documents_verified'])
+        self.technician.refresh_from_db()
+        self.assertTrue(self.technician.documents_verified)
+
+        second = self.client.post(
+            f'/api/admin/technicians/{self.technician.id}/verify'
+        )
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertFalse(second.json()['documents_verified'])
+        self.technician.refresh_from_db()
+        self.assertFalse(self.technician.documents_verified)
+
+    def test_customers_list_includes_account_and_request_count(self):
+        self.authenticate_admin()
+        response = self.client.get('/api/admin/customers')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        customer = response.json()['customers'][0]
+        self.assertEqual(customer['id'], self.customer.id)
+        self.assertEqual(customer['email'], self.customer_user.email)
+        self.assertEqual(customer['account_phone'], self.customer_user.phone)
+        self.assertEqual(customer['requests_count'], 2)
+
+    def test_cancel_frees_technician_and_expires_offers(self):
+        self.technician.availability = 'busy'
+        self.technician.save(update_fields=['availability'])
+
+        self.authenticate_admin()
+        response = self.client.post(
+            f'/api/admin/requests/{self.assigned.id}/cancel'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['message'], 'تم إلغاء الطلب')
+
+        self.assigned.refresh_from_db()
+        self.technician.refresh_from_db()
+        self.assertEqual(self.assigned.status, 'cancelled')
+        self.assertEqual(self.technician.availability, 'available')
+        broadcast = RequestBroadcast.objects.get(request=self.assigned)
+        self.assertEqual(broadcast.status, 'expired')
+
+    def test_cancel_rejects_completed_and_missing_requests(self):
+        self.pending.status = 'completed'
+        self.pending.save(update_fields=['status'])
+
+        self.authenticate_admin()
+        completed = self.client.post(
+            f'/api/admin/requests/{self.pending.id}/cancel'
+        )
+        self.assertEqual(completed.status_code, status.HTTP_400_BAD_REQUEST)
+
+        missing = self.client.post('/api/admin/requests/999999/cancel')
+        self.assertEqual(missing.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_admin_endpoints_reject_non_admins(self):
+        self.client.force_authenticate(user=self.customer_user)
+        self.assertEqual(
+            self.client.get('/api/admin/stats').status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+        self.assertEqual(
+            self.client.get('/api/admin/customers').status_code,
+            status.HTTP_403_FORBIDDEN,
+        )

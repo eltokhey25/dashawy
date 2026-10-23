@@ -1,15 +1,15 @@
 """
-Authentication API for the Django backend.
+API views for the Dashawy Django backend.
 
-Phase 2 provides the three endpoints the existing frontend needs first:
+The module grew phase by phase:
 
-    POST /api/auth/login
-    POST /api/auth/register
-    GET  /api/auth/me
+* Phase 2: authentication (``/api/auth/*``).
+* Phase 3: customer and technician request flows.
+* Phase 4: admin dashboard counters and management endpoints.
 
-The request/response shapes intentionally match ``backend/routes/auth.routes.js``:
-the browser expects ``token`` (not SimpleJWT's ``access``), an ``error`` string
-on failures, and the role-specific ``profile`` object alongside the user.
+The request/response shapes intentionally match the Express routes the existing
+frontend was written against: the browser expects ``token`` (not SimpleJWT's
+``access``), an ``error`` string on failures, and the same joined field names.
 """
 
 import json
@@ -18,6 +18,7 @@ from datetime import timedelta
 
 from django.contrib.auth import authenticate
 from django.db import IntegrityError, transaction
+from django.db.models import Count
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -26,8 +27,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .auth_backend import hash_password
 from .exceptions import ApiError, bad_request, forbidden, unauthorized
-from .models import Customer, Request, Technician, User, utc_now
-from .permissions import IsCustomer, IsTechnician
+from .models import (
+    Customer,
+    Request,
+    RequestBroadcast,
+    Technician,
+    User,
+    utc_now,
+)
+from .permissions import IsAdmin, IsCustomer, IsTechnician
 from .serializers import (
     CreateRequestSerializer,
     RequestSerializer,
@@ -567,5 +575,246 @@ class TechnicianRequestRejectView(APIView):
                     'reason': assignment.get('reason'),
                 },
                 'reassigned': reassigned,
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# Admin dashboard
+# ---------------------------------------------------------------------------
+
+ADMIN_REQUEST_STATUSES = (
+    'pending',
+    'assigned',
+    'in_progress',
+    'completed',
+    'cancelled',
+    'no_technician',
+)
+
+
+def _admin_technician_queryset():
+    """Technician columns plus the joined account fields the dashboard reads."""
+    fields = [field.name for field in Technician._meta.fields]
+    return Technician.objects.select_related('user').values(
+        *fields,
+        'user__email',
+        'user__phone',
+        'user__created_at',
+    )
+
+
+def _admin_technician_row(row):
+    """Rename the joined columns to the names used by the Express API."""
+    if row is None:
+        return None
+    clean = dict(row)
+    clean['user_id'] = clean.pop('user', None)
+    clean['email'] = clean.pop('user__email', None)
+    clean['account_phone'] = clean.pop('user__phone', None)
+    clean['account_created_at'] = clean.pop('user__created_at', None)
+    return _json_ready(clean)
+
+
+def _admin_technician_payload(technician_id):
+    row = _admin_technician_queryset().filter(pk=technician_id).first()
+    return _admin_technician_row(row)
+
+
+class AdminStatsView(APIView):
+    """GET /api/admin/stats — dashboard counters and chart data."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        status_counts = {key: 0 for key in ADMIN_REQUEST_STATUSES}
+        for row in Request.objects.values('status').annotate(n=Count('id')):
+            if row['status'] in status_counts:
+                status_counts[row['status']] = row['n']
+
+        total_requests = Request.objects.count()
+        total_customers = Customer.objects.count()
+        total_technicians = Technician.objects.count()
+        available_technicians = Technician.objects.filter(
+            availability='available'
+        ).count()
+        busy_technicians = Technician.objects.filter(availability='busy').count()
+        pending_technicians = Technician.objects.filter(
+            approval_status='pending'
+        ).count()
+
+        durations = []
+        for created_at, assigned_at in Request.objects.filter(
+            assigned_at__isnull=False
+        ).values_list('created_at', 'assigned_at'):
+            if created_at and assigned_at:
+                durations.append((assigned_at - created_at).total_seconds() / 60)
+        avg_response_minutes = (
+            round(sum(durations) / len(durations)) if durations else None
+        )
+
+        since = utc_now() - timedelta(days=6)
+        by_day = {}
+        for created_at in Request.objects.filter(
+            created_at__gte=since
+        ).values_list('created_at', flat=True):
+            if created_at:
+                day = created_at.strftime('%Y-%m-%d')
+                by_day[day] = by_day.get(day, 0) + 1
+
+        newest = (
+            Request.objects.select_related('customer', 'technician')
+            .order_by('-created_at', '-id')[:8]
+        )
+
+        return Response(
+            {
+                # Phase 4 contract: flat counters.
+                'totalRequests': total_requests,
+                'pendingRequests': status_counts['pending'],
+                'activeTechnicians': available_technicians,
+                'totalCustomers': total_customers,
+                'completedRequests': status_counts['completed'],
+                'cancelledRequests': status_counts['cancelled'],
+                # Extra fields the existing dashboard renders (charts, cards,
+                # recent requests). Kept alongside the flat counters so both
+                # the new contract and the legacy frontend work.
+                'byStatus': status_counts,
+                'totalTechnicians': total_technicians,
+                'pendingTechnicians': pending_technicians,
+                'availableTechnicians': available_technicians,
+                'busyTechnicians': busy_technicians,
+                'avgResponseMinutes': avg_response_minutes,
+                'byDay': by_day,
+                'newestRequests': RequestSerializer(newest, many=True).data,
+            }
+        )
+
+
+class AdminRequestListView(APIView):
+    """GET /api/admin/requests — every request, optionally filtered."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        requests = Request.objects.select_related(
+            'customer', 'technician'
+        ).order_by('-created_at', '-id')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            requests = requests.filter(status=status_filter)
+
+        specialty_filter = request.query_params.get('specialty')
+        if specialty_filter:
+            requests = requests.filter(specialty=specialty_filter)
+
+        return Response(
+            {'requests': RequestSerializer(requests, many=True).data}
+        )
+
+
+class AdminTechnicianListView(APIView):
+    """GET /api/admin/technicians — all technicians with account details."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        rows = _admin_technician_queryset().order_by('-created_at', '-id')
+        return Response(
+            {'technicians': [_admin_technician_row(row) for row in rows]}
+        )
+
+
+class AdminTechnicianVerifyView(APIView):
+    """POST /api/admin/technicians/<id>/verify — toggle document verification."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        technician = Technician.objects.filter(pk=pk).first()
+        if technician is None:
+            raise ApiError('الفني غير موجود', status.HTTP_404_NOT_FOUND)
+
+        verified = not bool(technician.documents_verified)
+        Technician.objects.filter(pk=technician.pk).update(
+            documents_verified=verified
+        )
+        technician.refresh_from_db()
+
+        return Response(
+            {
+                'message': (
+                    'تم توثيق مستندات الفني'
+                    if verified
+                    else 'تم إلغاء توثيق مستندات الفني'
+                ),
+                'documents_verified': verified,
+                'technician': _admin_technician_payload(technician.pk),
+            }
+        )
+
+
+class AdminCustomerListView(APIView):
+    """GET /api/admin/customers — all customers with account details."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        fields = [field.name for field in Customer._meta.fields]
+        rows = (
+            Customer.objects.select_related('user')
+            .annotate(requests_count=Count('requests'))
+            .values(
+                *fields,
+                'user__email',
+                'user__phone',
+                'requests_count',
+            )
+            .order_by('-created_at', '-id')
+        )
+
+        customers = []
+        for row in rows:
+            clean = dict(row)
+            clean['user_id'] = clean.pop('user', None)
+            clean['email'] = clean.pop('user__email', None)
+            clean['account_phone'] = clean.pop('user__phone', None)
+            customers.append(_json_ready(clean))
+
+        return Response({'customers': customers})
+
+
+class AdminRequestCancelView(APIView):
+    """POST /api/admin/requests/<id>/cancel — force-cancel a request."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        job = Request.objects.filter(pk=pk).first()
+        if job is None:
+            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
+        if job.status in ('completed', 'cancelled'):
+            raise bad_request('لا يمكن إلغاء طلب في حالته الحالية')
+
+        now = utc_now()
+        with transaction.atomic():
+            Request.objects.filter(pk=job.pk).update(
+                status='cancelled', updated_at=now
+            )
+            if job.technician_id:
+                Technician.objects.filter(pk=job.technician_id).update(
+                    availability='available'
+                )
+            # Outstanding offers must stop appearing in technicians' inboxes.
+            RequestBroadcast.objects.filter(
+                request_id=job.pk, status='sent'
+            ).update(status='expired', responded_at=now)
+
+        job.refresh_from_db()
+        return Response(
+            {
+                'message': 'تم إلغاء الطلب',
+                'request': RequestSerializer(job).data,
             }
         )
