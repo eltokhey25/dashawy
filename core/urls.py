@@ -3,6 +3,12 @@
 from django.urls import re_path
 
 from .views import (
+    AdminCustomerListView,
+    AdminRequestCancelView,
+    AdminRequestListView,
+    AdminStatsView,
+    AdminTechnicianListView,
+    AdminTechnicianVerifyView,
     CustomerRequestDetailView,
     CustomerRequestListCreateView,
     LoginView,
@@ -44,5 +50,32 @@ urlpatterns = [
         r'^technician/requests/(?P<pk>\d+)/reject/?$',
         TechnicianRequestRejectView.as_view(),
         name='technician-request-reject',
+    ),
+    # Admin dashboard
+    re_path(r'^admin/stats/?$', AdminStatsView.as_view(), name='admin-stats'),
+    re_path(
+        r'^admin/requests/?$',
+        AdminRequestListView.as_view(),
+        name='admin-requests',
+    ),
+    re_path(
+        r'^admin/technicians/?$',
+        AdminTechnicianListView.as_view(),
+        name='admin-technicians',
+    ),
+    re_path(
+        r'^admin/technicians/(?P<pk>\d+)/verify/?$',
+        AdminTechnicianVerifyView.as_view(),
+        name='admin-technician-verify',
+    ),
+    re_path(
+        r'^admin/customers/?$',
+        AdminCustomerListView.as_view(),
+        name='admin-customers',
+    ),
+    re_path(
+        r'^admin/requests/(?P<pk>\d+)/cancel/?$',
+        AdminRequestCancelView.as_view(),
+        name='admin-request-cancel',
     ),
 ]

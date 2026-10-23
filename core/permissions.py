@@ -25,3 +25,20 @@ class IsTechnician(BasePermission):
             and user.is_authenticated
             and getattr(user, 'role', None) == 'technician'
         )
+
+
+class IsAdmin(BasePermission):
+    """Admin dashboard access: admin role, or the explicit super-admin flag."""
+
+    message = 'هذه الصفحة متاحة للمسؤولين فقط'
+
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and (
+                getattr(user, 'role', None) == 'admin'
+                or getattr(user, 'is_super_admin', False)
+            )
+        )
