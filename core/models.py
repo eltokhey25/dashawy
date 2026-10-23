@@ -122,6 +122,24 @@ class User(models.Model):
     def __str__(self):
         return self.email
 
+    # DRF's IsAuthenticated permission and SimpleJWT both expect the user
+    # object to answer these. core.User is a legacy table, not an
+    # AbstractBaseUser, so they are supplied explicitly.
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    @property
+    def is_active(self):
+        return not bool(self.blocked)
+
+    def get_username(self):
+        return self.email
+
 
 class Customer(models.Model):
     """Customer profile linked one-to-one to a user account (``customers``)."""

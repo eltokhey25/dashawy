@@ -29,14 +29,19 @@ Open <http://localhost:3000>.
 > use the explicit command above. Production additionally requires `JWT_SECRET`
 > — the server refuses to boot without it when `NODE_ENV=production`.
 
-## Django backend (Phase 1 migration)
+## Django backend (Phase 1 + 2 migration)
 
 The project is being migrated from Express to Django for hosting on
-PythonAnywhere. Phase 1 stands the Django project up **alongside** the existing
-Node backend: `core/models.py` maps every legacy SQLite table (with matching
-`db_table` names) and `core/migrations/0001_initial.py` is applied with
-`--fake-initial`, because the tables already exist. Express still serves the
-application; later phases move the API and frontend over.
+PythonAnywhere. The Django project runs **alongside** the existing Node backend:
+
+- **Phase 1** — `core/models.py` maps every legacy SQLite table (with matching
+  `db_table` names) and `core/migrations/0001_initial.py` is applied with
+  `--fake-initial`, because the tables already exist.
+- **Phase 2** — the authentication API is live in Django with JWT access tokens
+  and the legacy bcrypt password hashes.
+
+Express still serves the application; later phases move the remaining API and
+the frontend over.
 
 ```bash
 python3 -m venv .venv
@@ -53,6 +58,25 @@ python manage.py runserver
 Django is configured in `dashawy_backend/settings.py`, reads the same `.env`
 file, and points at `database/fixrequest.db`. The `.venv`, `__pycache__` and
 SQLite artifacts are git-ignored.
+
+### Authentication endpoints (Phase 2)
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/auth/login` | public | Email **or** phone + password → `{token, user, profile, must_change_password}` |
+| `POST` | `/api/auth/register` | public | Customer self-registration → `{token, user, profile, ...}` |
+| `GET` | `/api/auth/me` | Bearer token | Fresh `{user, profile}` for the current account |
+
+Passwords are verified against the existing `users.password_hash` with Python
+`bcrypt`, so no account needs a password reset. Responses keep the Express
+shapes: the access token is returned as **`token`** (not `access`), and failures
+are `{"error": "..."}`. `core.User` stays separate from `AUTH_USER_MODEL`; the
+custom `DashawyJWTAuthentication` class points SimpleJWT at it without rewriting
+the Django admin tables.
+
+```bash
+python manage.py test core
+```
 
 ## Tests / checks
 
