@@ -1,7 +1,15 @@
 """Regression tests for the Phase 2 authentication API."""
 
+import base64
+
+from django.conf import settings
+from django.contrib.auth.models import User as DjangoUser
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APITestCase
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .auth_backend import hash_password
 from .models import (
@@ -13,8 +21,25 @@ from .models import (
     User,
     utc_now,
 )
+from .serializers import TechnicianDocumentUploadSerializer
+from .upload_validators import validate_document_upload
 
 PASSWORD = 'TesterPass123'
+
+# Real one-pixel samples so libmagic can identify the actual file format.
+PNG_BYTES = base64.b64decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
+    '+A8AAQUBAScY42YAAAAASUVORK5CYII='
+)
+JPEG_BYTES = base64.b64decode(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAEDAQE/EH//xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oACAECAQE/EH//xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oACAEBAAE/EH//2Q=='
+)
+PDF_BYTES = (
+    b'%PDF-1.4\n'
+    b'1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'
+    b'2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n'
+    b'trailer\n<< /Root 1 0 R >>\n%%EOF\n'
+)
 
 
 class AuthApiTests(APITestCase):
@@ -42,6 +67,87 @@ class AuthApiTests(APITestCase):
         self.assertEqual(body['user']['id'], user.id)
         self.assertEqual(body['user']['role'], 'customer')
         self.assertTrue(body['profile']['user_id'] == user.id)
+        self.assertIn('refresh', body)
+
+        refresh = RefreshToken(body['refresh'])
+        self.assertEqual(refresh.get('userId'), str(user.id))
+        outstanding = OutstandingToken.objects.get(jti=refresh['jti'])
+        self.assertIsNone(outstanding.user)
+
+    def test_logout_blacklists_refresh_token(self):
+        user = self.create_customer()
+        login = self.client.post(
+            '/api/auth/login',
+            {'identifier': user.email, 'password': PASSWORD},
+            format='json',
+        )
+        body = login.json()
+        self.client.credentials(
+            HTTP_AUTHORIZATION='Bearer ' + body['token']
+        )
+
+        response = self.client.post(
+            '/api/auth/logout',
+            {'refresh': body['refresh']},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        with self.assertRaises(TokenError):
+            RefreshToken(body['refresh']).verify()
+
+    def test_logout_rejects_another_users_refresh_token(self):
+        owner = self.create_customer(
+            email='owner@example.com', phone='+201099991111'
+        )
+        other = self.create_customer(
+            email='other@example.com', phone='+201099992222'
+        )
+        owner_login = self.client.post(
+            '/api/auth/login',
+            {'identifier': owner.email, 'password': PASSWORD},
+            format='json',
+        ).json()
+        other_refresh = self.client.post(
+            '/api/auth/login',
+            {'identifier': other.email, 'password': PASSWORD},
+            format='json',
+        ).json()['refresh']
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION='Bearer ' + owner_login['token']
+        )
+        response = self.client.post(
+            '/api/auth/logout',
+            {'refresh': other_refresh},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        RefreshToken(other_refresh).verify()
+
+    def test_axes_locks_out_after_repeated_failures(self):
+        locked = self.create_customer(
+            email='locked@example.com', phone='+201099993333'
+        )
+        for _ in range(5):
+            response = self.client.post(
+                '/api/auth/login',
+                {'identifier': locked.email, 'password': 'wrong-password'},
+                format='json',
+            )
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.json()['code'], 'account_locked')
+
+        # Axes also locks the source IP, so a valid account cannot be used to
+        # bypass the lockout from the same client.
+        other = self.create_customer(
+            email='other-lock@example.com', phone='+201099994444'
+        )
+        blocked = self.client.post(
+            '/api/auth/login',
+            {'identifier': other.email, 'password': PASSWORD},
+            format='json',
+        )
+        self.assertEqual(blocked.status_code, 429)
 
     def test_phone_login_normalises_local_number(self):
         self.create_customer(phone='+201099998888')
@@ -69,6 +175,33 @@ class AuthApiTests(APITestCase):
         self.assertEqual(unknown.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(wrong.json()['error'], unknown.json()['error'])
         self.assertNotIn('detail', wrong.json())
+
+    def test_django_admin_credentials_cannot_log_into_legacy_api(self):
+        user = User.objects.create(
+            email='legacy-admin@example.com',
+            phone='+201099995555',
+            password_hash=hash_password('CorePass123'),
+            role='customer',
+        )
+        Customer.objects.create(
+            user=user, name='Legacy Admin', phone='+201099995555'
+        )
+        admin = DjangoUser.objects.create(
+            id=user.id,
+            username=user.email,
+            is_staff=True,
+            is_superuser=True,
+        )
+        admin.set_password('DjangoPass123')
+        admin.save()
+
+        response = self.client.post(
+            '/api/auth/login',
+            {'identifier': user.email, 'password': 'DjangoPass123'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertNotIn('token', response.json())
 
     def test_register_creates_customer_and_token(self):
         response = self.client.post(
@@ -118,6 +251,30 @@ class AuthApiTests(APITestCase):
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(weak.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', weak.json())
+
+    def test_register_rejects_common_and_similar_passwords(self):
+        common = self.client.post(
+            '/api/auth/register',
+            {
+                'name': 'Common Password',
+                'phone': '01099994444',
+                'email': 'common@example.com',
+                'password': 'password1',
+            },
+            format='json',
+        )
+        similar = self.client.post(
+            '/api/auth/register',
+            {
+                'name': 'NewCustomer',
+                'phone': '01099993333',
+                'email': 'newcustomer@example.com',
+                'password': 'NewCustomer123',
+            },
+            format='json',
+        )
+        self.assertEqual(common.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(similar.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_me_requires_token_and_returns_fresh_user(self):
         unauth = self.client.get('/api/auth/me')
@@ -291,6 +448,32 @@ class RequestApiTests(APITestCase):
         job = Request.objects.get(pk=created['id'])
         self.assertEqual(job.status, 'in_progress')
         self.assertIsNotNone(job.started_at)
+
+    def test_technician_cannot_act_on_another_technicians_job(self):
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+
+        second_user = User.objects.create(
+            email='tech-owner@example.com',
+            phone='+201000000004',
+            password_hash=hash_password(PASSWORD),
+            role='technician',
+        )
+        second = Technician.objects.create(
+            user=second_user,
+            name='Second Technician',
+            phone='+201000000004',
+            specialty='dish_install',
+            availability='busy',
+            approval_status='approved',
+        )
+        Request.objects.filter(pk=created['id']).update(technician=second)
+
+        self.authenticate(self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{created['id']}/accept"
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_rejection_unassigns_and_reassigns_to_next_technician(self):
         second_user = User.objects.create(
@@ -591,3 +774,99 @@ class AdminApiTests(APITestCase):
             self.client.get('/api/admin/customers').status_code,
             status.HTTP_403_FORBIDDEN,
         )
+
+
+class SecuritySettingsTests(APITestCase):
+    """The production security layers stay wired together."""
+
+    def test_axes_and_token_blacklist_are_installed(self):
+        self.assertIn('axes', settings.INSTALLED_APPS)
+        self.assertIn(
+            'rest_framework_simplejwt.token_blacklist', settings.INSTALLED_APPS
+        )
+        self.assertEqual(
+            settings.MIDDLEWARE[0], 'axes.middleware.AxesMiddleware'
+        )
+        self.assertIn(
+            'django.middleware.csrf.CsrfViewMiddleware', settings.MIDDLEWARE
+        )
+        self.assertEqual(
+            settings.AUTHENTICATION_BACKENDS[0],
+            'axes.backends.AxesStandaloneBackend',
+        )
+
+    def test_password_validators_and_cors_are_locked_down(self):
+        validator_names = {
+            validator['NAME']
+            for validator in settings.AUTH_PASSWORD_VALIDATORS
+        }
+        self.assertIn(
+            'django.contrib.auth.password_validation.MinimumLengthValidator',
+            validator_names,
+        )
+        self.assertIn(
+            'django.contrib.auth.password_validation.CommonPasswordValidator',
+            validator_names,
+        )
+        self.assertIn(
+            'django.contrib.auth.password_validation.NumericPasswordValidator',
+            validator_names,
+        )
+        self.assertIn(
+            'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+            validator_names,
+        )
+        minimum_length = next(
+            validator
+            for validator in settings.AUTH_PASSWORD_VALIDATORS
+            if validator['NAME'].endswith('MinimumLengthValidator')
+        )
+        self.assertEqual(minimum_length['OPTIONS']['min_length'], 8)
+
+        self.assertFalse(settings.CORS_ALLOW_ALL_ORIGINS)
+        self.assertNotIn('*', settings.CORS_ALLOWED_ORIGINS)
+        self.assertEqual(settings.X_FRAME_OPTIONS, 'DENY')
+
+
+class UploadValidationTests(APITestCase):
+    """Magic-byte validation rejects spoofed technician documents."""
+
+    def test_validator_accepts_real_jpeg_png_and_pdf(self):
+        self.assertEqual(validate_document_upload(
+            SimpleUploadedFile('photo.jpg', JPEG_BYTES, content_type='image/jpeg')
+        ), 'image/jpeg')
+        self.assertEqual(validate_document_upload(
+            SimpleUploadedFile('photo.png', PNG_BYTES, content_type='image/png')
+        ), 'image/png')
+        self.assertEqual(validate_document_upload(
+            SimpleUploadedFile('scan.pdf', PDF_BYTES, content_type='application/pdf')
+        ), 'application/pdf')
+
+    def test_serializer_accepts_valid_documents(self):
+        serializer = TechnicianDocumentUploadSerializer(
+            data={
+                'criminal_record': SimpleUploadedFile(
+                    'criminal.pdf', PDF_BYTES, content_type='application/pdf'
+                ),
+                'national_id': SimpleUploadedFile(
+                    'id.png', PNG_BYTES, content_type='image/png'
+                ),
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_serializer_rejects_spoofed_content_type(self):
+        spoofed = SimpleUploadedFile(
+            'document.pdf',
+            b'<html><script>alert(1)</script></html>',
+            content_type='application/pdf',
+        )
+        serializer = TechnicianDocumentUploadSerializer(
+            data={
+                'criminal_record': spoofed,
+                'national_id': spoofed,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('criminal_record', serializer.errors)
+        self.assertIn('national_id', serializer.errors)
