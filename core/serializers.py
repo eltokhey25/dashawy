@@ -8,6 +8,7 @@ The wire shapes follow ``backend/routes/customer.routes.js`` and
 from rest_framework import serializers
 
 from .models import Request, Specialty
+from .upload_validators import validate_document_upload
 from .validation import STATIC_SPECIALTY_KEYS, resolve_location
 
 
@@ -146,3 +147,21 @@ class TechnicianRequestSerializer(RequestSerializer):
 
     class Meta(RequestSerializer.Meta):
         exclude = tuple(RequestSerializer.Meta.exclude) + ('start_pin',)
+
+
+class TechnicianDocumentUploadSerializer(serializers.Serializer):
+    """Validate the two private documents submitted during onboarding.
+
+    The actual view must save the files below ``MEDIA_ROOT/documents/`` and must
+    stream them back through an authenticated endpoint, never through a public
+    media URL.
+    """
+
+    criminal_record = serializers.FileField(
+        validators=[validate_document_upload],
+        write_only=True,
+    )
+    national_id = serializers.FileField(
+        validators=[validate_document_upload],
+        write_only=True,
+    )

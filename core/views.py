@@ -16,14 +16,18 @@ import json
 import re
 from datetime import timedelta
 
+from axes.utils import reset as reset_axes_attempts
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
 
 from .auth_backend import hash_password
 from .exceptions import ApiError, bad_request, forbidden, unauthorized
@@ -42,6 +46,7 @@ from .serializers import (
     TechnicianRequestSerializer,
 )
 from .services.assignment import assign_technician, reassign_after_rejection
+from .tokens import DashawyRefreshToken
 from .validation import (
     is_non_empty_string,
     is_valid_email,
@@ -117,14 +122,50 @@ def _profile_for(user):
 
 
 def _issue_token(user):
-    """Mint an access token (and a refresh token for future use)."""
-    refresh = RefreshToken.for_user(user)
+    """Mint an access token and a refresh token."""
+    refresh = DashawyRefreshToken.for_user(user)
     # Kept as claims so a Django-issued token carries the same identity fields
-    # the Express JWT did (userId, role, is_super_admin).
+    # the legacy JWT did (userId, role, is_super_admin).
     refresh['role'] = user.role
     refresh['is_super_admin'] = bool(user.is_super_admin)
     access = refresh.access_token
     return str(access), str(refresh)
+
+
+def _reset_axes(identifier):
+    """Clear Axes failures after a successful password check.
+
+    The project authenticates against core.User without calling Django's
+    ``login()``, so the ``user_logged_in`` signal that normally resets Axes
+    never fires. This keeps a successful login from leaving a stale lockout
+    counter behind.
+    """
+    try:
+        reset_axes_attempts(username=str(identifier))
+    except Exception:
+        # A reset failure must not turn a valid login into a 500. Axes will
+        # expire the attempt on its own cooloff window.
+        pass
+
+
+def _password_strength_error(password, email, name):
+    """Apply Django's configured validators to a new legacy account."""
+    candidate = User(email=email, phone=None, role='customer')
+    # core.User has no first_name column, but the similarity validator reads
+    # arbitrary attributes and ignores missing model fields.
+    candidate.first_name = name
+    try:
+        validate_password(password, user=candidate)
+    except DjangoValidationError as exc:
+        codes = {getattr(error, 'code', None) for error in exc.error_list}
+        if 'password_too_common' in codes:
+            return 'كلمة المرور شائعة جداً، اختر كلمة مرور أقوى'
+        if 'password_entirely_numeric' in codes:
+            return 'لا يمكن أن تكون كلمة المرور أرقاماً فقط'
+        if 'password_too_similar' in codes:
+            return 'كلمة المرور مشابهة جداً لبيانات حسابك'
+        return 'كلمة المرور غير آمنة'
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -227,13 +268,20 @@ class LoginView(APIView):
             user = User.objects.filter(phone=phone).first() if phone else None
 
         # Same message whether the account is missing or the password is wrong,
-        # so the endpoint cannot be used to enumerate users.
-        verified = (
-            authenticate(request, username=identifier, password=password)
-            if user is not None
-            else None
+        # so the endpoint cannot be used to enumerate users. Axes stores lockout
+        # state on the Django request, not DRF's wrapper; passing the underlying
+        # request lets AxesMiddleware return its configured 429 response. The
+        # authenticate call runs for unknown identifiers too, so repeated
+        # guessing is rate-limited by IP rather than only by existing account.
+        auth_request = getattr(request, '_request', request)
+        verified = authenticate(
+            auth_request, username=identifier, password=password
         )
-        if user is None or verified is None or verified.pk != user.pk:
+        if (
+            user is None
+            or not isinstance(verified, User)
+            or verified.pk != user.pk
+        ):
             if user is not None:
                 _note_failed_login(user)
             raise unauthorized(AUTH_ERROR)
@@ -245,11 +293,13 @@ class LoginView(APIView):
 
         _clear_failed_logins(user)
         _assert_account_can_sign_in(user)
+        _reset_axes(identifier)
 
-        token, _refresh = _issue_token(user)
+        token, refresh = _issue_token(user)
         return Response(
             {
                 'token': token,
+                'refresh': refresh,
                 'user': _safe_user(user),
                 'profile': _profile_for(user),
                 'must_change_password': bool(user.must_change_password),
@@ -283,6 +333,11 @@ class RegisterView(APIView):
         password_problem = password_policy_error(password)
         if password_problem:
             raise bad_request(password_problem)
+        strength_problem = _password_strength_error(
+            password, normalize_email(email), name.strip()
+        )
+        if strength_problem:
+            raise bad_request(strength_problem)
         if location_text is not None and not is_non_empty_string(location_text, 300):
             raise bad_request('وصف الموقع غير صالح')
 
@@ -332,16 +387,40 @@ class RegisterView(APIView):
                 'هذا البريد الإلكتروني أو رقم الهاتف مسجّل بالفعل'
             )
 
-        token, _refresh = _issue_token(user)
+        token, refresh = _issue_token(user)
         return Response(
             {
                 'token': token,
+                'refresh': refresh,
                 'user': _safe_user(user),
                 'profile': _profile_for(user),
                 'must_change_password': bool(user.must_change_password),
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class LogoutView(APIView):
+    """POST /api/auth/logout — blacklist the supplied refresh token."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = _body(request)
+        refresh = data.get('refresh') or data.get('refresh_token')
+        if not refresh or not isinstance(refresh, str):
+            raise bad_request('رمز التحديث مطلوب')
+
+        try:
+            token = DashawyRefreshToken(refresh)
+            token_user_id = token.get(jwt_settings.USER_ID_CLAIM)
+            if str(token_user_id) != str(request.user.pk):
+                raise bad_request('رمز التحديث غير صالح')
+            token.blacklist()
+        except TokenError:
+            raise bad_request('رمز التحديث غير صالح')
+
+        return Response({'message': 'تم تسجيل الخروج'})
 
 
 class MeView(APIView):

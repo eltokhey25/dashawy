@@ -14,6 +14,8 @@ the existing HTML/CSS/JS frontend from a single process.
 - Python **3.10+** (developed on 3.12)
 - SQLite — a file database, no server to install
 - `pip` and `venv`
+- The system `libmagic` library used by `python-magic` for upload validation
+  (for example `apt install libmagic1` on Debian/Ubuntu)
 
 There is no build step and no bundler. The frontend is plain HTML, CSS, and
 JavaScript served directly by Django.
@@ -114,9 +116,11 @@ values for your environment.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DJANGO_SECRET_KEY` | Development-only fallback | Django cryptographic signing key. Set a strong value in production. |
-| `DJANGO_DEBUG` | `1` | `1`/`true` enables debug mode; use `0`/`false` in production. |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Comma-separated hostnames Django accepts. |
+| `DJANGO_SECRET_KEY` | None (required in production) | Django cryptographic signing key. Startup fails when debug is off and this is unset. |
+| `DJANGO_DEBUG` | `False` | Exactly `True` enables debug mode; use `False` in production. |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated hostnames Django accepts. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:8000` | Comma-separated exact browser origins allowed to call the API. Wildcards are disabled. |
+| `CSRF_TRUSTED_ORIGINS` | Empty | Comma-separated HTTPS origins trusted for CSRF-protected forms. |
 | `JWT_SECRET` | Falls back to `DJANGO_SECRET_KEY` | Signs and verifies JWT access tokens. Set a strong, stable value in production. |
 | `JWT_EXPIRES_IN` | `7d` | Access-token lifetime (`30m`, `12h`, `7d`, etc.). |
 | `JWT_REFRESH_EXPIRES_IN` | `7d` | Refresh-token lifetime. |
@@ -159,8 +163,16 @@ python manage.py createsuperuser
 - **Authorization** — customer, technician, and admin endpoints use explicit
   role checks. Admin endpoints accept either the admin role or the super-admin
   flag.
-- **CORS** — permissive in development so split-port frontends can call the API.
-  Tighten this to an explicit allow-list before production.
+- **CORS / CSRF** — CORS accepts only explicit `CORS_ALLOWED_ORIGINS`; there is
+  no wildcard fallback. `CsrfViewMiddleware` stays enabled, and
+  `CSRF_TRUSTED_ORIGINS` must list any HTTPS origin used for cookie-authenticated
+  forms.
+- **Brute force** — `django-axes` locks an identifier/IP after five failed
+  sign-ins for 15 minutes. JWTs are still revalidated against the database on
+  every request.
+- **Uploads** — technician documents are validated by magic bytes (JPEG, PNG,
+  or PDF only) and belong under the private `uploads/` tree, which has no public
+  URL mapping.
 - **Secrets** — `.env` is git-ignored. Never commit real keys or credentials.
 - **Database** — back up `database/fixrequest.db`; it holds accounts, identity
   documents, and payment records.
@@ -182,8 +194,9 @@ requirements.txt    Pinned Python dependencies
 
 ## Deployment
 
-1. Set `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_SECRET_KEY`, and
-   `JWT_SECRET` in the deployment environment.
+1. Set `DJANGO_DEBUG=False`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_SECRET_KEY`,
+   `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, and `CSRF_TRUSTED_ORIGINS` in the
+   deployment environment.
 2. Run `python manage.py migrate --fake-initial` against the production
    database.
 3. Run the app with a WSGI server pointing at

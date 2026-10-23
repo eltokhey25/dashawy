@@ -1,44 +1,56 @@
 """
 Django settings for the Dashawy backend.
 
-Phase 1 of the Node.js -> Django migration: the project is wired up to the
-existing SQLite database and the legacy schema is exposed through the `core`
-app's models. The Node/Express API remains in `backend/` and is still the
-running backend until later phases replace it.
+The project reads the legacy SQLite schema through the ``core`` app and serves
+both the JSON API and the existing static frontend. Production behavior is
+driven by environment variables (see ``.env.example``); debug mode defaults to
+off and a missing production secret is a startup error.
 """
 
 import os
 import re
+import sys
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Reuse the repository's existing .env file (it currently holds the Node
-# variables; Django-specific keys can be added alongside them).
 load_dotenv(BASE_DIR / '.env')
+
+# The test runner sets DEBUG=False after settings import. Detect it here so the
+# test client is not redirected to HTTPS by SECURE_SSL_REDIRECT; production
+# and `check --deploy` never take this branch.
+RUNNING_TESTS = (
+    'test' in sys.argv
+    or 'pytest' in Path(sys.argv[0]).name
+    or os.environ.get('PYTEST_CURRENT_TEST') is not None
+)
 
 
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-development-only-change-me-before-deploying',
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', '1').lower() in ('1', 'true', 'yes', 'on')
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if not DEBUG and not RUNNING_TESTS:
+        raise ImproperlyConfigured(
+            'DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is not True.'
+        )
+    SECRET_KEY = 'django-insecure-development-only-change-me-before-deploying'
 
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        'DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]'
+        'DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1'
     ).split(',')
     if host.strip()
 ]
@@ -54,14 +66,19 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Third party
+    'axes',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     # Local
     'core',
 ]
 
 MIDDLEWARE = [
+    # Axes must be first so lockouts are enforced before any request reaches a
+    # view or another middleware that could short-circuit the response.
+    'axes.middleware.AxesMiddleware',
     'django.middleware.security.SecurityMiddleware',
     # CorsMiddleware must sit as high as possible, and in particular before
     # CommonMiddleware so CORS headers survive redirects and error responses.
@@ -132,6 +149,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 8},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -143,11 +161,25 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Legacy passwords are bcryptjs `$2a$/$2b$` hashes in users.password_hash.
 # BcryptAuthBackend verifies those; ModelBackend stays last so the Django admin
-# (which still uses auth.User) keeps working.
+# (which still uses auth.User) keeps working. Axes is first so it can reject a
+# locked-out identifier before either password backend is consulted.
 AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
     'core.auth_backend.BcryptAuthBackend',
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+# django-axes: five failures for a username or source IP trigger a 15-minute
+# cooloff. The LoginView explicitly resets the counters after a successful
+# password check because this project authenticates against core.User rather
+# than calling Django's login().
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
+AXES_RESET_ON_SUCCESS = True
+AXES_ENABLED = True
+# Keep the API's flattened error shape on lockout instead of Axes' HTML page.
+AXES_LOCKOUT_CALLABLE = 'core.axes.lockout_response'
 
 
 # ---------------------------------------------------------------------------
@@ -218,16 +250,49 @@ SIMPLE_JWT = {
 
 
 # ---------------------------------------------------------------------------
-# CORS
+# CORS / CSRF
 # ---------------------------------------------------------------------------
 #
-# Wide open for the migration so the existing frontend can be pointed at
-# Django during testing, including http://localhost:8000. Once the frontend is
-# served same-origin by Django, CORS is not needed for normal page loads; this
-# stays permissive for split-port development. Narrow this to
-# CORS_ALLOWED_ORIGINS before production.
+# The frontend is normally served same-origin by Django, so CORS is only needed
+# for split-port development. Only explicit origins are accepted; there is no
+# wildcard fallback.
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        'CORS_ALLOWED_ORIGINS', 'http://localhost:8000'
+    ).split(',')
+    if origin.strip()
+]
+
+# Django's CSRF middleware stays active (see MIDDLEWARE). These origins are
+# trusted for the Django-rendered admin site and any future cookie-authenticated
+# form. The JSON API itself uses Bearer JWTs, not CSRF-protected cookies.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
+
+
+# ---------------------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------------------
+#
+# Development keeps these off so runserver works over plain HTTP. Production
+# enables the full set. SECURE_SSL_REDIRECT is skipped under the test runner so
+# the test client's HTTP requests are not turned into 301 redirects.
+
+SECURE_SSL_REDIRECT = not DEBUG and not RUNNING_TESTS
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_BROWSER_XSS_FILTER = not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = not DEBUG
+X_FRAME_OPTIONS = 'DENY'
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +321,12 @@ STATIC_URL = '/static/'
 # HTML pages. Registering it lets `collectstatic` (and the staticfiles finder)
 # see the same files the catch-all frontend view serves during development.
 STATICFILES_DIRS = [BASE_DIR / 'frontend']
+
+# Private uploaded documents (the legacy app used ``uploads/``). There is
+# deliberately no MEDIA_URL or URL route for this tree: technician identity
+# documents must be streamed by an authenticated view, never served as public
+# static content.
+MEDIA_ROOT = BASE_DIR / 'uploads'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
