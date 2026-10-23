@@ -16,6 +16,16 @@ PHONE_RE = re.compile(r'^[+()\-\s0-9]{6,20}$')
 PASSWORD_MIN_LENGTH = 8
 PASSWORD_MAX_LENGTH = 200
 
+# Mirrors config.SPECIALTIES in backend/config.js. Used only as a fallback when
+# the specialties table has not been seeded yet; the database is authoritative.
+STATIC_SPECIALTY_KEYS = (
+    'dish_install',
+    'dish_repair',
+    'signal_tuning',
+    'receiver_service',
+    'other',
+)
+
 # Mirrors config.ALEXANDRIA_AREAS in backend/config.js. Kept in Python so the
 # registration endpoint can turn an area_key into the same "area — detail"
 # location string the browser used to receive.
