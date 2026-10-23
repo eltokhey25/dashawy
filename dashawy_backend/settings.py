@@ -168,6 +168,9 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    # The legacy rows store 'YYYY-MM-DD HH:MM:SS' (SQLite datetime('now'));
+    # keep the wire format identical so existing JS date parsing is unchanged.
+    'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
     # The legacy frontend reads `error` (and optionally `code`), not DRF's
     # `detail` / field-error dictionary.
     'EXCEPTION_HANDLER': 'core.exceptions.api_exception_handler',

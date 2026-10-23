@@ -4,7 +4,14 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .auth_backend import hash_password
-from .models import Customer, User
+from .models import (
+    Customer,
+    Request,
+    RequestBroadcast,
+    Specialty,
+    Technician,
+    User,
+)
 
 PASSWORD = 'TesterPass123'
 
@@ -130,3 +137,233 @@ class AuthApiTests(APITestCase):
         self.assertEqual(body['user']['email'], user.email)
         self.assertIn('telegram_linked', body['user'])
         self.assertEqual(body['profile']['name'], 'Legacy Customer')
+
+
+class RequestApiTests(APITestCase):
+    """Phase 3: customer requests, auto-assignment and technician actions."""
+
+    def setUp(self):
+        Specialty.objects.create(key='dish_install', label='تركيب دش')
+        Specialty.objects.create(key='dish_repair', label='صيانة دش')
+
+        self.customer_user = User.objects.create(
+            email='customer@example.com',
+            phone='+201000000001',
+            password_hash=hash_password(PASSWORD),
+            role='customer',
+        )
+        self.customer = Customer.objects.create(
+            user=self.customer_user,
+            name='Test Customer',
+            phone='+201000000001',
+            location_text='سموحة',
+            latitude=31.2156,
+            longitude=29.9553,
+        )
+
+        self.tech_user = User.objects.create(
+            email='tech@example.com',
+            phone='+201000000002',
+            password_hash=hash_password(PASSWORD),
+            role='technician',
+        )
+        self.technician = Technician.objects.create(
+            user=self.tech_user,
+            name='Test Technician',
+            phone='+201000000002',
+            specialty='dish_install',
+            availability='available',
+            approval_status='approved',
+            location_text='سموحة',
+            latitude=31.2160,
+            longitude=29.9560,
+        )
+
+    def authenticate(self, user):
+        self.client.force_authenticate(user=user)
+
+    def create_request(self, specialty='dish_install', **overrides):
+        body = {
+            'specialty': specialty,
+            'description': 'الدش لا يعمل',
+            'location_text': 'شارع الاختبار',
+            'latitude': 31.2156,
+            'longitude': 29.9553,
+        }
+        body.update(overrides)
+        return self.client.post('/api/customer/requests', body, format='json')
+
+    def test_create_request_assigns_matching_technician(self):
+        self.authenticate(self.customer_user)
+        response = self.create_request()
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = response.json()
+        self.assertTrue(body['assigned'])
+        self.assertEqual(body['message'], 'تم تعيين فني لطلبك')
+        self.assertEqual(body['request']['status'], 'assigned')
+        self.assertEqual(body['request']['technician_id'], self.technician.id)
+        self.assertEqual(body['request']['customer_id'], self.customer.id)
+        self.assertEqual(body['request']['customer_name'], 'Test Customer')
+        self.assertEqual(
+            body['request']['technician_profile_url'],
+            '/technician-profile.html?id=' + str(self.technician.id),
+        )
+
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'busy')
+        broadcast = RequestBroadcast.objects.get(
+            request_id=body['request']['id'], technician=self.technician
+        )
+        self.assertEqual(broadcast.status, 'accepted')
+
+    def test_create_request_without_technician_stays_pending(self):
+        self.authenticate(self.customer_user)
+        response = self.create_request(specialty='dish_repair')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = response.json()
+        self.assertFalse(body['assigned'])
+        self.assertEqual(
+            body['message'],
+            'تم استلام طلبك بنجاح وسيتم التواصل معك قريباً',
+        )
+        self.assertEqual(body['request']['status'], 'pending')
+        self.assertIsNone(body['request']['technician_id'])
+        self.assertEqual(
+            body['assignment']['reason'], 'no_technician_available'
+        )
+
+    def test_customer_lists_and_reads_only_own_requests(self):
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+
+        listing = self.client.get('/api/customer/requests')
+        self.assertEqual(listing.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(listing.json()['requests']), 1)
+        self.assertEqual(listing.json()['requests'][0]['id'], created['id'])
+
+        detail = self.client.get(f"/api/customer/requests/{created['id']}")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.json()['request']['id'], created['id'])
+
+        other_user = User.objects.create(
+            email='other@example.com',
+            phone='+201000000009',
+            password_hash=hash_password(PASSWORD),
+            role='customer',
+        )
+        other_customer = Customer.objects.create(
+            user=other_user, name='Other', phone='+201000000009'
+        )
+        foreign = Request.objects.create(
+            customer=other_customer,
+            specialty='dish_install',
+            description='not yours',
+        )
+        denied = self.client.get(f'/api/customer/requests/{foreign.id}')
+        self.assertEqual(denied.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_technician_lists_jobs_without_start_pin(self):
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+
+        self.authenticate(self.tech_user)
+        response = self.client.get('/api/technician/requests')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        jobs = response.json()['requests']
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]['id'], created['id'])
+        self.assertNotIn('start_pin', jobs[0])
+
+    def test_technician_accepts_job(self):
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+
+        self.authenticate(self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{created['id']}/accept"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['request']['status'], 'in_progress')
+
+        job = Request.objects.get(pk=created['id'])
+        self.assertEqual(job.status, 'in_progress')
+        self.assertIsNotNone(job.started_at)
+
+    def test_rejection_unassigns_and_reassigns_to_next_technician(self):
+        second_user = User.objects.create(
+            email='tech2@example.com',
+            phone='+201000000003',
+            password_hash=hash_password(PASSWORD),
+            role='technician',
+        )
+        second = Technician.objects.create(
+            user=second_user,
+            name='Second Technician',
+            phone='+201000000003',
+            specialty='dish_install',
+            availability='available',
+            approval_status='approved',
+        )
+
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+        self.assertEqual(created['technician_id'], self.technician.id)
+
+        self.authenticate(self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{created['id']}/reject"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertTrue(body['reassigned'])
+        self.assertEqual(body['request']['technician_id'], second.id)
+
+        self.technician.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'available')
+        self.assertEqual(second.availability, 'busy')
+
+        job = Request.objects.get(pk=created['id'])
+        self.assertIn(str(self.technician.id), job.declined_technicians)
+        decline = RequestBroadcast.objects.get(
+            request=job, technician=self.technician
+        )
+        self.assertEqual(decline.status, 'declined')
+
+    def test_rejection_with_no_other_technician_returns_to_pending(self):
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+
+        self.authenticate(self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{created['id']}/reject"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.json()
+        self.assertFalse(body['reassigned'])
+        self.assertEqual(body['request']['status'], 'pending')
+        self.assertIsNone(body['request']['technician_id'])
+
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'available')
+
+    def test_role_guards(self):
+        self.authenticate(self.tech_user)
+        customer_route = self.client.get('/api/customer/requests')
+        self.assertEqual(customer_route.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.authenticate(self.customer_user)
+        technician_route = self.client.get('/api/technician/requests')
+        self.assertEqual(technician_route.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_validation_rejects_unknown_specialty_and_other_without_text(self):
+        self.authenticate(self.customer_user)
+
+        unknown = self.create_request(specialty='plumbing')
+        self.assertEqual(unknown.status_code, status.HTTP_400_BAD_REQUEST)
+
+        other = self.create_request(specialty='other')
+        self.assertEqual(other.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', other.json())

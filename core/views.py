@@ -25,8 +25,15 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .auth_backend import hash_password
-from .exceptions import bad_request, unauthorized
-from .models import Customer, Technician, User, utc_now
+from .exceptions import ApiError, bad_request, forbidden, unauthorized
+from .models import Customer, Request, Technician, User, utc_now
+from .permissions import IsCustomer, IsTechnician
+from .serializers import (
+    CreateRequestSerializer,
+    RequestSerializer,
+    TechnicianRequestSerializer,
+)
+from .services.assignment import assign_technician, reassign_after_rejection
 from .validation import (
     is_non_empty_string,
     is_valid_email,
@@ -348,3 +355,217 @@ class MeView(APIView):
         safe['telegram_linked'] = bool(user.telegram_chat_id)
 
         return Response({'user': safe, 'profile': _profile_for(user)})
+
+
+# ---------------------------------------------------------------------------
+# Customer requests
+# ---------------------------------------------------------------------------
+
+PROFILE_INCOMPLETE = 'أكمل بيانات حسابك أولاً للمتابعة'
+
+
+def _customer_for(user):
+    """The signed-in customer's profile, enforcing the legacy sign-in gates.
+
+    ``requireCompleteProfile`` in the Express app checked ``users.phone`` and
+    ``ensureCustomerHasProfile`` checked for the profile row. Both are repeated
+    here because this is the API boundary, not the login screen: a token issued
+    before the checks were added must not bypass them.
+    """
+    customer = Customer.objects.filter(user_id=user.pk).first()
+    if customer is None:
+        raise forbidden('حساب العميل غير مكتمل')
+    if customer.blocked:
+        raise forbidden('حسابك موقوف من قبل الإدارة. يرجى التواصل مع الدعم.')
+    if not user.phone:
+        raise forbidden(PROFILE_INCOMPLETE, code='profile_incomplete')
+    return customer
+
+
+def _technician_for(user):
+    technician = Technician.objects.filter(user_id=user.pk).first()
+    if technician is None:
+        raise forbidden('حساب الفني غير مكتمل')
+    return technician
+
+
+class CustomerRequestListCreateView(APIView):
+    """GET/POST /api/customer/requests."""
+
+    permission_classes = [IsAuthenticated, IsCustomer]
+
+    def get(self, request):
+        customer = _customer_for(request.user)
+        requests = (
+            Request.objects.filter(customer_id=customer.pk)
+            .select_related('customer', 'technician')
+            .order_by('-created_at', '-id')
+        )
+        return Response(
+            {'requests': RequestSerializer(requests, many=True).data}
+        )
+
+    def post(self, request):
+        customer = _customer_for(request.user)
+        serializer = CreateRequestSerializer(data=_body(request))
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        created = Request.objects.create(
+            customer_id=customer.pk,
+            specialty=data['specialty'],
+            custom_specialty_text=data.get('custom_specialty_text'),
+            description=data['description'],
+            location_text=data.get('resolved_location') or None,
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
+            status='pending',
+        )
+
+        assignment = assign_technician(created.pk)
+        created.refresh_from_db()
+        # Read the row rather than trusting the return value, so a concurrent
+        # assignment cannot make the message disagree with the request.
+        assigned = (
+            created.status == 'assigned' and created.technician_id is not None
+        )
+
+        payload = RequestSerializer(created).data
+        return Response(
+            {
+                # Exact wording the Phase 3 contract specifies.
+                'message': (
+                    'تم تعيين فني لطلبك'
+                    if assigned
+                    else 'تم استلام طلبك بنجاح وسيتم التواصل معك قريباً'
+                ),
+                'request': payload,
+                'assignment': {
+                    'assigned': assigned,
+                    'technician_id': assignment.get('technician_id'),
+                    'reason': assignment.get('reason'),
+                },
+                'assigned': assigned,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class CustomerRequestDetailView(APIView):
+    """GET /api/customer/requests/<id> — one request owned by the customer."""
+
+    permission_classes = [IsAuthenticated, IsCustomer]
+
+    def get(self, request, pk):
+        customer = _customer_for(request.user)
+        job = (
+            Request.objects.filter(pk=pk, customer_id=customer.pk)
+            .select_related('customer', 'technician')
+            .first()
+        )
+        if job is None:
+            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
+        return Response({'request': RequestSerializer(job).data})
+
+
+# ---------------------------------------------------------------------------
+# Technician jobs
+# ---------------------------------------------------------------------------
+
+
+class TechnicianRequestListView(APIView):
+    """GET /api/technician/requests — active jobs for the signed-in technician."""
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def get(self, request):
+        technician = _technician_for(request.user)
+        jobs = (
+            Request.objects.filter(
+                technician_id=technician.pk,
+                status__in=('assigned', 'in_progress'),
+            )
+            .select_related('customer', 'technician')
+            .order_by('-created_at', '-id')
+        )
+        return Response(
+            {'requests': TechnicianRequestSerializer(jobs, many=True).data}
+        )
+
+
+class TechnicianRequestAcceptView(APIView):
+    """POST /api/technician/requests/<id>/accept — start the job."""
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def post(self, request, pk):
+        technician = _technician_for(request.user)
+        job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
+        if job is None:
+            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
+        if job.status != 'assigned':
+            raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
+
+        now = utc_now()
+        claimed = Request.objects.filter(
+            pk=job.pk, technician_id=technician.pk, status='assigned'
+        ).update(status='in_progress', started_at=now, updated_at=now)
+        if not claimed:
+            raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
+
+        job.refresh_from_db()
+        return Response(
+            {
+                'message': 'تم بدء تنفيذ الطلب',
+                'request': TechnicianRequestSerializer(job).data,
+            }
+        )
+
+
+class TechnicianRequestRejectView(APIView):
+    """POST /api/technician/requests/<id>/reject — decline and reassign."""
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def post(self, request, pk):
+        technician = _technician_for(request.user)
+        job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
+        if job is None:
+            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
+        if job.status != 'assigned':
+            raise bad_request('لا يمكن رفض هذا الطلب في حالته الحالية')
+
+        now = utc_now()
+        released = Request.objects.filter(
+            pk=job.pk, technician_id=technician.pk, status='assigned'
+        ).update(
+            technician_id=None,
+            status='pending',
+            assigned_at=None,
+            updated_at=now,
+        )
+        if not released:
+            raise bad_request('لا يمكن رفض هذا الطلب في حالته الحالية')
+
+        # Records the decline (JSON column + broadcast row), frees the
+        # technician and runs assignment again among the remaining candidates.
+        assignment = reassign_after_rejection(job.pk, technician.pk)
+        job.refresh_from_db()
+        reassigned = bool(assignment.get('assigned'))
+
+        return Response(
+            {
+                'message': (
+                    'تم رفض الطلب وإعادة تعيينه لفني آخر'
+                    if reassigned
+                    else 'تم رفض الطلب، ولا يوجد فني متاح حالياً'
+                ),
+                'request': RequestSerializer(job).data,
+                'assignment': {
+                    'assigned': reassigned,
+                    'technician_id': assignment.get('technician_id'),
+                    'reason': assignment.get('reason'),
+                },
+                'reassigned': reassigned,
+            }
+        )
