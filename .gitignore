@@ -1,15 +1,25 @@
-# ---------- Dependencies ----------
-node_modules/
-
 # ---------- Python / Django ----------
 .venv/
 venv/
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 *.sqlite3
 db.sqlite3
 staticfiles/
 media/
+
+# Test / type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+build/
+dist/
 
 # ---------- Secrets ----------
 .env
@@ -17,21 +27,20 @@ media/
 .env.*.local
 
 # ---------- Runtime data ----------
-# The SQLite file and its WAL/journal sidecars. schema.sql + seed.js ARE tracked:
-# they are the source of truth for a fresh install, the .db is not.
+# The SQLite database and its WAL/journal sidecars. database/schema.sql is
+# tracked; the .db file itself is not.
 database/*.db
 database/*.db-journal
 database/*.db-wal
 database/*.db-shm
-# Timestamped safety copies taken before migrations/seeds, e.g.
+# Timestamped safety copies taken before migrations, e.g.
 # fixrequest.db.bak-before-tracking — also ignored.
 database/*.bak
 database/*.bak-*
 database/*.db.bak*
 
-# Uploaded user documents and profile images. The directories themselves are
-# recreated on demand (fs.mkdirSync recursive in routes/auth + routes/technician),
-# so nothing needs to be tracked to keep uploads working.
+# Uploaded user documents and profile images. The directories are recreated on
+# demand, so nothing needs to be tracked to keep uploads working.
 uploads/
 
 # Legacy/alternate data locations
@@ -39,7 +48,6 @@ data/
 
 # ---------- Logs ----------
 *.log
-npm-debug.log*
 
 # Additional DB artifacts
 database/*.recovered

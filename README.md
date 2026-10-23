@@ -4,219 +4,193 @@ A service platform connecting customers with technicians in Alexandria: request
 broadcast, first-accept wins, doorstep Start PIN handshake, two-sided cash
 confirmation, mandatory customer reviews, per-request chat, and Web Push.
 
+The application is powered by **Django 5.2** and serves both the REST API and
+the existing HTML/CSS/JS frontend from a single process.
+
 ---
 
 ## Requirements
 
-- Node.js **18+** (developed on 20.x)
-- Python **3.10+** for the Django migration (developed on 3.12, Django 5.2 LTS)
-- SQLite — created automatically on first boot, no server to install
+- Python **3.10+** (developed on 3.12)
+- SQLite — a file database, no server to install
+- `pip` and `venv`
 
-No build step. No bundler. The frontend is plain HTML/CSS/JS served by the same
-Express process that serves the API.
+There is no build step and no bundler. The frontend is plain HTML, CSS, and
+JavaScript served directly by Django.
 
-## Running it
-
-```bash
-npm install
-cp .env.example .env      # then fill in JWT_SECRET
-node --env-file=.env backend/server.js
-```
-
-Open <http://localhost:3000>.
-
-> `npm start` does **not** load `.env` (Node's `--env-file` flag is required), so
-> use the explicit command above. Production additionally requires `JWT_SECRET`
-> — the server refuses to boot without it when `NODE_ENV=production`.
-
-## Django backend (Phase 1 + 2 migration)
-
-The project is being migrated from Express to Django for hosting on
-PythonAnywhere. The Django project runs **alongside** the existing Node backend:
-
-- **Phase 1** — `core/models.py` maps every legacy SQLite table (with matching
-  `db_table` names) and `core/migrations/0001_initial.py` is applied with
-  `--fake-initial`, because the tables already exist.
-- **Phase 2** — the authentication API is live in Django with JWT access tokens
-  and the legacy bcrypt password hashes.
-
-Express still serves the application; later phases move the remaining API and
-the frontend over.
+## Quick start
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# First run only: the legacy tables already exist, so fake the initial app
-# migration instead of trying to CREATE them again.
-python manage.py migrate --fake-initial
+cp .env.example .env
+# Edit .env and set DJANGO_SECRET_KEY and JWT_SECRET.
 
+python manage.py migrate --fake-initial
 python manage.py runserver
 ```
 
-Django is configured in `dashawy_backend/settings.py`, reads the same `.env`
-file, and points at `database/fixrequest.db`. The `.venv`, `__pycache__` and
-SQLite artifacts are git-ignored.
+Open <http://localhost:8000>.
 
-### Authentication endpoints (Phase 2)
+`--fake-initial` works for both setups: it fakes the initial migration when the
+legacy SQLite tables already exist, and applies it normally when the database is
+new.
+
+### Useful commands
+
+```bash
+python manage.py check                 # configuration check
+python manage.py test core             # API and frontend-serving tests
+python manage.py showmigrations        # migration status
+python manage.py reset_admin_password  # recovery helper (see below)
+```
+
+## Frontend and admin
+
+Django serves the files in `frontend/` directly:
+
+| URL | Page |
+| --- | --- |
+| `/` | Public homepage |
+| `/auth.html` | Customer/technician sign-in and registration |
+| `/customer/dashboard.html` | Customer dashboard |
+| `/technician/dashboard.html` | Technician dashboard |
+| `/admin` or `/admin/login.html` | Product admin login |
+| `/admin/dashboard` | Product admin dashboard |
+| `/django-admin/` | Django's built-in admin site |
+
+The product admin pages use extensionless routes such as `/admin/dashboard`;
+Django maps those to the matching `.html` files. Django's own admin is mounted
+at `/django-admin/` so it does not conflict with the product admin.
+
+## API overview
+
+All API routes live under `/api/`. Authentication uses a Bearer JWT returned as
+`token` by the login endpoint. Errors are returned as `{"error": "..."}`.
+
+### Authentication
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/api/auth/login` | public | Email **or** phone + password → `{token, user, profile, must_change_password}` |
-| `POST` | `/api/auth/register` | public | Customer self-registration → `{token, user, profile, ...}` |
-| `GET` | `/api/auth/me` | Bearer token | Fresh `{user, profile}` for the current account |
+| `POST` | `/api/auth/login` | Public | Email or phone + password |
+| `POST` | `/api/auth/register` | Public | Customer self-registration |
+| `GET` | `/api/auth/me` | Bearer | Current user and profile |
 
-Passwords are verified against the existing `users.password_hash` with Python
-`bcrypt`, so no account needs a password reset. Responses keep the Express
-shapes: the access token is returned as **`token`** (not `access`), and failures
-are `{"error": "..."}`. `core.User` stays separate from `AUTH_USER_MODEL`; the
-custom `DashawyJWTAuthentication` class points SimpleJWT at it without rewriting
-the Django admin tables.
+### Customer
 
-```bash
-python manage.py test core
-```
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/customer/requests` | Customer | List the customer's requests |
+| `POST` | `/api/customer/requests` | Customer | Create a request |
+| `GET` | `/api/customer/requests/<id>` | Customer | Request details |
 
-## Tests / checks
+### Technician
 
-```bash
-npm run format:check   # prettier
-npm run audit          # dependency advisories
-npm run seed           # optional demo data
-```
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/technician/requests` | Technician | Available/assigned requests |
+| `POST` | `/api/technician/requests/<id>/accept` | Technician | Accept a request |
+| `POST` | `/api/technician/requests/<id>/reject` | Technician | Reject and reassign |
 
-## Deploying
+### Admin dashboard
 
-1. **Environment.** Copy `.env.example` to your secret store and set, at minimum:
-   - `JWT_SECRET` — 32+ random characters. Generate with
-     `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
-   - `NODE_ENV=production`
-   - `CORS_ORIGINS` — comma-separated origins, if the frontend and API are on
-     different domains
-2. **TLS.** Terminate HTTPS at nginx/Cloudflare. The app sets
-   `Strict-Transport-Security` automatically when `NODE_ENV=production`.
-3. **Proxy.** Set `TRUST_PROXY_HOPS` to the number of trusted hops in front of
-   the app (1 behind a single nginx/Cloudflare hop). Rate limiting keys on
-   `req.ip`, so this must be correct or every client shares one bucket.
-4. **Run under a supervisor** (systemd, pm2, Docker) so the process restarts on
-   crash. It handles `SIGTERM`/`SIGINT` gracefully: stops accepting, lets
-   in-flight requests finish, closes SQLite, exits.
-5. **Back up `database/fixrequest.db`** — it holds accounts, identity documents
-   and money movements.
-6. **Scaling beyond one instance:** the rate limiter keeps counters in process
-   memory, so each instance counts independently. Move them to Redis (swap
-   `backend/middleware/rate-limit.js` for `express-rate-limit` with a Redis store)
-   before running more than one.
+Admin endpoints require `role='admin'` or `is_super_admin=True`.
 
-### First admin account
-
-Admins are created by seeding, not self-registered — see `database/seed.js`.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/admin/stats` | Dashboard counters and chart data |
+| `GET` | `/api/admin/requests` | All requests; supports `status` and `specialty` filters |
+| `GET` | `/api/admin/technicians` | Technicians with account details and availability |
+| `POST` | `/api/admin/technicians/<id>/verify` | Toggle document verification |
+| `GET` | `/api/admin/customers` | Customers with account details and request counts |
+| `POST` | `/api/admin/requests/<id>/cancel` | Force-cancel a request |
 
 ## Environment variables
 
-| Variable | Required | Default | Purpose |
-| --- | --- | --- | --- |
-| `JWT_SECRET` | **yes in production** | dev-only fallback | Signs and verifies session tokens. Must be 32+ chars. |
-| `NODE_ENV` | recommended | — | `production` enables HSTS, masks 5xx messages, and enforces the secret. |
-| `PORT` | no | `3000` | HTTP port. |
-| `JWT_EXPIRES_IN` | no | `7d` | Session token lifetime. |
-| `DATABASE_PATH` | no | `./database/fixrequest.db` | SQLite file location. |
-| `CORS_ORIGINS` | no | localhost only | Comma-separated allowed origins. |
-| `TRUST_PROXY_HOPS` | no | `1` | Trusted proxy hops, for correct client IPs. |
-| `BROADCAST_RADIUS_KM` | no | `10` | Deployment default radius; the admin setting wins once it exists. |
-| `BROADCAST_TIMEOUT_HOURS` | no | `24` | How long an offer stays open. |
-| `QUEUE_RECHECK_MINUTES` | no | `5` | Waiting-queue re-offer interval. |
-| `QUEUE_MAX_HOURS` | no | `24` | When a queued request is cancelled. |
-| `CASH_CONFIRM_TIMEOUT_HOURS` | no | `24` | How long a technician's cash report waits for the customer. |
-| `MAX_UPLOAD_MB` | no | `5` | Per-file upload ceiling (profile images use 3). |
-| `VAPID_PUBLIC_KEY` | no | — | Web Push public key. Without these three, push is simply off. |
-| `VAPID_PRIVATE_KEY` | no | — | Web Push private key. **Keep it out of the repo.** |
-| `VAPID_SUBJECT` | no | — | `mailto:` or `https:` contact for push. |
+Django loads `.env` from the project root. Copy `.env.example` and set the
+values for your environment.
 
----
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DJANGO_SECRET_KEY` | Development-only fallback | Django cryptographic signing key. Set a strong value in production. |
+| `DJANGO_DEBUG` | `1` | `1`/`true` enables debug mode; use `0`/`false` in production. |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1,[::1]` | Comma-separated hostnames Django accepts. |
+| `JWT_SECRET` | Falls back to `DJANGO_SECRET_KEY` | Signs and verifies JWT access tokens. Set a strong, stable value in production. |
+| `JWT_EXPIRES_IN` | `7d` | Access-token lifetime (`30m`, `12h`, `7d`, etc.). |
+| `JWT_REFRESH_EXPIRES_IN` | `7d` | Refresh-token lifetime. |
+
+Generate a production Django key with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+
+## First admin / password recovery
+
+Admin accounts are not self-registered. If you already have an admin account,
+sign in at `/admin/login.html`. To reset its password from the command line:
+
+```bash
+python manage.py reset_admin_password \
+  --email admin@example.com \
+  --password 'NewPass123'
+```
+
+The command writes a bcrypt hash compatible with the existing `users` table and
+clears any failed-login lock. When `DJANGO_DEBUG=0`, `--password` is required.
+
+Django's built-in admin at `/django-admin/` uses Django's separate auth tables.
+Create a Django superuser only if you need that site:
+
+```bash
+python manage.py createsuperuser
+```
 
 ## Security notes
 
-Read `SECURITY_AUDIT_REPORT.md` for the full audit (what was found, what was
-fixed, what was verified already-safe). The controls that matter:
-
-**Passwords** — minimum 8 characters with at least one letter and one digit,
-enforced by a single shared validator (`isStrongPassword`) applied at every site
-that sets a password. Hashed with bcrypt at cost 12.
-
-**Brute force** — two independent brakes. A per-IP limiter (10 failures per 15
-minutes, successes refunded) and a **per-account** lockout
-(`users.failed_login_attempts` / `login_locked_until`): 5 failures locks the
-account for 15 minutes. The per-account half is what stops a botnet, which would
-otherwise get a fresh per-IP budget against one victim forever. Both answer with
-the same generic Arabic error, and a lockout is only ever recorded for an
-account that exists — so the endpoint cannot be used to enumerate addresses or to
-lock a real user out.
-
-**Sessions** — HS256 pinned on both sign and verify, so `alg: none` and algorithm
-downgrades are rejected. Role, super-admin status and permissions are re-read
-from the database on every request, so a downgraded or blocked account loses
-access immediately rather than at token expiry.
-
-**Uploads** — validated by magic bytes, not by the client-supplied MIME type, and
-the stored extension is **derived from the detected type**, so a file cannot
-arrive named `shell.php`. Documents stage in `pending/` and are moved inside the
-registration transaction. `/uploads` is served with `nosniff`, and identity
-documents are never publicly reachable — only an admin route streams them, with
-a path-traversal check.
-
-**SQL** — every query is parameterized. The few dynamically built SQL fragments
-(administrator filters, `SET` column lists) construct **column and clause names
-from internal allow-lists** only; all values are bound parameters. The 16
-`db.exec` calls interpolate compile-time constants in schema migrations.
-
-**Chat** — only the owning customer and the assigned technician can read or write
-a thread. Sending is refused server-side unless the job is `assigned` or
-`in_progress`; the UI lock is convenience, not the control. Sends are rate
-limited to 30/minute **per user**, because every message also fans out to a Web
-Push notification and flooding would be an amplification attack on the other
-party's device.
-
-**Start PIN** — 4 digits, shown only to the customer, cleared from the database
-the moment it is spent, and never included in any technician-facing payload. The
-legacy PIN-less start route is retired, so the handshake cannot be bypassed. It
-is stored in plaintext **by necessity**: the customer has to read it, so a
-one-way hash would provide no protection.
-
-**Secrets** — no credentials in source. `.env` is git-ignored; `.env.example`
-carries placeholders only.
+- **Passwords** — legacy bcrypt hashes are verified directly, so existing
+  accounts continue to work without a reset. New passwords are hashed with
+  bcrypt at the same cost.
+- **Sessions** — JWTs use HS256. Role, super-admin status, permissions, and the
+  blocked flag are re-read from the database on each request, so account changes
+  take effect immediately.
+- **Authorization** — customer, technician, and admin endpoints use explicit
+  role checks. Admin endpoints accept either the admin role or the super-admin
+  flag.
+- **CORS** — permissive in development so split-port frontends can call the API.
+  Tighten this to an explicit allow-list before production.
+- **Secrets** — `.env` is git-ignored. Never commit real keys or credentials.
+- **Database** — back up `database/fixrequest.db`; it holds accounts, identity
+  documents, and payment records.
 
 ## Project layout
 
-```
-dashawy_backend/    Django project (settings, URLs, WSGI/ASGI)
-core/               Django app: legacy schema translated to models
-manage.py           Django entry point
-requirements.txt    pinned Python dependencies
-backend/
-  app.js            middleware chain, routing table, error handler
-  server.js         bootstrap, workers, graceful shutdown
-  config.js         env parsing + JWT secret policy
-  db.js             schema init and migrations
-  middleware/       auth, rate limiting, security headers, uploads
-  routes/           auth, customer, technician, admin, public, chat, push
-  services/         broadcast, assignment, pricing, payments, queue, push
-  utils/            errors, validation, logger, geo
-frontend/
-  *.html            pages (customer, technician, admin)
-  js/               api, auth, ui, push, force-review
-  css/style.css
-  sw.js             service worker (offline shell + push)
+```text
+dashawy_backend/    Django project: settings, URL configuration, WSGI/ASGI
+core/               Django app: legacy schema models, API views, migrations,
+                    permissions, serializers, and management commands
+frontend/           HTML pages plus CSS, JS, images, and service worker
 database/
-  schema.sql        canonical schema
-  fixrequest.db     SQLite database
-uploads/            identity documents and portfolio images
+  schema.sql        Canonical SQLite schema
+  fixrequest.db     Local SQLite database (git-ignored)
+uploads/            Uploaded documents and profile images (git-ignored)
+manage.py           Django entry point
+requirements.txt    Pinned Python dependencies
 ```
 
-## Known limitations
+## Deployment
 
-- Rate-limit counters are in-process; multi-instance needs Redis.
-- Chat is polled every 3 seconds. At scale this wants a WebSocket or SSE layer.
-- CSP uses `'unsafe-inline'` for scripts and styles, which every page currently
-  requires. A nonce-based policy would need templating across the frontend.
+1. Set `DJANGO_DEBUG=0`, `DJANGO_ALLOWED_HOSTS`, `DJANGO_SECRET_KEY`, and
+   `JWT_SECRET` in the deployment environment.
+2. Run `python manage.py migrate --fake-initial` against the production
+   database.
+3. Run the app with a WSGI server pointing at
+   `dashawy_backend.wsgi:application` (for example, gunicorn or uWSGI), behind
+   HTTPS.
+4. Serve `frontend/` and static assets through the reverse proxy. Django's
+   development server handles them automatically, but production should not use
+   `runserver`.
+5. Back up the SQLite database regularly. For heavier write traffic, plan a
+   move to a server database.
