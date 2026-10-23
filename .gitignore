@@ -1,6 +1,16 @@
 # ---------- Dependencies ----------
 node_modules/
 
+# ---------- Python / Django ----------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+db.sqlite3
+staticfiles/
+media/
+
 # ---------- Secrets ----------
 .env
 .env.local
