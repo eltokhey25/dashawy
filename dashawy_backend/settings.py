@@ -8,6 +8,8 @@ running backend until later phases replace it.
 """
 
 import os
+import re
+from datetime import timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -53,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Third party
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
     # Local
     'core',
@@ -117,9 +120,10 @@ DATABASES = {
 # Authentication
 # ---------------------------------------------------------------------------
 #
-# The legacy users table stores its own password_hash (scrypt/bcrypt handled by
-# backend/services/password.js), so Django's auth User model is kept separate
-# and is only used for the admin site. core.User is the application account.
+# The legacy users table stores its own password_hash (bcryptjs in the Node
+# app, verified by core/auth_backend.py), so Django's auth User model is kept
+# separate and is only used for the admin site. core.User is the application
+# account.
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -135,6 +139,78 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Legacy passwords are bcryptjs `$2a$/$2b$` hashes in users.password_hash.
+# BcryptAuthBackend verifies those; ModelBackend stays last so the Django admin
+# (which still uses auth.User) keeps working.
+AUTHENTICATION_BACKENDS = [
+    'core.auth_backend.BcryptAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+
+# ---------------------------------------------------------------------------
+# Django REST Framework
+# ---------------------------------------------------------------------------
+
+REST_FRAMEWORK = {
+    # SimpleJWT's stock JWTAuthentication resolves users through
+    # settings.AUTH_USER_MODEL (django.contrib.auth.User). Dashawy's accounts
+    # live in core.User, so the subclass below re-targets that lookup while
+    # reusing all of SimpleJWT's token validation.
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'core.authentication.DashawyJWTAuthentication',
+    ],
+    # Secure by default: only the public auth endpoints opt out with AllowAny.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    # The legacy frontend reads `error` (and optionally `code`), not DRF's
+    # `detail` / field-error dictionary.
+    'EXCEPTION_HANDLER': 'core.exceptions.api_exception_handler',
+}
+
+
+def _jwt_lifetime(variable, default):
+    """Parse a Node-style duration ('7d', '12h', '30m', '45s') from the env."""
+    raw = os.environ.get(variable, '').strip()
+    match = re.fullmatch(r'(\d+)\s*([smhd])', raw)
+    if not match:
+        return default
+    value, unit = int(match.group(1)), match.group(2)
+    units = {'s': 'seconds', 'm': 'minutes', 'h': 'hours', 'd': 'days'}
+    return timedelta(**{units[unit]: value})
+
+
+# ---------------------------------------------------------------------------
+# SimpleJWT
+# ---------------------------------------------------------------------------
+#
+# core.User is deliberately NOT AUTH_USER_MODEL: it is a plain legacy table
+# with its own password_hash, no Django permission tables and no auth manager.
+# Making it the auth model would force auth/admin migrations and schema changes
+# for no Phase 2 benefit. Instead, DashawyJWTAuthentication pins the token
+# subject to core.User.id and the custom backend verifies the legacy hash.
+#
+# SIGNING_KEY reuses JWT_SECRET so a token minted by Django during the cutover
+# is signed with the same secret the Express app already trusts. Tokens minted
+# by Node cannot be validated by Django (they carry no `token_type` claim), but
+# the frontend simply logs in again when it first talks to Django.
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': _jwt_lifetime('JWT_EXPIRES_IN', timedelta(days=7)),
+    'REFRESH_TOKEN_LIFETIME': _jwt_lifetime('JWT_REFRESH_EXPIRES_IN', timedelta(days=7)),
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': os.environ.get('JWT_SECRET') or SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    # The Express app used this claim name (logged in as `userId`); keeping it
+    # lets Django-issued tokens be read by any remaining Node code.
+    'USER_ID_CLAIM': 'userId',
+    'CHECK_USER_IS_ACTIVE': False,  # DashawyJWTAuthentication checks `blocked`.
+}
 
 
 # ---------------------------------------------------------------------------
