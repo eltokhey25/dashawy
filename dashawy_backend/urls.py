@@ -17,7 +17,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.staticfiles.views import serve as staticfiles_serve
-from django.http import Http404
+from django.http import FileResponse, Http404
 from django.urls import include, path, re_path
 from django.views.static import serve as static_serve
 
@@ -58,11 +58,42 @@ def serve_frontend(request, path=''):
     raise Http404('Frontend asset not found')
 
 
+def serve_frontend_text(request, filename):
+    """Serve a plain-text frontend file with an explicit content type.
+
+    ``serve_frontend`` would serve these files too, but it relies on
+    ``mimetypes`` guessing the type. AI crawlers and answer engines expect
+    ``/llms.txt`` and ``/robots.txt`` to be plain text, so those routes pin the
+    type here instead of depending on the host's MIME configuration.
+    """
+    root = FRONTEND_ROOT.resolve()
+    target = (FRONTEND_ROOT / filename).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        raise Http404('Frontend text file not found')
+    if not target.is_file():
+        raise Http404('Frontend text file not found')
+    return FileResponse(
+        open(target, 'rb'), content_type='text/plain; charset=utf-8'
+    )
+
+
 urlpatterns = [
     # API first: it must win over the frontend catch-all.
     path('api/', include('core.urls')),
     # Django's built-in admin lives here so /admin/... can serve the frontend.
     path('django-admin/', admin.site.urls),
+    # Plain-text crawler files. Explicit routes keep the content type stable.
+    path(
+        'llms.txt', serve_frontend_text, {'filename': 'llms.txt'}, name='llms'
+    ),
+    path(
+        'robots.txt',
+        serve_frontend_text,
+        {'filename': 'robots.txt'},
+        name='robots',
+    ),
     # Also expose the same assets under STATIC_URL. `runserver` normally
     # intercepts this prefix, but this keeps the test client and other WSGI
     # servers consistent.
