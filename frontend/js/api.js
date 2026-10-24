@@ -40,7 +40,12 @@
     }
 
     if (!res.ok) {
-      if (res.status === 401 && TokenGuard) TokenGuard(data.error);
+      // A 401 from the login endpoint means the credentials were rejected, not
+      // that a session expired: there is no session to clear and nothing to
+      // redirect away from. Exempting it lets the login form render the server's
+      // error in place; every other 401 still goes through the global guard.
+      const isLoginAttempt = String(path).indexOf('/api/auth/login') !== -1;
+      if (res.status === 401 && !isLoginAttempt && TokenGuard) TokenGuard(data.error);
       const err = new Error(data.error || 'حدث خطأ غير متوقع');
       err.status = res.status;
       // Machine-readable tag from the server (e.g. 'profile_incomplete'), so a
