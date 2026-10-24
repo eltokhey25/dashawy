@@ -91,6 +91,11 @@
           <input type="password" id="login-password" class="input" placeholder="••••••••" autocomplete="current-password">
         </div>
 
+        <div id="login-error" role="alert" style="display:none;align-items:center;gap:8px;color:var(--danger-600);background:var(--danger-50);border:1px solid var(--danger-100);border-radius:10px;padding:10px 12px;font-size:0.85rem;font-weight:600;margin-bottom:14px">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          <span id="login-error-text"></span>
+        </div>
+
         <button type="submit" class="btn btn-brand btn-block btn-lg" id="login-btn" style="margin-top:6px">
           <i class="fa-solid fa-right-to-bracket"></i> دخول
         </button>
@@ -157,9 +162,25 @@
       return currentUserAfterAuth(data.user.role);
     }
 
+    const loginError = document.getElementById('login-error');
+    const loginErrorText = document.getElementById('login-error-text');
+
+    // Inline feedback for a rejected sign-in, kept separate from the toast so
+    // the reason stays on screen while the user corrects the fields.
+    function showLoginError(message) {
+      loginErrorText.textContent = message || 'تعذر تسجيل الدخول، حاول مرة أخرى';
+      loginError.style.display = 'flex';
+    }
+
+    function clearLoginError() {
+      loginError.style.display = 'none';
+      loginErrorText.textContent = '';
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       clearFormErrors(document);
+      clearLoginError();
       const loginId = document.getElementById('login-email').value.trim();
       const password = document.getElementById('login-password').value;
       const btn = document.getElementById('login-btn');
@@ -189,7 +210,14 @@
         toast('أهلًا بعودتك 👋', 'success');
         setTimeout(() => { window.location.href = destinationAfterAuth(data); }, 450);
       } catch (err) {
-        toast(err.message, 'error');
+        // api.js deliberately lets a 401 from this endpoint through instead of
+        // treating it as an expired session (which would clear storage and
+        // redirect), so a rejected password is shown here, on the form.
+        const message =
+          err.status === 401
+            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+            : err.message;
+        showLoginError(message);
         Ui.btnReset(btn);
       }
     });
