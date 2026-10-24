@@ -9,6 +9,31 @@
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
   <title>عن المشروع — دشاوي</title>
+  <link rel="canonical" href="https://dashawy.pythonanywhere.com/about-ai.html">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "name": "عن المشروع — دشاوي",
+    "url": "https://dashawy.pythonanywhere.com/about-ai.html",
+    "description": "عن مشروع دشاوي ومطوّره محمد الطوخي: منصة مصرية تربط عملاء الإسكندرية بفنيي تركيب وصيانة أطباق الدش والرسيفرات.",
+    "inLanguage": "ar",
+    "mainEntity": {
+      "@type": "Organization",
+      "@id": "https://dashawy.pythonanywhere.com/#organization",
+      "name": "دشاوي",
+      "alternateName": "Dashawy",
+      "url": "https://dashawy.pythonanywhere.com/",
+      "logo": "https://dashawy.pythonanywhere.com/dashawy-brand/icon-512.png",
+      "description": "منصة مصرية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في محافظة الإسكندرية.",
+      "founder": {
+        "@type": "Person",
+        "name": "Mohammed Eltokhey",
+        "alternateName": "محمد الطوخي"
+      }
+    }
+  }
+  </script>
   <!-- PWA -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -181,7 +206,7 @@
       <div class="stack-row">
         <i class="fa-brands fa-node-js"></i>
         <div>
-          <div class="s-t">الواجهة الخلفية — Node.js + Express</div>
+          <div class="s-t">الواجهة الخلفية — Django (Python)</div>
           <div class="s-d">مصادقة JWT، تحديد معدل الطلبات، ورؤوس أمان على مستوى التطبيق.</div>
         </div>
       </div>
@@ -189,14 +214,14 @@
         <i class="fa-solid fa-database"></i>
         <div>
           <div class="s-t">قاعدة البيانات — SQLite</div>
-          <div class="s-d">عبر <code>better-sqlite3</code>: ملف واحد بوضع WAL، بلا خادم قاعدة بيانات ولا عمليات تشغيل.</div>
+          <div class="s-d">ملف واحد بلا خادم قاعدة بيانات ولا عمليات تشغيل منفصلة.</div>
         </div>
       </div>
       <div class="stack-row">
         <i class="fa-brands fa-js"></i>
         <div>
           <div class="s-t">الواجهة الأمامية — Vanilla JavaScript</div>
-          <div class="s-d">بدون إطار عمل، بدون حزم بناء، وبدون خطوة compile. الصفحات تُخدَم من نفس عملية Express التي تخدم الـ API.</div>
+          <div class="s-d">بدون إطار عمل، بدون حزم بناء، وبدون خطوة compile. الصفحات تُخدَم من نفس عملية Django التي تخدم الـ API.</div>
         </div>
       </div>
       <div class="stack-row">
@@ -209,11 +234,11 @@
       <div class="stack-row">
         <i class="fa-solid fa-server"></i>
         <div>
-          <div class="s-t">الاستضافة — Railway</div>
-          <div class="s-d">النشر من مستودع GitHub مع متغيرات بيئة مُدارة.</div>
+          <div class="s-t">الاستضافة — PythonAnywhere</div>
+          <div class="s-d">نشر تطبيق Django مع متغيرات بيئة مُدارة.</div>
         </div>
       </div>
-      <span class="en">Backend: Node.js + Express. Database: SQLite via better-sqlite3. Frontend: vanilla JavaScript with no framework and no build step. Authentication: JWT. Hosting: Railway.</span>
+      <span class="en">Backend: Django (Python). Database: SQLite. Frontend: vanilla JavaScript with no framework and no build step. Authentication: JWT with bcrypt password hashing. Hosting: PythonAnywhere.</span>
     </section>
 
     <!-- features note -->
