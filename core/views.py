@@ -769,7 +769,7 @@ class TechnicianRequestRejectView(APIView):
                     if reassigned
                     else 'تم رفض الطلب، ولا يوجد فني متاح حالياً'
                 ),
-                'request': RequestSerializer(job).data,
+                'request': TechnicianRequestSerializer(job).data,
                 'assignment': {
                     'assigned': reassigned,
                     'technician_id': assignment.get('technician_id'),
