@@ -96,6 +96,17 @@
           <input type="text" id="cp-location" class="input" maxlength="300" placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
         </div>
 
+        <div class="form-group">
+          <label class="consent-row" for="cp-consent">
+            <input type="checkbox" id="cp-consent">
+            <span>
+              أوافق على <a href="/terms.html" target="_blank" rel="noopener">شروط الاستخدام</a>
+              و<a href="/privacy.html" target="_blank" rel="noopener">سياسة الخصوصية</a>،
+              وعلى معالجة بياناتي لتقديم خدمة طلب الفنيين.
+            </span>
+          </label>
+        </div>
+
         <button type="submit" class="btn btn-brand btn-block btn-lg" id="cp-save" style="margin-top:6px">
           <i class="fa-solid fa-floppy-disk"></i> حفظ ومتابعة
         </button>
@@ -172,6 +183,11 @@
       if (name.length < 2) { setFieldError($('cp-name'), 'أدخل اسماً صحيحاً'); ok = false; }
       if (!PHONE_RE.test(phone)) { setFieldError($('cp-phone'), 'اكتب الرقم بالشكل 01xxxxxxxxx'); ok = false; }
       if (!$('cp-area').value) { setFieldError($('cp-area'), 'اختر منطقتك'); ok = false; }
+      if (!$('cp-consent').checked) {
+        toast('لازم توافق على الشروط وسياسة الخصوصية', 'error');
+        $('cp-consent').focus();
+        ok = false;
+      }
       if (!ok) return;
 
       const btn = $('cp-save');
@@ -180,7 +196,9 @@
         const body = {
           name,
           phone,
-          area_key: $('cp-area').value
+          area_key: $('cp-area').value,
+          accept_terms: true,
+          policy_version: 'v1.0'
         };
         const loc = $('cp-location').value.trim();
         if (loc) body.location_text = loc;

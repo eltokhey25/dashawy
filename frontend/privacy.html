@@ -8,203 +8,164 @@
   <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
-  <title>سياسة الخصوصية — دشاوي</title>
-  <!-- PWA -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="دشاوي">
-  <!-- iOS splash screen (universal fallback) -->
-  <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png">
-  <meta name="description" content="سياسة الخصوصية لموقع دشاوي وفقاً لقانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020.">
+  {% include "partials/seo.html" with page_title="سياسة الخصوصية — دشاوي" page_description="إزاي دشاوي بتجمع بياناتك وتحميها وتحتفظ بها، وحقوقك وفق قانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020." canonical_path="/privacy.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="/css/style.css">
-  <style>
-    .legal-wrap { max-width: 860px; margin: 40px auto; padding: 0 20px; }
-    .legal-hero { text-align: center; padding: 40px 20px; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
-    .legal-hero h1 { font-size: 2rem; font-weight: 900; margin: 16px 0 10px; color: var(--ink); }
-    .legal-hero p { color: var(--muted); font-size: 0.95rem; }
-    .legal-hero .lh-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.82rem; padding: 7px 16px; border-radius: 30px; }
-    .legal-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 26px 28px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(15,23,42,0.04); }
-    .legal-card h2 { display: flex; align-items: flex-start; gap: 12px; font-size: 1.15rem; font-weight: 800; color: var(--ink); margin-bottom: 14px; }
-    .legal-card h2 i { color: var(--brand); margin-top: 3px; }
-    .legal-card p, .legal-card li { color: var(--body); line-height: 1.9; font-size: 0.93rem; }
-    .legal-card ul { padding-inline-start: 20px; margin: 8px 0; }
-    .legal-card .tag { display: inline-block; background: #eef2ff; color: #4338ca; border-radius: 8px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; margin-inline-end: 6px; }
-    .legal-foot { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 24px 0 60px; }
-    .footer { margin-top: 40px; }
-  </style>
 </head>
-<body>
+<body class="has-contact-dock legal-page">
+  <a class="skip-link" href="#main-content">تخطى إلى المحتوى</a>
+
   <nav class="nav">
     <div class="nav-inner">
-      <a class="brand" href="/"><img class="brand-logo-image" src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي"></a>
+      <a class="brand" href="/"><img class="brand-logo-image" src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي — الصفحة الرئيسية"></a>
       <div class="nav-menu">
         <a href="/#services">الخدمات</a>
-        <a href="/#how">كيف تعمل</a>
-        <a href="/login.html">تسجيل الدخول</a>
+        <a href="/#areas">مناطق الخدمة</a>
+        <a href="/#faq">الأسئلة الشائعة</a>
+        <a href="/order.html">اطلب خدمة</a>
       </div>
       <div class="nav-actions">
-        <a href="/#services" class="btn btn-brand btn-sm"><i class="fa-solid fa-bolt"></i> اطلب الخدمة</a>
-        <a href="/register-tech.html" class="btn btn-outline btn-sm"><i class="fa-solid fa-user"></i> حساب فني</a>
-        <button class="nav-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="فتح القائمة" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
       </div>
     </div>
   </nav>
 
-  <main class="legal-wrap">
+  <main id="main-content" tabindex="-1" class="legal-wrap">
     <section class="legal-hero">
-      <div class="lh-badge"><i class="fa-solid fa-shield-halved"></i> قانون حماية البيانات الشخصية رقم 151 لسنة 2020</div>
+      <div class="lh-badge"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> قانون حماية البيانات الشخصية رقم 151 لسنة 2020</div>
       <h1>سياسة الخصوصية</h1>
-      <p>نلتزم بحماية بياناتك الشخصية وشفافية معالجتها · نسخة السياسة: <b>v1.0</b></p>
-      <p style="margin-top:6px">آخر تحديث: <span id="last-update"></span></p>
+      <p>نلتزم بحماية بياناتك وشفافية معالجتها · نسخة السياسة: <b>v1.0</b></p>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-building-columns"></i> 1. من نحن</h2>
-      <p>دشاوي هي خدمة إلكترونية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات وضبط الإشارات في محافظة الإسكندرية، تربط العملاء بأقرب فني دش متحقق منه ومؤهل. نحن نعمل بوصفنا «مسيطراً على البيانات» (Data Controller) وفقاً لتعريف القانون المصري رقم 151 لسنة 2020، ونتعامل مع بياناتك كأمانة لا نشاركها إلا للغرض الذي أُعلن لك.</p>
+      <h2><i class="fa-solid fa-building-columns" aria-hidden="true"></i> 1. من نحن</h2>
+      <p>{{ site_name }} خدمة إلكترونية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات وضبط الإشارات في محافظة الإسكندرية، وبتوصّل العملاء بفنيين مستقلين تمت مراجعة ملفاتهم. بنعمل بوصفنا «مسيطراً على البيانات» (Data Controller) وفقاً لقانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020.</p>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-database"></i> 2. أنواع البيانات التي نجمعها</h2>
+      <h2><i class="fa-solid fa-database" aria-hidden="true"></i> 2. البيانات اللي بنجمعها</h2>
       <ul>
-        <li><b>بيانات التعريف:</b> الاسم الكامل، البريد الإلكتروني، رقم الهاتف، منطقة السكن/العنوان.</li>
-        <li><b>البيانات الحساسة:</b> صورة بطاقة الرقم القومي، صحيفة الحالة الجنائية — تُجمع حصرياً من الفنيين لغرض التحقق من هويتهم وأهليتهم، بموجب موافقة صريحة ومحددة.</li>
-        <li><b>البيانات التقنية:</b> عنوان IP، نوع المتصفح وبيانات الجهاز، سجلات الموافقات.</li>
+        <li><b>بيانات الحساب:</b> الاسم، البريد الإلكتروني، رقم الموبايل، كلمة المرور (مخزّنة مشفّرة)، المنطقة والعنوان.</li>
+        <li><b>بيانات الطلبات:</b> نوع الخدمة، وصف المشكلة، المنطقة، العنوان التفصيلي، وأي صورة ترفقها مع الطلب.</li>
+        <li><b>بيانات الطلبات من غير حساب:</b> الاسم ورقم الموبايل والمنطقة ووصف الطلب. بنخزّن <b>بصمة مشفّرة (SHA-256)</b> لكود المتابعة فقط، مش الكود نفسه.</li>
+        <li><b>بيانات الفنيين الحساسة:</b> صورة بطاقة الرقم القومي وصحيفة الحالة الجنائية — تُجمع من الفنيين فقط لغرض التحقق من الهوية والأهلية، بموافقة صريحة ومستقلة.</li>
+        <li><b>بيانات الدخول بجوجل:</b> الاسم والبريد الإلكتروني والصورة العامة (لو متاحة) اللي جوجل بترجعها بعد موافقتك. إحنا مش بنستلم كلمة مرور حساب جوجل.</li>
+        <li><b>بيانات تقنية:</b> عنوان IP، نوع المتصفح والجهاز، سجلات الموافقات، وسجلات محاولات الطلب لمنع الإساءة.</li>
       </ul>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-bullseye"></i> 3. الغرض من جمع البيانات</h2>
+      <h2><i class="fa-solid fa-bullseye" aria-hidden="true"></i> 3. ليه بنجمع البيانات</h2>
       <ul>
-        <li>التحقق من هوية وأهلية الفنيين قبل اعتمادهم (بالنسبة للفنيين).</li>
-        <li>تنفيذ الخدمة المطلوبة: تعيين الفني، التواصل معك، تتبع حالة الطلب (بالنسبة للعملاء).</li>
-        <li>الامتثال للالتزامات القانونية والرقابية وفق قانون حماية البيانات الشخصية.</li>
+        <li>تنفيذ الخدمة: تعيين الفني، التواصل معاك، ومتابعة حالة الطلب.</li>
+        <li>التحقق من هوية وأهلية الفنيين قبل اعتمادهم.</li>
+        <li>حماية المنصة من الطلبات الوهمية والإساءة (حدود معدل الطلبات).</li>
+        <li>الرد على الشكاوى والامتثال للالتزامات القانونية.</li>
+        <li>تحسين الخدمة باستخدام أرقام مجمّعة لا تحدد هويتك.</li>
+      </ul>
+      <p>مش بنستخدم بياناتك في إعلانات مدفوعة، ومش بنبيعها لأي طرف تالت.</p>
+    </section>
+
+    <section class="legal-card">
+      <h2><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> 4. الأساس القانوني</h2>
+      <p>المعالجة بتتم بناءً على <b>موافقة صريحة ومحددة ومستنيرة</b> منك، وفقاً للقانون رقم 151 لسنة 2020. موافقة البيانات الحساسة (مستندات الفنيين) منفصلة عن الموافقة على الشروط العامة، ويمكنك سحب أي موافقة في أي وقت.</p>
+    </section>
+
+    <section class="legal-card">
+      <h2><i class="fa-solid fa-lock" aria-hidden="true"></i> 5. حماية البيانات</h2>
+      <ul>
+        <li>كلمات المرور بتُخزّن باستخدام خوارزمية تجزئة قوية (bcrypt) — مش بنخزّن كلمة المرور نفسها.</li>
+        <li>مستندات التحقق (البطاقة والفيش الجنائي) مخزّنة في مجلد خاص <b>غير متاح للعامة</b>، وبيوصلها فريق الإدارة المصرح له فقط من خلال نقطة وصول محمية.</li>
+        <li>روابط متابعة الطلبات من غير حساب تحتوي كوداً عشوائياً طويلاً، وقاعدة البيانات بتخزّن بصمته فقط.</li>
+        <li>الاتصال بالموقع مشفّر عبر HTTPS، والجلسات محمية بـ JWT مع صلاحيات حسب الدور.</li>
+        <li>بنحدّ من محاولات الدخول المتكررة وبنحتفظ بسجلات أمنية للمراجعة.</li>
       </ul>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-scale-balanced"></i> 4. الأساس القانوني للمعالجة</h2>
-      <p>المعالجة تتم بناءً على <b>موافقة صريحة ومحددة ومستنيرة</b> من صاحب البيانات، وفقاً للمادة 2 من قانون 151 لسنة 2020 — وهي الأساس المعتمد لمعالجة البيانات الشخصية والحساسة في منصتنا. لا نجمع أي بيانات حساسة إلا بعد موافقتك الصريحة، ويمكنك سحب موافقتك في أي وقت.</p>
-    </section>
-
-    <section class="legal-card">
-      <h2><i class="fa-solid fa-lock"></i> 5. كيفية حماية البيانات</h2>
+      <h2><i class="fa-solid fa-clock" aria-hidden="true"></i> 6. مدة الاحتفاظ بالبيانات</h2>
       <ul>
-        <li>تشفير كلمات المرور بخوارزمية <b>bcrypt</b> (لا تُخزن كلمات المرور كنص صريح).</li>
-        <li>حماية المستندات الرسمية (الفيش الجنائي وبطاقة الرقم القومي) بتوكن مصادقة JWT — لا يمكن الوصول إليها إلا للمسؤولين المصرح لهم.</li>
-        <li>تقييد الوصول إلى بيانات الإدارة للمسؤولين المصرح لهم فقط (الأدوار).</li>
-        <li>تسجيل كل موافقة بعنوان IP وبيانات المتصفح ونسخة السياسة لتوثيقها.</li>
+        <li><b>بيانات الحساب والطلبات:</b> مدة نشاط الحساب، ولمدة لا تتجاوز <b>5 سنوات</b> بعد آخر نشاط، إلا لو القانون طلب مدة أطول.</li>
+        <li><b>المستندات الحساسة للفنيين:</b> بتُحذف خلال <b>12 شهراً</b> من إغلاق الحساب أو رفض طلب الانضمام، أو خلال <b>30 يوماً</b> من سحب الموافقة — أيهما أقرب.</li>
+        <li><b>سجلات الموافقات:</b> بنحتفظ بها طالما الحساب موجود لإثبات الامتثال القانوني.</li>
+        <li><b>سجلات منع الإساءة:</b> سجل الطلبات من غير حساب بيُحتفظ به لفترة محدودة لأغراض الحد من التكرار، وبعدها بيتم حذفه أو إخفاء بياناته.</li>
       </ul>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-clock"></i> 6. مدة الاحتفاظ بالبيانات</h2>
+      <h2><i class="fa-solid fa-hand" aria-hidden="true"></i> 7. حقوقك</h2>
       <ul>
-        <li><b>بيانات الحساب:</b> تُحتفظ بها طوال مدة نشاط الحساب، ولمدة لا تتجاوز <b>5 سنوات</b> بعد انتهاء النشاط، التزاماً بالمدد القانونية.</li>
-        <li><b>البيانات الحساسة:</b> تُحذف فور انتهاء الغرض من جمعها، أو خلال <b>30 يوماً</b> من سحب الموافقة على معالجتها، أيهما أقرب.</li>
+        <li><b>الوصول:</b> تعرف إيه البيانات المخزّنة عنك وطريقة معالجتها.</li>
+        <li><b>التصحيح:</b> تحديث بيانات غير دقيقة.</li>
+        <li><b>الحذف:</b> طلب حذف حسابك وبياناتك، مع مراعاة الالتزامات القانونية.</li>
+        <li><b>تقييد المعالجة:</b> في الحالات اللي بيحددها القانون.</li>
+        <li><b>سحب الموافقة:</b> في أي وقت، مع العلم إن ده ممكن يمنعنا من تقديم الخدمة.</li>
+        <li><b>تقديم شكوى:</b> لمركز حماية البيانات الشخصية المصري.</li>
+      </ul>
+      <p>لممارسة أي حق، تواصل معنا{% if privacy_email %} على <a href="mailto:{{ privacy_email }}" dir="ltr">{{ privacy_email }}</a>{% endif %}. بنرد خلال <b>30 يوماً</b> كحد أقصى.</p>
+    </section>
+
+    <section class="legal-card">
+      <h2><i class="fa-solid fa-cookie-bite" aria-hidden="true"></i> 8. ملفات تعريف الارتباط والتخزين المحلي</h2>
+      <ul>
+        <li>بنستخدم تخزين المتصفح (localStorage) لحفظ جلسة الدخول وحالة الواجهة، مش لتتبعك عبر مواقع تانية.</li>
+        <li>بنستخدم ملف تعريف ارتباط تقني للحماية من CSRF (طلب مزوّر) في لوحة الإدارة.</li>
+        <li>جوجل قد تستخدم ملفات تعريف ارتباط خاصة بها أثناء تسجيل الدخول؛ دي خاضعة لسياسة جوجل.</li>
+        <li>مفيش أدوات تتبع إعلانية أو بيكسلات إعلانات على الموقع حالياً. لو أضفناها مستقبلاً هنحدّث السياسة ونطلب موافقتك.</li>
       </ul>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-hand"></i> 7. حقوق صاحب البيانات</h2>
-      <p>وفقاً للقانون الحقوق التالية:</p>
+      <h2><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> 9. المشاركة مع أطراف تالتة</h2>
       <ul>
-        <li><b>الحق في الوصول</b> إلى بياناتك الشخصية ومعرفة طريقة معالجتها.</li>
-        <li><b>الحق في التصحيح</b> (تحديث أو تصحيح بيانات غير دقيقة).</li>
-        <li><b>الحق في الحذف (النسيان)</b> — طلب حذف بياناتك نهائياً.</li>
-        <li><b>الحق في تقييد المعالجة</b> في الحالات التي يحددها القانون.</li>
-        <li><b>الحق في سحب الموافقة</b> في أي وقت (مما يؤدي لحذف بياناتك الحساسة خلال 30 يوماً).</li>
+        <li><b>الفني المعيّن:</b> بيشوف اسمك ورقمك ومنطقتك ووصف الطلب بعد قبول الطلب، لغرض التنفيذ فقط.</li>
+        <li><b>جوجل:</b> عند اختيار «الدخول بجوجل»، بنستلم بيانات الهوية الأساسية وفق سياسة جوجل.</li>
+        <li><b>مزوّد الاستضافة:</b> بيستضيف الموقع وقاعدة البيانات، ومش بيستخدم البيانات لغير تشغيل الخدمة.</li>
+        <li><b>الجهات القانونية:</b> لو طلب قانوني ملزم.</li>
       </ul>
-      <p style="margin-top:12px">يمكنك ممارسة هذه الحقوق من القائمة الرئيسية عبر خيار «طلب حذف بياناتي»، أو عن طريق التواصل مع مسؤول حماية البيانات. يلتزم الجهاز بالرد خلال <b>30 يوماً</b> كحد أقصى.</p>
+      <p>مفيش بيع أو تأجير لبياناتك.</p>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-triangle-exclamation"></i> 8. الإفصاح عن خرق البيانات</h2>
+      <h2><i class="fa-solid fa-child" aria-hidden="true"></i> 10. الأطفال</h2>
+      <p>الخدمة مخصصة لمن هم <b>18 سنة أو أكثر</b>. لو اكتشفنا حساباً لشخص أقل من السن القانوني، بنوقفه ونحذف بياناته.</p>
+    </section>
+
+    <section class="legal-card">
+      <h2><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> 11. الإفصاح عن خرق البيانات</h2>
       <ul>
-        <li>في حالة أي خرق للبيانات الشخصية، نلتزم بإبلاغ <b>مركز حماية البيانات الشخصية</b> خلال <b>72 ساعة</b> من اكتشافه (وفقاً للمادة 7 من القانون).</li>
-        <li>نلتزم بإبلاغ <b>المستخدمين المتأثرين</b> خلال <b>3 أيام عمل</b> من اكتشاف الخرق.</li>
-        <li>نستبدل أو نهدم كلمات المرور المتأثرة فوراً، ونقوم كل البيانات الحساسة المعرضة للخطر.</li>
+        <li>في حالة خرق للبيانات، بنبلّغ <b>مركز حماية البيانات الشخصية</b> خلال <b>72 ساعة</b> من الاكتشاف.</li>
+        <li>بنبلّغ <b>المستخدمين المتأثرين</b> خلال <b>3 أيام عمل</b> ونوضح الإجراءات المتخذة.</li>
+        <li>بنغيّر كلمات المرور المتأثرة فوراً ونراجع الصلاحيات.</li>
       </ul>
     </section>
 
     <section class="legal-card">
-      <h2><i class="fa-solid fa-envelope"></i> 9. الاتصال بمسؤول حماية البيانات</h2>
-      <p>لأي استفسار أو ممارسة حق من حقوقك، تواصل مع مسؤول حماية البيانات عبر:</p>
-      <p style="margin-top:8px"><a class="tag" href="mailto:privacy@dashawy.app" dir="ltr"><i class="fa-solid fa-envelope"></i> privacy@dashawy.app</a></p>
-      <p>نستجيب لجميع طلبات حقوق أصحاب البيانات خلال 30 يوماً كحد أقصى.</p>
+      <h2><i class="fa-solid fa-rotate" aria-hidden="true"></i> 12. تحديث السياسة</h2>
+      <p>ممكن نحدّث السياسة دورياً. أي تعديل جوهري هنعلنه على الموقع، ولو التعديل بيأثر على أساس المعالجة هنطلب موافقة جديدة. نسخة السياسة الحالية: <b>v1.0</b>.</p>
     </section>
 
-    <section class="legal-card">
-      <h2><i class="fa-solid fa-file-lines"></i> 10. نسخة السياسة</h2>
-      <p>نسخة السياسة الحالية: <b>v1.0</b> — آخر تحديث: <span id="last-update-2"></span></p>
-      <p style="margin-top:8px" class="form-hint">نحرص على مراجعة هذه السياسة دورياً. أي تعديل جوهري على طريقة معالجة البيانات سيتم إخطارك به وسيُطلب تحديث موافقتك عند الاقتضاء.</p>
-    </section>
-
-    <div class="legal-foot">دشاوي © 2026 · جميع الحقوق محفوظة</div>
+    <div class="legal-foot">
+      {{ site_name }} © 2026 · جميع الحقوق محفوظة ·
+      <a href="/terms.html">شروط الاستخدام</a> ·
+      <a href="/refund-cancellation.html">الإلغاء والاسترداد</a>
+      <br>
+      <span class="form-hint">الصفحة دي محتاجة مراجعة قانونية قبل الاعتماد النهائي عليها.</span>
+    </div>
   </main>
 
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-top">
-        <div class="footer-brand">
-          <span class="fbrand"><img class="brand-logo-icon brand-logo-icon--sm" src="/dashawy-brand/logo-icon.svg" alt=""> دشاوي</span>
-          <p class="fdesc">خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية.</p>
-        </div>
-        <div class="footer-col">
-          <h4>روابط سريعة</h4>
-          <ul>
-            <li><a href="/#services">الخدمات</a></li>
-            <li><a href="/#how">كيف تعمل</a></li>
-            <li><a href="/#stats">أرقامنا</a></li>
-            <li><a href="/login.html">تسجيل الدخول</a></li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h4>الخدمات</h4>
-          <ul>
-            <li><a href="/login.html">تركيب دش</a></li>
-            <li><a href="/login.html">صيانة دش</a></li>
-            <li><a href="/login.html">ضبط إشارة</a></li>
-            <li><a href="/login.html">تركيب / صيانة رسيفر</a></li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h4>تواصل معنا</h4>
-          <ul>
-            <li><a href="tel:+201025330520" data-contact-phone><i class="fa-solid fa-phone"></i> <span data-contact-phone>01025330520</span></a></li>
-            <li><a href="mailto:meltokhey39@gmail.com" data-contact-email><i class="fa-solid fa-envelope"></i> <span data-contact-email>meltokhey39@gmail.com</span></a></li>
-            <li><a href="#" data-contact-address><i class="fa-solid fa-location-dot"></i> <span data-contact-address>الإسكندرية، مصر</span></a></li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h4>تابعنا</h4>
-          <div class="footer-socials">
-            <a href="#" data-social-facebook aria-label="فيسبوك" target="_blank" rel="noopener"><i class="fa-brands fa-facebook-f"></i></a>
-            <a href="#" data-social-whatsapp aria-label="واتساب" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i></a>
-            <a href="#" data-social-instagram aria-label="انستغرام" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i></a>
-          </div>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <span>© 2026 دشاوي. جميع الحقوق محفوظة.</span>
-        <span>نلتزم بقانون حماية البيانات الشخصية المصري رقم 151 لسنة 2020</span>
-      </div>
-    </div>
-  </footer>
+  {% include "partials/contact_dock.html" %}
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/ui.js"></script>
   <script>
-    document.getElementById('last-update').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-    document.getElementById('last-update-2').textContent = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    // Dynamic footer contact details and social links from the DB.
-    Ui.applySiteSettings();
+    Ui.renderNavUser(document.getElementById('nav-user'));
+    Ui.initNav();
   </script>
   <script src="/js/pwa-install.js"></script>
 </body>
