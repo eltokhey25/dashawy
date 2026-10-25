@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>متابعة الطلب — دشاوي</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="has-contact-dock track-page">
+  <a class="skip-link" href="#main-content">تخطى إلى المحتوى</a>
+
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <img class="brand-logo-image" src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي — الصفحة الرئيسية">
+      </a>
+      <div class="nav-actions">
+        <a class="btn btn-outline btn-sm" href="/order.html">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> طلب جديد
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main-content" tabindex="-1" class="track-wrap">
+    <div class="container-narrow">
+
+      <section id="track-loading" class="track-state" aria-live="polite">
+        <span class="spin" aria-hidden="true"></span>
+        <p>بنجيب بيانات طلبك…</p>
+      </section>
+
+      <section id="track-error" class="track-state track-state--error" hidden>
+        <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+        <h1>رابط المتابعة غير صالح</h1>
+        <p id="track-error-text">الرابط ناقص أو منتهي. لو عندك الطلب الأصلي، استخدم الرابط اللي ظهرلك بعد الإرسال.</p>
+        <a class="btn btn-brand" href="/order.html">ابعت طلب جديد</a>
+      </section>
+
+      <section id="track-content" hidden>
+        <header class="track-head">
+          <span class="track-ref" id="track-ref"></span>
+          <h1>طلبك مع دشاوي</h1>
+          <p id="track-subtitle"></p>
+        </header>
+
+        <div id="track-new" class="track-success" hidden>
+          <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+          <div>
+            <b>تم استلام طلبك</b>
+            <p>احتفظ بالرابط ده — هو طريقتك الوحيدة لمتابعة الطلب من غير حساب.</p>
+          </div>
+        </div>
+
+        <div class="track-grid">
+          <section class="track-card" aria-labelledby="track-status-title">
+            <div class="track-status-row">
+              <h2 id="track-status-title">حالة الطلب</h2>
+              <span id="track-status-badge" class="badge"></span>
+            </div>
+
+            <ol class="track-timeline" id="track-timeline">
+              <li data-stage="created"><span class="tt-dot"></span><div><b>تم استلام الطلب</b><small id="tt-created"></small></div></li>
+              <li data-stage="assigned"><span class="tt-dot"></span><div><b>تعيين الفني</b><small id="tt-assigned">لسه بيتم التعيين</small></div></li>
+              <li data-stage="completed"><span class="tt-dot"></span><div><b>اكتمال الشغل</b><small id="tt-completed">لسه ما اكتملش</small></div></li>
+            </ol>
+
+            <dl class="track-details">
+              <div><dt>الخدمة</dt><dd id="track-service">—</dd></div>
+              <div><dt>المنطقة</dt><dd id="track-area">—</dd></div>
+              <div><dt>الوصف</dt><dd id="track-description">—</dd></div>
+              <div><dt>السعر</dt><dd id="track-price">—</dd></div>
+              <div id="track-price-detail-row"><dt>تفاصيل الحساب</dt><dd id="track-price-detail">—</dd></div>
+              <div><dt>تاريخ الطلب</dt><dd id="track-created">—</dd></div>
+            </dl>
+
+            <div class="track-photo" id="track-photo-row" hidden>
+              <b>الصورة المرفقة</b>
+              <a id="track-photo-link" href="#" target="_blank" rel="noopener">
+                <img id="track-photo" src="" alt="الصورة التي أرفقتها مع الطلب" loading="lazy" width="240" height="160">
+              </a>
+            </div>
+
+            <div class="track-actions">
+              <button type="button" class="btn btn-outline btn-danger-outline" id="track-cancel" hidden>
+                <i class="fa-solid fa-ban" aria-hidden="true"></i> إلغاء الطلب
+              </button>
+              <a class="btn btn-ghost" href="/order.html">طلب خدمة تانية</a>
+            </div>
+          </section>
+
+          <aside class="track-side">
+            <section class="track-card" id="track-tech-card" hidden aria-labelledby="track-tech-title">
+              <h2 id="track-tech-title">الفني المسؤول</h2>
+              <div class="track-tech">
+                <span class="track-tech-avatar" aria-hidden="true"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+                <div>
+                  <b id="track-tech-name">—</b>
+                  <a id="track-tech-phone" href="#" dir="ltr" hidden></a>
+                  <small id="track-tech-note">هيتواصل معاك على رقمك المسجّل.</small>
+                </div>
+              </div>
+            </section>
+
+            <section class="track-card" id="track-account-card" hidden aria-labelledby="track-account-title">
+              <h2 id="track-account-title">عندك حساب؟</h2>
+              <p>اربط الطلب بحسابك عشان يظهر في «طلباتي» وتقدر تتابعه من أي جهاز.</p>
+              <div id="track-link-form-wrap" hidden>
+                <button type="button" class="btn btn-brand btn-block" id="track-link-btn">
+                  <i class="fa-solid fa-link" aria-hidden="true"></i> اربط الطلب بحسابي
+                </button>
+              </div>
+              <div id="track-guest-account">
+                <a class="btn btn-outline btn-block" href="/login.html">سجّل دخول واربط الطلب</a>
+                <p class="track-small">
+                  الربط بيحتاج إن رقم حسابك يكون نفس الرقم اللي طلبت بيه.
+                  <a href="/register.html">ماعندكش حساب؟ سجّل مجاناً</a>
+                </p>
+              </div>
+            </section>
+
+            <section class="track-card track-help" aria-labelledby="track-help-title">
+              <h2 id="track-help-title">محتاج مساعدة؟</h2>
+              <p>لو فيه استفسار عن الطلب، كلّمنا واذكر رقم الطلب <b id="track-help-ref">—</b>.</p>
+              {% if business_whatsapp %}
+              <a class="btn btn-outline btn-block" href="{{ business_whatsapp_url }}" target="_blank" rel="noopener">
+                <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> واتساب
+              </a>
+              {% endif %}
+              {% if business_phone %}
+              <a class="btn btn-outline btn-block" href="tel:{{ business_phone_e164 }}">
+                <i class="fa-solid fa-phone" aria-hidden="true"></i> {{ business_phone }}
+              </a>
+              {% endif %}
+            </section>
+          </aside>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  {% include "partials/contact_dock.html" %}
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      const params = new URLSearchParams(window.location.search);
+      const token = (params.get('token') || '').trim();
+      const isNew = params.get('new') === '1';
+      let current = null;
+
+      function showError(message) {
+        $('track-loading').hidden = true;
+        $('track-content').hidden = true;
+        $('track-error').hidden = false;
+        if (message) $('track-error-text').textContent = message;
+      }
+
+      function fmt(value) {
+        return value ? Ui.dateTime(value) : '—';
+      }
+
+      function render(job) {
+        current = job;
+        $('track-loading').hidden = true;
+        $('track-error').hidden = true;
+        $('track-content').hidden = false;
+
+        $('track-ref').textContent = 'طلب ' + job.reference;
+        $('track-help-ref').textContent = job.reference;
+        $('track-subtitle').textContent = job.status === 'cancelled'
+          ? 'الطلب ده ملغي. لو محتاج الخدمة، ابعت طلب جديد.'
+          : 'تابع حالة الطلب من هنا. الرابط ده خاص بيك — متشاركوش.';
+
+        const meta = Ui.statusMeta(job.status);
+        const badge = $('track-status-badge');
+        badge.className = 'badge ' + meta.badge;
+        badge.innerHTML = '';
+        badge.appendChild(Ui.ic(meta.icon));
+        badge.appendChild(document.createTextNode(meta.label));
+
+        // Timeline states.
+        const created = !!job.created_at;
+        const assigned = !!job.assigned_at || ['assigned', 'in_progress', 'completed'].includes(job.status);
+        const completed = job.status === 'completed';
+        const cancelled = job.status === 'cancelled';
+        const stages = { created: created, assigned: assigned, completed: completed };
+        document.querySelectorAll('#track-timeline li').forEach((li) => {
+          const stage = li.dataset.stage;
+          li.classList.toggle('done', Boolean(stages[stage]) && !cancelled);
+          li.classList.toggle('current', !cancelled && (
+            (stage === 'created' && !assigned) ||
+            (stage === 'assigned' && assigned && !completed) ||
+            (stage === 'completed' && completed)
+          ));
+          li.classList.toggle('cancelled', cancelled);
+        });
+        $('tt-created').textContent = fmt(job.created_at);
+        $('tt-assigned').textContent = job.assigned_at ? fmt(job.assigned_at) : 'لسه بيتم التعيين';
+        $('tt-completed').textContent = job.completed_at ? fmt(job.completed_at) : 'لسه ما اكتملش';
+
+        $('track-service').textContent = job.service_label + (job.custom_specialty_text ? ' — ' + job.custom_specialty_text : '');
+        $('track-area').textContent = job.area || '—';
+        $('track-description').textContent = job.description || '—';
+        $('track-created').textContent = fmt(job.created_at);
+
+        const price = job.price || {};
+        $('track-price').textContent = price.label || 'السعر بعد المعاينة';
+        if (price.amount) {
+          $('track-price-detail').textContent = Number(price.amount).toLocaleString('ar-EG') + ' جنيه';
+        } else {
+          $('track-price-detail').textContent = 'الفني هيقولك السعر بعد المعاينة.';
+        }
+
+        if (job.has_photo && job.photo_url) {
+          $('track-photo-row').hidden = false;
+          $('track-photo').src = job.photo_url;
+          $('track-photo-link').href = job.photo_url;
+        } else {
+          $('track-photo-row').hidden = true;
+          $('track-photo').removeAttribute('src');
+        }
+
+        // Technician card.
+        if (job.technician) {
+          $('track-tech-card').hidden = false;
+          $('track-tech-name').textContent = job.technician.name || 'فني دشاوي';
+          const phoneEl = $('track-tech-phone');
+          if (job.technician.phone) {
+            phoneEl.hidden = false;
+            phoneEl.textContent = job.technician.phone;
+            phoneEl.href = 'tel:' + String(job.technician.phone).replace(/\s/g, '');
+            $('track-tech-note').textContent = 'تقدر تكلمه بخصوص الطلب.';
+          } else {
+            phoneEl.hidden = true;
+            $('track-tech-note').textContent = 'رقم الفني هيظهر بعد تأكيد التعيين.';
+          }
+        } else {
+          $('track-tech-card').hidden = true;
+        }
+
+        $('track-cancel').hidden = !job.can_cancel;
+
+        // Account linking: only meaningful for a signed-in customer.
+        const role = Auth.isAuthed() ? Auth.role() : null;
+        $('track-account-card').hidden = role !== 'customer';
+        $('track-guest-account').hidden = role === 'customer';
+        $('track-link-form-wrap').hidden = role !== 'customer';
+
+        $('track-new').hidden = !isNew;
+      }
+
+      async function load() {
+        if (!token || token.length < 20) {
+          showError();
+          return;
+        }
+        try {
+          const data = await api('/api/guest/requests/' + encodeURIComponent(token));
+          render(data.request);
+        } catch (err) {
+          showError(err.status === 404
+            ? 'الرابط مش موجود أو الطلب اتلغى. تأكد إن الرابط كامل، أو ابعت طلب جديد.'
+            : (err.message || undefined));
+        }
+      }
+
+      $('track-cancel').addEventListener('click', async () => {
+        if (!confirm('متأكد إنك عايز تلغي الطلب؟')) return;
+        const btn = $('track-cancel');
+        Ui.btnLoading(btn, 'بنلغي الطلب…');
+        try {
+          const data = await api('/api/guest/requests/' + encodeURIComponent(token) + '/cancel', { method: 'POST' });
+          toast(data.message || 'تم إلغاء الطلب', 'success');
+          render(data.request);
+        } catch (err) {
+          toast(err.message, 'error');
+        } finally {
+          Ui.btnReset(btn);
+        }
+      });
+
+      $('track-link-btn').addEventListener('click', async () => {
+        const btn = $('track-link-btn');
+        Ui.btnLoading(btn, 'بنربط الطلب…');
+        try {
+          const data = await api('/api/customer/guest-orders/link', {
+            method: 'POST',
+            body: { token: token },
+          });
+          toast(data.message || 'تم ربط الطلب بحسابك', 'success');
+          // The token is consumed by the link; send the customer to their list.
+          setTimeout(() => { window.location.href = '/customer/my-requests.html'; }, 900);
+        } catch (err) {
+          toast(err.message, 'error');
+          Ui.btnReset(btn);
+        }
+      });
+
+      load();
+    })();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>
