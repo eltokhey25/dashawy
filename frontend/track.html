@@ -85,6 +85,15 @@
               <div><dt>تاريخ الطلب</dt><dd id="track-created">—</dd></div>
             </dl>
 
+            <div class="start-pin-card" id="track-pin-card" hidden>
+              <div class="spc-label">
+                <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                الرقم السري لبدء المهمة
+              </div>
+              <div class="spc-digits" id="track-pin-digits" aria-label="الرقم السري لبدء المهمة"></div>
+              <p class="spc-hint">قول الرقم ده للفني لما يوصل، وهو اللي هيبدأ بيه المهمة.</p>
+            </div>
+
             <div class="track-photo" id="track-photo-row" hidden>
               <b>الصورة المرفقة</b>
               <a id="track-photo-link" href="#" target="_blank" rel="noopener">
@@ -225,6 +234,24 @@
           $('track-price-detail').textContent = Number(price.amount).toLocaleString('ar-EG') + ' جنيه';
         } else {
           $('track-price-detail').textContent = 'الفني هيقولك السعر بعد المعاينة.';
+        }
+
+        // Doorstep code: the guest is the customer, so their private tracking
+        // link is the right place to show it. It disappears once work starts.
+        const pinCard = $('track-pin-card');
+        if (job.start_pin && job.status === 'assigned') {
+          pinCard.hidden = false;
+          const digitsEl = $('track-pin-digits');
+          digitsEl.innerHTML = '';
+          String(job.start_pin).split('').forEach((digit) => {
+            const span = document.createElement('span');
+            span.className = 'spc-digit';
+            span.textContent = digit;
+            digitsEl.appendChild(span);
+          });
+        } else {
+          pinCard.hidden = true;
+          $('track-pin-digits').innerHTML = '';
         }
 
         if (job.has_photo && job.photo_url) {

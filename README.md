@@ -118,7 +118,8 @@ All API routes live under `/api/`. Authentication uses a Bearer JWT returned as
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/api/technician/requests` | Technician | Available/assigned requests |
-| `POST` | `/api/technician/requests/<id>/accept` | Technician | Accept a request |
+| `POST` | `/api/technician/requests/<id>/start` | Technician | Start a job with the customer's arrival code |
+| `POST` | `/api/technician/requests/<id>/accept` | Technician | Deprecated alias for `/start`; still requires the code |
 | `POST` | `/api/technician/requests/<id>/reject` | Technician | Reject and reassign |
 
 ### Admin dashboard

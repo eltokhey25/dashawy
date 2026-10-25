@@ -20,6 +20,7 @@ import math
 from django.db import transaction
 
 from ..models import Request, RequestBroadcast, Technician, utc_now
+from .start_pin import generate_start_pin
 
 EARTH_RADIUS_KM = 6371.0
 GENERALIST_SPECIALTY = 'dish_general'
@@ -160,6 +161,7 @@ def assign_technician(request_id):
             assigned_at=now,
             updated_at=now,
             started_at=None,
+            start_pin=generate_start_pin(),
             start_pin_attempts=0,
             start_pin_locked_until=None,
         )
