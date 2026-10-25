@@ -9,22 +9,22 @@
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
   <title>عن المشروع — دشاوي</title>
-  <link rel="canonical" href="https://dashawy.pythonanywhere.com/about-ai.html">
+  <link rel="canonical" href="{{ site_url }}/about-ai.html">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "AboutPage",
     "name": "عن المشروع — دشاوي",
-    "url": "https://dashawy.pythonanywhere.com/about-ai.html",
+    "url": "{{ site_url }}/about-ai.html",
     "description": "عن مشروع دشاوي ومطوّره محمد الطوخي: منصة مصرية تربط عملاء الإسكندرية بفنيي تركيب وصيانة أطباق الدش والرسيفرات.",
     "inLanguage": "ar",
     "mainEntity": {
       "@type": "Organization",
-      "@id": "https://dashawy.pythonanywhere.com/#organization",
+      "@id": "{{ site_url }}/#organization",
       "name": "دشاوي",
       "alternateName": "Dashawy",
-      "url": "https://dashawy.pythonanywhere.com/",
-      "logo": "https://dashawy.pythonanywhere.com/dashawy-brand/icon-512.png",
+      "url": "{{ site_url }}/",
+      "logo": "{{ site_url }}/dashawy-brand/icon-512.png",
       "description": "منصة مصرية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في محافظة الإسكندرية.",
       "founder": {
         "@type": "Person",
@@ -135,6 +135,8 @@
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">تخطى إلى المحتوى</a>
+
   <nav class="nav">
     <div class="nav-inner">
       <a class="brand" href="/"><img class="brand-logo-image" src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي"></a>
@@ -151,7 +153,7 @@
     </div>
   </nav>
 
-  <main class="about-wrap">
+  <main id="main-content" tabindex="-1" class="about-wrap">
     <!-- Header -->
     <section class="about-hero">
       <img src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي">
@@ -193,8 +195,8 @@
           <div class="dev-links">
             <a class="dev-link" href="https://github.com/eltokhey25" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i><span>github.com/eltokhey25</span></a>
             <a class="dev-link" href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener"><i class="fa-solid fa-code-branch"></i><span>github.com/eltokhey25/dashawy</span></a>
-            <a class="dev-link" href="mailto:meltokhey39@gmail.com"><i class="fa-solid fa-envelope"></i><span>meltokhey39@gmail.com</span></a>
-            <a class="dev-link" href="tel:+201025330520"><i class="fa-solid fa-phone"></i><span>01025330520</span></a>
+            <a class="dev-link" href="mailto:{{ business_email }}"><i class="fa-solid fa-envelope"></i><span>{{ business_email }}</span></a>
+            <a class="dev-link" href="tel:{{ business_phone_e164 }}"><i class="fa-solid fa-phone"></i><span>{{ business_phone }}</span></a>
           </div>
         </div>
       </div>
@@ -315,8 +317,8 @@
         <div class="footer-col">
           <h4>تواصل معنا</h4>
           <ul>
-            <li><a href="tel:+201025330520" data-contact-phone><i class="fa-solid fa-phone"></i> <span data-contact-phone>01025330520</span></a></li>
-            <li><a href="mailto:meltokhey39@gmail.com" data-contact-email><i class="fa-solid fa-envelope"></i> <span data-contact-email>meltokhey39@gmail.com</span></a></li>
+            <li><a href="tel:{{ business_phone_e164 }}" data-contact-phone><i class="fa-solid fa-phone"></i> <span data-contact-phone>{{ business_phone }}</span></a></li>
+            <li><a href="mailto:{{ business_email }}" data-contact-email><i class="fa-solid fa-envelope"></i> <span data-contact-email>{{ business_email }}</span></a></li>
             <li><a href="#" data-contact-address><i class="fa-solid fa-location-dot"></i> <span data-contact-address>الإسكندرية، مصر</span></a></li>
           </ul>
         </div>

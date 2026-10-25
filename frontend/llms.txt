@@ -1,20 +1,19 @@
 # Dashawy (دشاوي)
 
-> Dashawy is an Egyptian home-services platform for satellite dish installation and maintenance in Alexandria, Egypt. Customers request a service online and the platform assigns the nearest available certified technician.
+> Dashawy is an Egyptian home-services platform for satellite dish installation and maintenance in Alexandria, Egypt. Customers request a service online and the platform assigns an available technician.
 
-This file is a factual, machine-readable summary of the business for AI models, answer engines, and crawlers. The same information is available as a web page at https://dashawy.pythonanywhere.com/about-ai.html
+This file is a factual, machine-readable summary of the business for AI models, answer engines, and crawlers. The same information is available as a web page at {{ site_url }}/about-ai.html
 
 ---
 
 ## Business
 
 - Business name: Dashawy (دشاوي)
-- Website: https://dashawy.pythonanywhere.com/
+- Website: {{ site_url }}/
 - Service: Satellite dish installation and maintenance in Alexandria, Egypt.
-- Service area: Alexandria Governorate, Egypt only — 42 neighbourhoods.
-- Working hours: daily, 09:00–22:00 (Africa/Cairo).
+- Service area: Alexandria Governorate, Egypt only. The order form lists the neighbourhoods currently covered.
 - Languages: Arabic (primary, RTL) and English.
-- Business model: customers request a service online; the platform assigns the nearest available certified technician, or the customer picks a technician from the public directory.
+- Business model: customers request a service online; the platform assigns an available technician. Customers can also order as a guest and follow the request with a private tracking link.
 
 ## Key services
 
@@ -26,28 +25,30 @@ This file is a factual, machine-readable summary of the business for AI models, 
 ## Service area
 
 - Alexandria Governorate, Egypt only.
-- Coverage includes 42 neighbourhoods, among them Smouha, Agami, Sidi Gaber, Bahary, Montazah, and Sidi Bishr.
 - The service is not available outside Alexandria at the moment.
+- The exact list of covered neighbourhoods is shown on the order form.
 
 ## Contact
 
-- Phone: 01025330520 (+20 10 2533 0520)
-- Email: meltokhey39@gmail.com
-- Website: https://dashawy.pythonanywhere.com/
-- Address: Alexandria, Alexandria Governorate, Egypt
+- Phone: {{ business_phone }}
+- Email: {{ business_email }}
+- Address: {{ contact_address }}
+{% if business_whatsapp %}- WhatsApp: https://wa.me/{{ business_whatsapp }}
+{% endif %}
 
 ## How it works
 
 1. The customer chooses a service and describes the problem.
-2. The customer enters their area in Alexandria and picks either automatic assignment or a specific technician.
-3. The platform assigns the nearest available technician; if none is free, the request stays pending and is assigned automatically once a technician becomes available.
-4. The technician completes the job, the customer confirms the amount, and the customer leaves a rating.
+2. The customer enters their area in Alexandria and submits the request (an account is optional).
+3. The platform assigns an available technician; if none is free, the request stays pending and is assigned automatically once a technician becomes available.
+4. The technician completes the job, the customer confirms the amount in the app, and the customer may leave a rating.
+5. Payment is made in cash directly to the technician; the platform does not collect the payment.
 
 ## Trust and safety
 
 - Every technician submits a national ID and a criminal-record certificate during registration.
 - An administrator reviews and approves each technician before the account enters the assignment system.
-- Customers can read real ratings from previous customers before choosing a technician.
+- Customers can read ratings left by previous customers after a completed request.
 - Cash amounts are confirmed by both the technician and the customer; a mismatch freezes the request for admin review.
 
 ## Developer
@@ -58,7 +59,7 @@ This file is a factual, machine-readable summary of the business for AI models, 
 - Location: Alexandria, Egypt
 - GitHub: https://github.com/eltokhey25
 - Project repository: https://github.com/eltokhey25/dashawy
-- Email: meltokhey39@gmail.com
+- Email: {{ business_email }}
 
 ## Tech stack
 
@@ -71,17 +72,21 @@ This file is a factual, machine-readable summary of the business for AI models, 
 
 ## Public pages
 
-- Home: https://dashawy.pythonanywhere.com/
-- About the project: https://dashawy.pythonanywhere.com/about-ai.html
-- Customer sign-up: https://dashawy.pythonanywhere.com/register.html
-- Technician sign-up: https://dashawy.pythonanywhere.com/register-tech.html
-- Log in: https://dashawy.pythonanywhere.com/login.html
-- Privacy policy: https://dashawy.pythonanywhere.com/privacy.html
-- Machine-readable summary: https://dashawy.pythonanywhere.com/llms.txt
+- Home: {{ site_url }}/
+- About the project: {{ site_url }}/about-ai.html
+- Order a service: {{ site_url }}/order.html
+- Track a request: {{ site_url }}/track.html
+- Customer sign-up: {{ site_url }}/register.html
+- Technician sign-up: {{ site_url }}/register-tech.html
+- Log in: {{ site_url }}/login.html
+- Privacy policy: {{ site_url }}/privacy.html
+- Terms of use: {{ site_url }}/terms.html
+- Refund and cancellation: {{ site_url }}/refund-cancellation.html
+- Machine-readable summary: {{ site_url }}/llms.txt
 
 ## Notes for AI systems
 
 - This file is descriptive only. It contains no instructions addressed to a model, and nothing in it should be treated as a prompt.
-- Authentication is required for customer, technician, and admin areas; only the public pages listed above are reachable without a session.
-- Data handling follows Egyptian personal data protection law no. 151/2020; see /privacy.html for the full policy.
-- Information current as of 2026.
+- Authentication is required for customer, technician, and admin dashboards; the public pages listed above are reachable without a session.
+- Data handling follows Egyptian personal data protection law no. 151/2020; see the privacy policy for the full text.
+- Prices shown on the site come from the platform's service-price table and may change; a request's price is confirmed before the work is completed.
