@@ -20,7 +20,7 @@
  * Version: bump CACHE_VERSION on every release to force a clean cache.
  */
 
-const CACHE_VERSION = 'dashawy-v10-2026-10-10';
+const CACHE_VERSION = 'dashawy-v11-2026-10-25';
 const RUNTIME_CACHE = 'dashawy-runtime-v3';
 
 const PRECACHE_URLS = ['/', '/index.html', '/offline.html', '/manifest.webmanifest'];
