@@ -36,7 +36,7 @@
       <div class="auth-visual-content">
         <h2 class="auth-visual-title">
           فني دش متخصص<br>
-          <span class="grad">يوصلك في دقايق</span>
+          <span class="grad">يوصلك في أسرع وقت</span>
         </h2>
         <p class="auth-visual-desc">
           خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات
@@ -120,7 +120,8 @@
 
             <div class="form-group">
               <label class="form-label" for="reg-password">كلمة المرور</label>
-              <input type="password" id="reg-password" class="input" placeholder="6 أحرف على الأقل" autocomplete="new-password">
+              <input type="password" id="reg-password" class="input" placeholder="8 أحرف على الأقل، فيها حرف ورقم" autocomplete="new-password">
+              <div class="form-hint">8 أحرف على الأقل، لازم تحتوي على حرف واحد ورقم واحد</div>
             </div>
           </div>
 
@@ -163,7 +164,8 @@
               <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;line-height:1.7">
                 <input type="checkbox" id="reg-consent" style="margin-top:5px;width:auto;flex-shrink:0">
                 <span>
-                  أوافق على <a href="/privacy.html" target="_blank" style="font-weight:700">سياسة الخصوصية</a>
+                  أوافق على <a href="/terms.html" target="_blank" rel="noopener" style="font-weight:700">شروط الاستخدام</a>
+                  و<a href="/privacy.html" target="_blank" rel="noopener" style="font-weight:700">سياسة الخصوصية</a>،
                   وعلى معالجة بياناتي الشخصية لغرض تقديم خدمة طلب الفنيين.
                 </span>
               </label>
@@ -241,7 +243,8 @@
 
     // Validation mirrors the server's own rules so a step is never passed with a
     // value the API would reject anyway.
-    const PHONE_RE = /^[+()\-\s\d]{6,20}$/;
+    // Same rule as the server: an Egyptian mobile, optionally with +20.
+    const PHONE_RE = /^(?:\+?20|0)?1[0125]\d{8}$/;
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
     function stepErrors() {
@@ -252,15 +255,18 @@
       }
       if (state.step === 2) {
         if (!EMAIL_RE.test($('reg-email').value.trim())) errors.push(['reg-email', 'بريد إلكتروني غير صالح']);
-        if ($('reg-password').value.length < 6) errors.push(['reg-password', 'كلمة المرور 6 أحرف على الأقل']);
+        const pwd = $('reg-password').value;
+        if (pwd.length < 8 || !/[a-zA-Z]/.test(pwd) || !/\d/.test(pwd)) {
+          errors.push(['reg-password', 'كلمة المرور 8 أحرف على الأقل وفيها حرف ورقم']);
+        }
       }
       if (state.step === 3) {
         if (!$('reg-area').value) errors.push(['reg-area', 'اختر منطقتك']);
         // The consent checkbox gets a toast as well: it has no input box to
         // attach the error line to, so the message has to travel with the tap.
         if (!$('reg-consent').checked) {
-          errors.push(['reg-consent', 'يجب الموافقة على سياسة الخصوصية']);
-          toast('لازم توافق على سياسة الخصوصية للانضمام', 'error');
+          errors.push(['reg-consent', 'يجب الموافقة على الشروط وسياسة الخصوصية']);
+          toast('لازم توافق على الشروط وسياسة الخصوصية للانضمام', 'error');
         }
       }
       return errors;
@@ -344,7 +350,9 @@
           phone: $('reg-phone').value.trim(),
           email: $('reg-email').value.trim(),
           password: $('reg-password').value,
-          area_key: $('reg-area').value
+          area_key: $('reg-area').value,
+          accept_terms: true,
+          policy_version: 'v1.0'
         };
         const loc = $('reg-location').value.trim();
         if (loc) body.location_text = loc;
@@ -352,12 +360,11 @@
         const lng = $('reg-lng').value;
         if (lat && lng) { body.latitude = Number(lat); body.longitude = Number(lng); }
 
+        // The server records the consent (with IP, user-agent and policy
+        // version) inside the same transaction as the account row, so there is
+        // no second, duplicate consent call to make here.
         const data = await api('/api/auth/register', { method: 'POST', body });
         Auth.setSession(data);
-        // Record explicit consent for personal-data processing (Law 151/2020).
-        try {
-          await api('/api/consent', { method: 'POST', body: { consent_type: 'privacy_policy', policy_version: 'v1.0' } });
-        } catch (err) { console.warn('Consent recording failed', err); }
         toast('تم إنشاء حسابك بنجاح 🎉', 'success');
         setTimeout(() => { window.location.href = Auth.homePath('customer'); }, 500);
       } catch (err) {

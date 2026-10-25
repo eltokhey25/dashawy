@@ -36,7 +36,7 @@
       <div class="auth-visual-content">
         <h2 class="auth-visual-title">
           انضم لفريق دشاوي<br>
-          <span class="grad">ووصولك لطلبات أكثر</span>
+          <span class="grad">وطلبات أقرب لمنطقتك</span>
         </h2>
         <p class="auth-visual-desc">
           اعرض خدماتك في تركيب وصيانة الدش والرسيفرات
@@ -124,7 +124,8 @@
 
             <div class="form-group">
               <label class="form-label" for="reg-tech-password">كلمة المرور</label>
-              <input type="password" id="reg-tech-password" class="input" placeholder="6 أحرف على الأقل" autocomplete="new-password">
+              <input type="password" id="reg-tech-password" class="input" placeholder="8 أحرف على الأقل، فيها حرف ورقم" autocomplete="new-password">
+              <div class="form-hint">8 أحرف على الأقل، لازم تحتوي على حرف واحد ورقم واحد</div>
             </div>
           </div>
 
@@ -169,6 +170,11 @@
               <div>
                 <b>سيتم مراجعة طلبك</b>
                 <p>لن تتمكن من استقبال الطلبات حتى اعتمادك من الإدارة.</p>
+                <p style="margin-top:8px">
+                  عمولة المنصة <b>{{ commission_percent_label }}%</b> من قيمة كل خدمة،
+                  وبتتخصم من سعر الخدمة ومش بتتضاف على العميل.
+                  مستحقاتك بتتحسب بعد اكتمال الطلب وتأكيد الدفع، وبتتصرف بالتنسيق مع الإدارة.
+                </p>
               </div>
             </div>
 
@@ -204,7 +210,8 @@
               <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:0.85rem;line-height:1.7">
                 <input type="checkbox" id="reg-tech-consent" style="margin-top:5px;width:auto;flex-shrink:0">
                 <span>
-                  أوافق على <a href="/privacy.html" target="_blank" style="font-weight:700">سياسة الخصوصية</a>
+                  أوافق على <a href="/terms.html" target="_blank" rel="noopener" style="font-weight:700">شروط الاستخدام</a>
+                  و<a href="/privacy.html" target="_blank" rel="noopener" style="font-weight:700">سياسة الخصوصية</a>،
                   وعلى معالجة بياناتي الحساسة (صورة البطاقة والفيش الجنائي) للتحقق من أهليتي، وفقاً لقانون حماية البيانات الشخصية رقم 151 لسنة 2020.
                 </span>
               </label>
@@ -231,9 +238,9 @@
         </div>
 
         <ul class="auth-trust">
-          <li><i class="fa-solid fa-user-check"></i> الموافقة غالباً خلال 24 ساعة</li>
-          <li><i class="fa-solid fa-lock"></i> مستنداتك مشفرة ومحمية</li>
-          <li><i class="fa-solid fa-money-bill-wave"></i> عمولة واضحة بلا مفاجآت</li>
+          <li><i class="fa-solid fa-user-check"></i> الإدارة بتراجع كل طلب انضمام</li>
+          <li><i class="fa-solid fa-lock"></i> مستنداتك متاحة للإدارة المصرح لها فقط</li>
+          <li><i class="fa-solid fa-money-bill-wave"></i> عمولة {{ commission_percent_label }}% واضحة من الأول</li>
         </ul>
 
       </div>
@@ -295,7 +302,8 @@
     setupFileUpload('reg-criminal-record', 'criminal-record-upload', 'criminal-record-preview');
     setupFileUpload('reg-national-id', 'national-id-upload', 'national-id-preview');
 
-    const PHONE_RE = /^[+()\-\s\d]{6,20}$/;
+    // Same rule as the server: an Egyptian mobile, optionally with +20.
+    const PHONE_RE = /^(?:\+?20|0)?1[0125]\d{8}$/;
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
     function stepErrors() {
@@ -306,8 +314,9 @@
       }
       if (state.step === 2) {
         if (!EMAIL_RE.test($('reg-tech-email').value.trim())) errors.push(['reg-tech-email', 'إيميل غير صالح']);
-        if (($('reg-tech-password').value || '').length < 6) {
-          errors.push(['reg-tech-password', 'كلمة المرور 6 أحرف على الأقل']);
+        const pwd = $('reg-tech-password').value || '';
+        if (pwd.length < 8 || !/[a-zA-Z]/.test(pwd) || !/\d/.test(pwd)) {
+          errors.push(['reg-tech-password', 'كلمة المرور 8 أحرف على الأقل وفيها حرف ورقم']);
         }
       }
       if (state.step === 3) {
@@ -411,6 +420,7 @@
       if (lng) fd.append('longitude', lng);
       fd.append('criminal_record', crimFile);
       fd.append('national_id', idFile);
+      fd.append('accept_terms', 'true');
       fd.append('sensitive_consent', 'true');
       fd.append('policy_version', 'v1.0');
 
