@@ -12,6 +12,7 @@ import re
 import sys
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -47,6 +48,53 @@ if not SECRET_KEY:
         )
     SECRET_KEY = 'django-insecure-development-only-change-me-before-deploying'
 
+# ---------------------------------------------------------------------------
+# Public site configuration (domain-agnostic)
+# ---------------------------------------------------------------------------
+#
+# SITE_URL is the single source of truth for the canonical domain. Changing it
+# (and the matching env values below) is all a custom-domain move requires; see
+# the final report for the Google Cloud Console origins.
+
+def _default_site_url() -> str:
+    """Derive a sensible origin without embedding a domain in the source.
+
+    Production sets ``SITE_URL`` in the environment. PythonAnywhere also
+    exports ``PYTHONANYWHERE_DOMAIN``, so a forgotten variable still produces
+    the correct canonical URLs; local development falls back to localhost.
+    """
+    domain = os.environ.get('PYTHONANYWHERE_DOMAIN', '').strip()
+    if domain:
+        return 'https://' + domain
+    return 'http://localhost:8000'
+
+
+SITE_URL = (os.environ.get('SITE_URL') or _default_site_url()).rstrip('/')
+SITE_HOST = urlparse(SITE_URL).netloc if '://' in SITE_URL else SITE_URL
+SITE_ORIGIN = (
+    SITE_URL
+    if '://' in SITE_URL
+    else ('https://' + SITE_URL if SITE_URL else '')
+)
+
+BUSINESS_PHONE = os.environ.get('BUSINESS_PHONE', '').strip()
+BUSINESS_WHATSAPP = os.environ.get('BUSINESS_WHATSAPP', '').strip()
+BUSINESS_EMAIL = os.environ.get('BUSINESS_EMAIL', '').strip()
+SOCIAL_FACEBOOK = os.environ.get('SOCIAL_FACEBOOK', '').strip()
+SOCIAL_INSTAGRAM = os.environ.get('SOCIAL_INSTAGRAM', '').strip()
+SOCIAL_TIKTOK = os.environ.get('SOCIAL_TIKTOK', '').strip()
+
+# The per-request commission column remains authoritative for historical
+# requests; this is only the default applied to new ones. The value in the
+# admin-editable settings table wins when the env var is absent.
+COMMISSION_RATE = os.environ.get('COMMISSION_RATE', '20').strip() or '20'
+
+# Google Sign-In. Leave empty to hide the button entirely.
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+
+# Optional data-protection contact shown in the legal pages.
+PRIVACY_EMAIL = os.environ.get('PRIVACY_EMAIL', '').strip() or BUSINESS_EMAIL
+
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
@@ -54,6 +102,12 @@ ALLOWED_HOSTS = [
     ).split(',')
     if host.strip()
 ]
+# A domain switch must not produce DisallowedHost before the ops team remembers
+# to edit DJANGO_ALLOWED_HOSTS. SITE_HOST is always accepted in addition.
+if SITE_HOST and SITE_HOST not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(SITE_HOST)
+if 'testserver' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('testserver')
 
 
 # Application definition
@@ -80,6 +134,7 @@ MIDDLEWARE = [
     # view or another middleware that could short-circuit the response.
     'axes.middleware.AxesMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
     # CorsMiddleware must sit as high as possible, and in particular before
     # CommonMiddleware so CORS headers survive redirects and error responses.
     'corsheaders.middleware.CorsMiddleware',
@@ -258,20 +313,22 @@ SIMPLE_JWT = {
 # wildcard fallback.
 
 CORS_ALLOW_ALL_ORIGINS = False
+_default_cors = 'http://localhost:8000,' + SITE_ORIGIN
 CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        'CORS_ALLOWED_ORIGINS', 'http://localhost:8000'
-    ).split(',')
+    origin.strip().rstrip('/')
+    for origin in os.environ.get('CORS_ALLOWED_ORIGINS', _default_cors).split(',')
     if origin.strip()
 ]
 
 # Django's CSRF middleware stays active (see MIDDLEWARE). These origins are
 # trusted for the Django-rendered admin site and any future cookie-authenticated
 # form. The JSON API itself uses Bearer JWTs, not CSRF-protected cookies.
+_default_csrf = 'http://localhost:8000,' + SITE_ORIGIN
 CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
+    origin.strip().rstrip('/')
+    for origin in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS', _default_csrf
+    ).split(',')
     if origin.strip()
 ]
 
@@ -286,20 +343,28 @@ CSRF_TRUSTED_ORIGINS = [
 
 SECURE_SSL_REDIRECT = not DEBUG and not RUNNING_TESTS
 SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
 SECURE_BROWSER_XSS_FILTER = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = not DEBUG
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
 X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
-
+# PythonAnywhere terminates HTTPS at its proxy and forwards the original
+# scheme; without this Django would see every request as plain HTTP.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 # ---------------------------------------------------------------------------
 # Internationalization
 # ---------------------------------------------------------------------------
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ar'
 
 TIME_ZONE = 'UTC'
 
