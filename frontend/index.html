@@ -8,148 +8,47 @@
   <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
-  <title>دشاوي — تركيب وصيانة الدش في الإسكندرية</title>
-  <meta name="description" content="دشاوي — خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية. اطلب فني دش في دقايق.">
-  <link rel="canonical" href="https://dashawy.pythonanywhere.com/">
-  <!-- Machine-readable business summary for AI models and answer engines. -->
+  {% include "partials/seo.html" with page_title="دشاوي — تركيب وصيانة الدش في الإسكندرية" page_description="دشاوي بيربطك بفني دش ورسيفر في الإسكندرية. اطلب الخدمة أونلاين، أو من غير حساب، وتابع طلبك برابط متابعة." canonical_path="/" %}
   <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
-  <!-- Open Graph / Twitter cards -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="دشاوي">
-  <meta property="og:locale" content="ar_EG">
-  <meta property="og:url" content="https://dashawy.pythonanywhere.com/">
-  <meta property="og:title" content="دشاوي — تركيب وصيانة الدش في الإسكندرية">
-  <meta property="og:description" content="منصة مصرية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية. اطلب فني دش معتمد في دقائق.">
-  <meta property="og:image" content="https://dashawy.pythonanywhere.com/dashawy-brand/icon-512.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="دشاوي — تركيب وصيانة الدش في الإسكندرية">
-  <meta name="twitter:description" content="منصة مصرية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية. اطلب فني دش معتمد في دقائق.">
-  <meta name="twitter:image" content="https://dashawy.pythonanywhere.com/dashawy-brand/icon-512.png">
-  <!-- Structured data: Organization -->
+  <!-- Structured data: LocalBusiness / Service (all values from config) -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "@id": "https://dashawy.pythonanywhere.com/#organization",
-    "name": "دشاوي",
+    "@type": "LocalBusiness",
+    "@id": "{{ site_url }}/#business",
+    "name": "{{ site_name }}",
     "alternateName": "Dashawy",
-    "url": "https://dashawy.pythonanywhere.com/",
-    "description": "منصة مصرية متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في محافظة الإسكندرية.",
-    "logo": {
-      "@type": "ImageObject",
-      "url": "https://dashawy.pythonanywhere.com/dashawy-brand/icon-512.png",
-      "width": 512,
-      "height": 512
-    },
-    "image": "https://dashawy.pythonanywhere.com/dashawy-brand/icon-512.png",
+    "url": "{{ site_url }}/",
+    "image": "{{ brand_og_image }}",
+    "logo": "{{ brand_logo_icon }}",
+    "description": "خدمة تربط عملاء الإسكندرية بفنيين لتركيب وصيانة أطباق الدش والرسيفرات وضبط الإشارة.",
     "areaServed": {
-      "@type": "AdministrativeArea",
-      "name": "Alexandria Governorate",
-      "containedInPlace": {
-        "@type": "Country",
-        "name": "Egypt"
-      }
+      "@type": "City",
+      "name": "الإسكندرية",
+      "containedInPlace": { "@type": "Country", "name": "Egypt" }
     },
     "address": {
       "@type": "PostalAddress",
       "addressLocality": "الإسكندرية",
       "addressRegion": "الإسكندرية",
       "addressCountry": "EG"
-    },
-    "contactPoint": [
-      {
-        "@type": "ContactPoint",
-        "telephone": "+201025330520",
-        "email": "meltokhey39@gmail.com",
-        "contactType": "customer service",
-        "areaServed": "EG",
-        "availableLanguage": ["ar", "en"]
-      }
-    ],
-    "founder": {
-      "@type": "Person",
-      "name": "Mohammed Eltokhey",
-      "alternateName": "محمد الطوخي",
-      "jobTitle": "Founder and Lead Developer",
-      "url": "https://github.com/eltokhey25"
-    },
-    "sameAs": [
-      "https://github.com/eltokhey25",
-      "https://github.com/eltokhey25/dashawy"
-    ]
+    }{% if business_phone %},
+    "telephone": "{{ business_phone }}"{% endif %}{% if business_email %},
+    "email": "{{ business_email }}"{% endif %}{% if social_facebook or social_instagram or social_tiktok %},
+    "sameAs": [{% if social_facebook %}"{{ social_facebook }}"{% endif %}{% if social_instagram %}{% if social_facebook %}, {% endif %}"{{ social_instagram }}"{% endif %}{% if social_tiktok %}{% if social_facebook or social_instagram %}, {% endif %}"{{ social_tiktok }}"{% endif %}]{% endif %}
   }
   </script>
-  <!-- Structured data: Service -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Service",
-    "@id": "https://dashawy.pythonanywhere.com/#service",
-    "name": "Dashawy Service",
-    "alternateName": "خدمة دشاوي",
-    "description": "تركيب وصيانة أطباق الدش والرسيفرات وضبط الإشارة في محافظة الإسكندرية، مع تعيين أقرب فني معتمد للعميل.",
-    "serviceType": [
-      "Dish installation",
-      "Dish repair",
-      "Signal tuning",
-      "Receiver repair"
-    ],
-    "areaServed": {
-      "@type": "AdministrativeArea",
-      "name": "Alexandria Governorate",
-      "containedInPlace": {
-        "@type": "Country",
-        "name": "Egypt"
-      }
-    },
-    "provider": {
-      "@type": "Organization",
-      "@id": "https://dashawy.pythonanywhere.com/#organization",
-      "name": "دشاوي",
-      "url": "https://dashawy.pythonanywhere.com/"
-    },
-    "availableLanguage": ["ar", "en"],
-    "hasOfferCatalog": {
-      "@type": "OfferCatalog",
-      "name": "خدمات دشاوي",
-      "itemListElement": [
-        {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "تركيب دش",
-            "description": "تركيب وضبط أطباق الدش والرسيفرات الجديدة."
-          }
-        },
-        {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "صيانة دش",
-            "description": "إصلاح أعطال الأطباق والرسيفرات والكابلات."
-          }
-        },
-        {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "ضبط إشارة",
-            "description": "ضبط جودة الإشارة وإزالة تقطيع القنوات."
-          }
-        },
-        {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "صيانة رسيفر",
-            "description": "إصلاح وضبط أجهزة الاستقبال وتحديث السوفت وير."
-          }
-        }
-      ]
-    }
+    "@id": "{{ site_url }}/#service",
+    "name": "خدمة فني دش في الإسكندرية",
+    "serviceType": ["تركيب دش", "صيانة دش", "ضبط إشارة", "صيانة رسيفر"],
+    "areaServed": { "@type": "City", "name": "الإسكندرية" },
+    "provider": { "@id": "{{ site_url }}/#business" }
   }
   </script>
-  <!-- Structured data: FAQPage -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -160,7 +59,7 @@
         "name": "إزاي أطلب فني دش؟",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "اضغط على «اطلب الخدمة» في أعلى الصفحة، اختر نوع الخدمة (تركيب، صيانة، ضبط إشارة)، حدد منطقتك، ووصف المشكلة. بعدها اختر إما أن يعيّن النظام أقرب فني لك تلقائياً، أو استعرض الفنيين واختر بنفسك."
+          "text": "اضغط على «اطلب الخدمة الآن»، اختار نوع الخدمة ومنطقتك واكتب وصف المشكلة. تقدر تطلب من غير حساب، وبعد الإرسال هيظهرلك رابط متابعة خاص بطلبك."
         }
       },
       {
@@ -168,7 +67,7 @@
         "name": "بتخدموا أنهي مناطق؟",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "حالياً نخدم محافظة الإسكندرية فقط بكل مناطقها الـ 42، ومنها سموحة والعجمي وسيدي جابر وبحري والمنتزه. الخدمة غير متاحة خارج الإسكندرية في الوقت الحالي."
+          "text": "بنخدم محافظة الإسكندرية فقط، ومنها سموحة والعجمي وسيدي جابر وبحري والمنتزه والعصافرة وميامي وسان ستيفانو وكليوباترا والإبراهيمية ومحرم بك وكرموز والورديان والعطارين وأبو قير وبرج العرب."
         }
       },
       {
@@ -176,7 +75,7 @@
         "name": "الفنيين موثوقين إزاي؟",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "كل فني يرفع صورة البطاقة والفيش الجنائي عند التسجيل، والإدارة تراجع كل المستندات قبل الموافقة على الحساب. كما أن لكل فني تقييم من العملاء السابقين يمكنك رؤيته قبل اختياره."
+          "text": "كل فني بيرفع صورة البطاقة والفيش الجنائي عند التسجيل، والإدارة بتراجع المستندات قبل اعتماد الحساب. المستندات دي متاحة للإدارة المصرح لها فقط."
         }
       },
       {
@@ -184,7 +83,15 @@
         "name": "إيه تكلفة الخدمة؟",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "التسعير يتحدد حسب نوع الخدمة والقطعة المطلوبة إن وجدت. الفني يحدد السعر بعد معاينة المشكلة على الطبيعة، ولا توجد رسوم خفية."
+          "text": "كل خدمة ليها سعر استرشادي ظاهر في قسم الخدمات. السعر بيتأكد معاك قبل ما الفني يبدأ الشغل، ومفيش رسوم خفية."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "الفني بيوصل في قد إيه؟",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "مفيش وقت وصول ثابت لكل المناطق. بنحوّل طلبك لأقرب فني متاح في أسرع وقت، ولو مفيش فني متاح هيفضل طلبك مستني لحد ما يتعيين فني."
         }
       },
       {
@@ -192,7 +99,7 @@
         "name": "لو الفني اتأخر أو معرفش يحل المشكلة؟",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "لو الفني غير متاح أو رفض الطلب، يحوّل النظام الطلب تلقائياً إلى فني آخر. وإذا لم يكتمل العمل، يمكنك إلغاء الطلب أو طلب فني آخر دون رسوم إضافية."
+          "text": "لو الفني رفض الطلب، النظام بيحوّله لفني تاني. ولو الشغل ما اتمش، تقدر تلغي الطلب أو تطلب فني تاني من غير رسوم إضافية."
         }
       }
     ]
@@ -208,7 +115,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
-<body>
+<body class="has-contact-dock">
+  <a class="skip-link" href="#main-content">تخطى إلى المحتوى</a>
+
   <!-- ================= NAVBAR ================= -->
   <nav class="nav">
     <div class="nav-inner">
@@ -218,11 +127,11 @@
       <div class="nav-menu">
         <a href="#services">الخدمات</a>
         <a href="#how-it-works">كيف تعمل</a>
-        <a href="#testimonials">آراء العملاء</a>
+        <a href="#areas">مناطق الخدمة</a>
         <a href="#faq">الأسئلة الشائعة</a>
       </div>
       <div class="nav-actions">
-        <a href="/register.html" class="btn btn-brand btn-sm" id="nav-cta"><i class="fa-solid fa-bolt"></i> اطلب الخدمة</a>
+        <a href="/order.html" class="btn btn-brand btn-sm" id="nav-cta"><i class="fa-solid fa-bolt"></i> اطلب الخدمة</a>
         <span id="nav-user"></span>
         <button class="nav-toggle" aria-label="القائمة"><i class="fa-solid fa-bars"></i></button>
       </div>
@@ -230,6 +139,7 @@
   </nav>
 
   <!-- ================= 1. HERO ================= -->
+  <main id="main-content" tabindex="-1">
   <section class="hero-section">
     <div class="container">
       <div class="hero-grid-2">
@@ -243,17 +153,17 @@
 
           <h1 class="hero-title">
             دشك مش شغال؟<br>
-            <span class="hero-title-grad">هنظبطه في دقايق</span>
+            <span class="hero-title-grad">هنوصّلك بفني دش</span>
           </h1>
 
           <p class="hero-desc">
             <strong>دشاوي (Dashawy)</strong> منصة مصرية متخصصة في تركيب وصيانة أطباق الدش
-            والرسيفرات في محافظة الإسكندرية. اطلب الخدمة أونلاين، وسيتم تعيين أقرب فني
-            دش معتمد لك في دقائق.
+            والرسيفرات في محافظة الإسكندرية. اطلب الخدمة أونلاين — بحساب أو من غير حساب —
+            والنظام بيحوّل طلبك لأقرب فني متاح.
           </p>
 
           <div class="hero-actions">
-            <a class="btn btn-brand btn-lg" href="/register.html" id="hero-primary-cta">
+            <a class="btn btn-brand btn-lg" href="/order.html" id="hero-primary-cta">
               <i class="fa-solid fa-bolt"></i>
               اطلب الخدمة الآن
             </a>
@@ -266,15 +176,15 @@
           <div class="hero-trust">
             <div class="trust-item">
               <i class="fa-solid fa-shield-halved"></i>
-              <span>فنيون معتمدون</span>
+              <span>فنيون متراجع ملفاتهم</span>
             </div>
             <div class="trust-item">
               <i class="fa-solid fa-clock"></i>
-              <span>وصول في 15 دقيقة</span>
+              <span>وصول في أسرع وقت</span>
             </div>
             <div class="trust-item">
-              <i class="fa-solid fa-star"></i>
-              <span>تقييم 4.9/5</span>
+              <i class="fa-solid fa-location-dot"></i>
+              <span>الإسكندرية فقط</span>
             </div>
           </div>
         </div>
@@ -287,6 +197,7 @@
               <span class="dot dot-yellow"></span>
               <span class="dot dot-green"></span>
               <span class="phone-title">دشاوي</span>
+              <span class="mock-label">مثال توضيحي</span>
             </div>
             <div class="phone-body">
               <div class="phone-request">
@@ -320,15 +231,15 @@
             <i class="fa-solid fa-user-check"></i>
             <div>
               <b>تم تحديد الفني</b>
-              <span>محمد · فني دش · 2 كم</span>
+              <span>مثال توضيحي</span>
             </div>
           </div>
 
           <div class="floating-badge fb-2">
-            <i class="fa-solid fa-star" style="color:#f59e0b"></i>
+            <i class="fa-solid fa-location-dot" style="color:#4f46e5"></i>
             <div>
-              <b>4.9 / 5</b>
-              <span>تقييم العملاء</span>
+              <b>الإسكندرية فقط</b>
+              <span>مثال توضيحي</span>
             </div>
           </div>
         </div>
@@ -348,18 +259,18 @@
       <div class="why-grid">
         <div class="why-card">
           <span class="why-icon"><i class="fa-solid fa-bolt"></i></span>
-          <h3>تعيين في دقايق</h3>
-          <p>النظام يختار أقرب فني متاح تلقائياً، أو اختر إنت بنفسك من قائمة الفنيين.</p>
+          <h3>تعيين تلقائي</h3>
+          <p>النظام بيحوّل طلبك لأقرب فني متاح حسب نوع الخدمة والمنطقة.</p>
         </div>
         <div class="why-card">
           <span class="why-icon"><i class="fa-solid fa-shield-halved"></i></span>
-          <h3>فنيون معتمدون</h3>
-          <p>كل فني بيرفع الفيش الجنائي والبطاقة، والإدارة بتراجع قبل الموافقة.</p>
+          <h3>فنيون متراجع ملفاتهم</h3>
+          <p>كل فني بيرفع الفيش الجنائي والبطاقة، والإدارة بتراجع المستندات قبل الاعتماد.</p>
         </div>
         <div class="why-card">
           <span class="why-icon"><i class="fa-solid fa-star"></i></span>
-          <h3>تقييمات حقيقية</h3>
-          <p>اقرأ آراء العملاء السابقين قبل ما تختار الفني. شفافية كاملة.</p>
+          <h3>تقييمات من الطلبات المكتملة</h3>
+          <p>التقييمات بتظهر من طلبات اتكملت فعلاً — من غير أرقام أو آراء مصطنعة.</p>
         </div>
         <div class="why-card">
           <span class="why-icon"><i class="fa-solid fa-map-location-dot"></i></span>
@@ -387,6 +298,10 @@
         <div class="sk sk-card"></div>
         <div class="sk sk-card"></div>
       </div>
+      <p class="services-price-note">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        السعر بيتأكد معاك قبل ما الفني يبدأ الشغل، ومفيش رسوم مخفية.
+      </p>
     </div>
   </section>
 
@@ -410,112 +325,65 @@
           <div class="how-num">2</div>
           <span class="how-icon"><i class="fa-solid fa-user-check"></i></span>
           <h3>كيف يتم تعيين الفني؟</h3>
-          <p>خلي النظام يختار الأقرب لك، أو استعرض الفنيين واختر الأنسب.</p>
+          <p>النظام يختار فني متاح مناسب لنوع الخدمة، ولو مفيش فني متاح الطلب بيفضل مستني.</p>
         </div>
         <div class="how-card">
           <div class="how-num">3</div>
           <span class="how-icon"><i class="fa-solid fa-circle-check"></i></span>
           <h3>كيف يكتمل الطلب وأقيّم الفني؟</h3>
-          <p>الفني يوصلك في دقائق، يخلص الشغل، وتقيّمه من 5 نجوم.</p>
+          <p>الفني يوصلك، يخلص الشغل، وتقيّمه من 5 نجوم بعد اكتمال الطلب.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ================= 5. TESTIMONIALS ================= -->
-  <section class="section-testimonials" id="testimonials">
+  <!-- ================= 5. TESTIMONIALS (real reviews only) ================= -->
+  <!-- Hidden until the API returns at least three real, non-hidden reviews. -->
+  <section class="section-testimonials" id="testimonials" hidden>
     <div class="container">
       <div class="section-header">
         <span class="section-eyebrow">آراء العملاء</span>
-        <h2>إيه اللي بيقولوه عننا</h2>
-        <p>آراء حقيقية من عملاء استخدموا خدمتنا</p>
+        <h2>آراء من طلبات مكتملة</h2>
+        <p>دي تقييمات حقيقية من عملاء عندهم طلبات مكتملة على دشاوي.</p>
       </div>
-
-      <div class="testimonials-grid">
-        <div class="testimonial-card">
-          <div class="testimonial-stars">
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-          </div>
-          <p class="testimonial-text">
-            "الفني جالي في أقل من 20 دقيقة، وظبط الدش بسرعة. سعر معقول وشغل نظيف. أنصح بيه جداً."
-          </p>
-          <div class="testimonial-author">
-            <span class="ta-avatar">أ</span>
-            <div>
-              <b>أحمد محمود</b>
-              <span>سموحة، الإسكندرية</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="testimonial-card">
-          <div class="testimonial-stars">
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-          </div>
-          <p class="testimonial-text">
-            "الدش عندي كان بيقطع في القنوات من أسبوع. الفني حدد المشكلة وضبط الإشارة في نص ساعة."
-          </p>
-          <div class="testimonial-author">
-            <span class="ta-avatar">م</span>
-            <div>
-              <b>منى إبراهيم</b>
-              <span>العجمي، الإسكندرية</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="testimonial-card">
-          <div class="testimonial-stars">
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-            <i class="fa-solid fa-star"></i>
-          </div>
-          <p class="testimonial-text">
-            "أحسن حاجة إنك تختار الفني بنفسك بعد ما تشوف تقييماته. تجربة مريحة ومحترمة."
-          </p>
-          <div class="testimonial-author">
-            <span class="ta-avatar">ك</span>
-            <div>
-              <b>كريم السيد</b>
-              <span>سيدي جابر، الإسكندرية</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div class="testimonials-grid" id="testimonials-grid"></div>
     </div>
   </section>
 
-  <!-- ================= 6. STATS BAND ================= -->
-  <section class="section-stats" id="stats">
+  <!-- ================= 6. STATS (real DB counters, threshold-gated) ================= -->
+  <section class="section-stats" id="stats" hidden>
     <div class="container">
-      <div class="stats-band">
-        <div class="stat-item">
-          <div class="stat-number" data-count="2500" data-suffix="+">0</div>
-          <div class="stat-label">دش مركّب</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number" data-count="120" data-suffix="+">0</div>
-          <div class="stat-label">فني متخصص</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number" data-count="15" data-suffix=" د">0</div>
-          <div class="stat-label">متوسط زمن الوصول</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number" data-count="98" data-suffix="٪">0</div>
-          <div class="stat-label">رضا العملاء</div>
-        </div>
+      <div class="stats-band" id="stats-band"></div>
+    </div>
+  </section>
+
+  <!-- ================= 6b. SERVICE AREAS ================= -->
+  <section class="section-areas" id="areas">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow">مناطق الخدمة</span>
+        <h2>بنخدم الإسكندرية فقط</h2>
+        <p>اختار منطقتك، واطلب فني دش أو صيانة رسيفر في أسرع وقت.</p>
       </div>
+      <div class="areas-grid">
+        <div class="area-card"><b>سموحة</b><span>تركيب دش في سموحة</span></div>
+        <div class="area-card"><b>العجمي</b><span>ضبط إشارة دش في العجمي</span></div>
+        <div class="area-card"><b>سيدي جابر</b><span>صيانة رسيفر في سيدي جابر</span></div>
+        <div class="area-card"><b>بحري</b><span>تركيب وصيانة دش في بحري</span></div>
+        <div class="area-card"><b>المنتزه</b><span>ضبط إشارة في المنتزه</span></div>
+        <div class="area-card"><b>العصافرة</b><span>فني دش في العصافرة</span></div>
+        <div class="area-card"><b>ميامي</b><span>صيانة دش في ميامي</span></div>
+        <div class="area-card"><b>سان ستيفانو</b><span>تركيب رسيفر في سان ستيفانو</span></div>
+        <div class="area-card"><b>كليوباترا</b><span>فني دش في كليوباترا</span></div>
+        <div class="area-card"><b>الإبراهيمية</b><span>ضبط إشارة دش في الإبراهيمية</span></div>
+        <div class="area-card"><b>محرم بك</b><span>صيانة رسيفر في محرم بك</span></div>
+        <div class="area-card"><b>كرموز</b><span>تركيب دش في كرموز</span></div>
+        <div class="area-card"><b>الورديان</b><span>فني دش في الورديان</span></div>
+        <div class="area-card"><b>العطارين</b><span>صيانة دش في العطارين</span></div>
+        <div class="area-card"><b>أبو قير</b><span>ضبط إشارة في أبو قير</span></div>
+        <div class="area-card"><b>برج العرب</b><span>تركيب دش في برج العرب</span></div>
+      </div>
+      <p class="areas-note">مش لاقي منطقتك؟ <a href="/order.html">ابعتلنا الطلب</a> وهنشوف أقرب فني متاح ليك.</p>
     </div>
   </section>
 
@@ -525,7 +393,7 @@
       <div class="section-header">
         <span class="section-eyebrow">الأسئلة الشائعة</span>
         <h2>ما هي الأسئلة الشائعة عن دشاوي؟</h2>
-        <p>إجابات مباشرة عن أشهر 6 أسئلة بتيجيلنا من العملاء.</p>
+        <p>إجابات مباشرة عن أشهر الأسئلة اللي بتيجيلنا من العملاء.</p>
       </div>
 
       <div class="faq-list">
@@ -535,7 +403,7 @@
             <i class="fa-solid fa-chevron-down"></i>
           </summary>
           <div class="faq-answer">
-            <p>اضغط على «اطلب الخدمة» في أعلى الصفحة، اختر نوع الخدمة (تركيب، صيانة، ضبط إشارة)، حدد منطقتك، ووصف المشكلة. بعدها اختر إما أن يعيّن النظام أقرب فني لك تلقائياً، أو استعرض الفنيين واختر بنفسك.</p>
+            <p>اضغط على «اطلب الخدمة الآن»، اختار نوع الخدمة (تركيب، صيانة، ضبط إشارة)، حدد منطقتك، واكتب وصف المشكلة. تقدر تطلب من غير حساب، وبعد الإرسال هيظهرلك رابط متابعة خاص بطلبك.</p>
           </div>
         </details>
 
@@ -545,7 +413,7 @@
             <i class="fa-solid fa-chevron-down"></i>
           </summary>
           <div class="faq-answer">
-            <p>حالياً نخدم محافظة الإسكندرية فقط بكل مناطقها الـ 42، ومنها سموحة والعجمي وسيدي جابر وبحري والمنتزه. الخدمة غير متاحة خارج الإسكندرية في الوقت الحالي.</p>
+            <p>بنخدم محافظة الإسكندرية فقط، ومنها سموحة والعجمي وسيدي جابر وبحري والمنتزه والعصافرة وميامي وسان ستيفانو وكليوباترا والإبراهيمية ومحرم بك وكرموز والورديان والعطارين وأبو قير وبرج العرب. الخدمة غير متاحة خارج الإسكندرية حالياً.</p>
           </div>
         </details>
 
@@ -555,7 +423,7 @@
             <i class="fa-solid fa-chevron-down"></i>
           </summary>
           <div class="faq-answer">
-            <p>كل فني يرفع صورة البطاقة والفيش الجنائي عند التسجيل، والإدارة تراجع كل المستندات قبل الموافقة على الحساب. كما أن لكل فني تقييم من العملاء السابقين يمكنك رؤيته قبل اختياره.</p>
+            <p>كل فني بيرفع صورة البطاقة والفيش الجنائي عند التسجيل، والإدارة بتراجع المستندات قبل اعتماد الحساب. المستندات دي متاحة للإدارة المصرح لها فقط، وبتُستخدم للتحقق من الهوية.</p>
           </div>
         </details>
 
@@ -565,7 +433,17 @@
             <i class="fa-solid fa-chevron-down"></i>
           </summary>
           <div class="faq-answer">
-            <p>التسعير يتحدد حسب نوع الخدمة والقطعة المطلوبة إن وجدت. الفني يحدد السعر بعد معاينة المشكلة على الطبيعة، ولا توجد رسوم خفية.</p>
+            <p>كل خدمة ليها سعر استرشادي ظاهر في قسم الخدمات بجوار اسم الخدمة. السعر بيتأكد معاك قبل ما الفني يبدأ الشغل، ومفيش رسوم خفية. لو الخدمة ملهاش سعر ثابت، الفني بيقولك السعر بعد المعاينة.</p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>
+            <h3 style="margin:0;font:inherit;color:inherit">الفني بيوصل في قد إيه؟</h3>
+            <i class="fa-solid fa-chevron-down"></i>
+          </summary>
+          <div class="faq-answer">
+            <p>مفيش وقت وصول ثابت لكل المناطق. بنحوّل طلبك لأقرب فني متاح في أسرع وقت، ولو مفيش فني متاح هيفضل طلبك مستني لحد ما يتعيين فني.</p>
           </div>
         </details>
 
@@ -575,7 +453,7 @@
             <i class="fa-solid fa-chevron-down"></i>
           </summary>
           <div class="faq-answer">
-            <p>لو الفني غير متاح أو رفض الطلب، يحوّل النظام الطلب تلقائياً إلى فني آخر. وإذا لم يكتمل العمل، يمكنك إلغاء الطلب أو طلب فني آخر دون رسوم إضافية.</p>
+            <p>لو الفني رفض الطلب، النظام بيحوّله لفني تاني. ولو الشغل ما اتمش، تقدر تلغي الطلب أو تطلب فني تاني من غير رسوم إضافية.</p>
           </div>
         </details>
 
@@ -585,7 +463,7 @@
             <i class="fa-solid fa-chevron-down"></i>
           </summary>
           <div class="faq-answer">
-            <p>أكيد! اضغط على «انضم كفني» في الأعلى، املأ البيانات وارفع صورة البطاقة والفيش الجنائي. الإدارة هتراجع طلبك وترد عليك خلال 24 ساعة.</p>
+            <p>أكيد! اضغط على «انضم كفني» في الأعلى، املأ البيانات وارفع صورة البطاقة والفيش الجنائي. هنراجع طلبك ونرد عليك في أقرب وقت.</p>
           </div>
         </details>
       </div>
@@ -598,15 +476,16 @@
       <div class="cta-band">
         <div class="cta-content">
           <h2>دشك محتاج صيانة؟ ابدأ بأبسط خطوة</h2>
-          <p>اختر الخدمة اللي محتاجها، وفني دش هيوصلك في دقايق.</p>
+          <p>اختر الخدمة اللي محتاجها، وفني دش هيوصلك في أسرع وقت.</p>
         </div>
-        <a class="btn btn-accent btn-lg" id="cta-bottom" href="/register.html">
+        <a class="btn btn-accent btn-lg" id="cta-bottom" href="/order.html">
           <i class="fa-solid fa-bolt"></i>
           اطلب الخدمة الآن
         </a>
       </div>
     </div>
   </section>
+  </main>
 
   <!-- ================= 9. FOOTER ================= -->
   <footer class="footer">
@@ -619,12 +498,13 @@
           </a>
           <p class="footer-tagline">
             خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية.
-            توصلك بأقرب فني دش في دقايق.
+            توصلك بأقرب فني دش في أسرع وقت.
           </p>
           <div class="footer-socials">
-            <a href="#" data-social-facebook aria-label="فيسبوك" target="_blank" rel="noopener"><i class="fa-brands fa-facebook-f"></i></a>
-            <a href="#" data-social-whatsapp aria-label="واتساب" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i></a>
-            <a href="#" data-social-instagram aria-label="انستغرام" target="_blank" rel="noopener"><i class="fa-brands fa-instagram"></i></a>
+            {% if social_facebook %}<a href="{{ social_facebook }}" data-social-facebook aria-label="فيسبوك" target="_blank" rel="noopener"><i class="fa-brands fa-facebook-f" aria-hidden="true"></i></a>{% endif %}
+            {% if business_whatsapp %}<a href="{{ business_whatsapp_url }}" data-social-whatsapp aria-label="واتساب" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>{% endif %}
+            {% if social_instagram %}<a href="{{ social_instagram }}" data-social-instagram aria-label="انستغرام" target="_blank" rel="noopener"><i class="fa-brands fa-instagram" aria-hidden="true"></i></a>{% endif %}
+            {% if social_tiktok %}<a href="{{ social_tiktok }}" data-social-tiktok aria-label="تيك توك" target="_blank" rel="noopener"><i class="fa-brands fa-tiktok" aria-hidden="true"></i></a>{% endif %}
           </div>
         </div>
 
@@ -644,16 +524,25 @@
             <li><a href="/login.html">تسجيل الدخول</a></li>
             <li><a href="/register.html">حساب عميل جديد</a></li>
             <li><a href="/register-tech.html">انضم كفني</a></li>
+            <li><a href="/order.html">طلب من غير حساب</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>قانوني</h4>
+          <ul>
             <li><a href="/privacy.html">سياسة الخصوصية</a></li>
+            <li><a href="/terms.html">شروط الاستخدام</a></li>
+            <li><a href="/refund-cancellation.html">الإلغاء والاسترداد</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h4>تواصل معنا</h4>
           <ul>
-            <li><a href="tel:+201025330520" data-contact-phone><i class="fa-solid fa-phone"></i> <span data-contact-phone>01025330520</span></a></li>
-            <li><a href="mailto:meltokhey39@gmail.com" data-contact-email><i class="fa-solid fa-envelope"></i> <span data-contact-email>meltokhey39@gmail.com</span></a></li>
-            <li><a href="#"><i class="fa-solid fa-location-dot"></i> الإسكندرية، مصر</a></li>
+            {% if business_phone %}<li><a href="tel:{{ business_phone_e164 }}" data-contact-phone><i class="fa-solid fa-phone" aria-hidden="true"></i> <span>{{ business_phone }}</span></a></li>{% endif %}
+            {% if business_email %}<li><a href="mailto:{{ business_email }}" data-contact-email><i class="fa-solid fa-envelope" aria-hidden="true"></i> <span>{{ business_email }}</span></a></li>{% endif %}
+            <li><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {{ contact_address }}</li>
           </ul>
         </div>
       </div>
@@ -664,6 +553,8 @@
       </div>
     </div>
   </footer>
+
+  {% include "partials/contact_dock.html" %}
 
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
@@ -697,21 +588,41 @@
     // Role-aware navbar user area.
     Ui.renderNavUser(document.getElementById('nav-user'));
 
-    // Dynamic services grid from the backend.
+    // Dynamic services grid from the backend, with the real indicative price.
     const grid = document.getElementById('service-grid');
+    const guestHome = !Auth.isAuthed();
+    let servicesCache = [];
+
+    function serviceHref(key) {
+      if (guestHome) return '/order.html?service=' + encodeURIComponent(key);
+      return Ui.serviceUrl(key);
+    }
+
+    function priceLine(price) {
+      if (price && Number(price) > 0) {
+        return 'ابتداءً من ' + Number(price).toLocaleString('ar-EG') + ' جنيه';
+      }
+      return 'السعر بعد المعاينة';
+    }
+
     async function renderServices() {
       let keys = Ui.serviceKeys();
       try {
         const data = await api('/api/specialties');
-        if (data.specialties && data.specialties.length) keys = data.specialties.map((s) => s.key);
+        if (data.specialties && data.specialties.length) {
+          servicesCache = data.specialties;
+          keys = servicesCache.map((s) => s.key);
+        }
       } catch (e) { /* static fallback */ }
 
       Ui.clear(grid);
       keys.forEach((key) => {
         const m = Ui.meta(key);
+        const apiRow = servicesCache.find((s) => s.key === key);
+        const price = apiRow ? apiRow.price : null;
         grid.appendChild(Ui.el('a', {
           class: 'service-card reveal',
-          attrs: { href: Ui.serviceUrl(key) },
+          attrs: { href: serviceHref(key) },
           on: {
             click: (e) => {
               const u = Auth.getUser();
@@ -725,6 +636,7 @@
           Ui.el('span', { class: 'sc-ic', attrs: { style: 'background:' + m.bg + ';color:' + m.color } }, [Ui.ic(m.icon)]),
           Ui.el('h3', {}, [m.label]),
           Ui.el('p', {}, [m.desc]),
+          Ui.el('span', { class: 'sc-price' }, [priceLine(price)]),
           Ui.el('span', { class: 'sc-go' }, ['اطلب الخدمة', Ui.ic('fa-solid fa-arrow-left')])
         ]));
       });
@@ -732,28 +644,89 @@
     }
     renderServices();
 
-    // Animated counters — the band now lives inside .section-stats.
-    function animateCount(el) {
-      const target = parseInt(el.dataset.count, 10) || 0;
-      const suffix = el.dataset.suffix || '';
-      const dur = 1400;
+    // Real reviews only. Three is the minimum for a credible section.
+    async function renderReviews() {
+      const section = document.getElementById('testimonials');
+      const wrap = document.getElementById('testimonials-grid');
+      try {
+        const data = await api('/api/public/reviews?limit=6');
+        const reviews = data.reviews || [];
+        if (reviews.length < 3) {
+          section.hidden = true;
+          return;
+        }
+        Ui.clear(wrap);
+        reviews.slice(0, 3).forEach((r) => {
+          const stars = document.createElement('div');
+          stars.className = 'testimonial-stars';
+          for (let i = 0; i < 5; i += 1) {
+            stars.appendChild(Ui.ic(i < r.rating ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+          }
+          wrap.appendChild(Ui.el('div', { class: 'testimonial-card' }, [
+            stars,
+            Ui.el('p', { class: 'testimonial-text' }, [r.comment]),
+            Ui.el('div', { class: 'testimonial-author' }, [
+              Ui.el('span', { class: 'ta-avatar' }, [(r.reviewer_name || 'ع').slice(0, 1)]),
+              Ui.el('div', {}, [
+                Ui.el('b', {}, [r.reviewer_name || 'عميل']),
+                Ui.el('span', {}, [[r.area, r.technician_name ? 'فني: ' + r.technician_name : ''].filter(Boolean).join(' · ')])
+              ])
+            ])
+          ]));
+        });
+        section.hidden = false;
+        Ui.initReveal();
+      } catch (e) {
+        section.hidden = true;
+      }
+    }
+    renderReviews();
+
+    // Counters are real DB values; the API hides each one below its threshold.
+    function animateCount(el, target, suffix) {
+      const dur = 1200;
       const start = performance.now();
       function tick(now) {
         const p = Math.min(1, (now - start) / dur);
-        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))).toLocaleString('en-US') + suffix;
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))).toLocaleString('ar-EG') + (suffix || '');
         if (p < 1) requestAnimationFrame(tick);
       }
       requestAnimationFrame(tick);
     }
-    const obs = new IntersectionObserver((ents) => {
-      ents.forEach((en) => {
-        if (en.isIntersecting) {
-          en.target.querySelectorAll('[data-count]').forEach(animateCount);
-          obs.unobserve(en.target);
+
+    async function renderStats() {
+      const section = document.getElementById('stats');
+      const band = document.getElementById('stats-band');
+      try {
+        const data = await api('/api/public/stats');
+        const items = (data.items || []).filter((i) => i.visible && i.value !== null);
+        if (!items.length) {
+          section.hidden = true;
+          return;
         }
-      });
-    }, { threshold: 0.3 });
-    document.querySelectorAll('.section-stats .stats-band').forEach((b) => obs.observe(b));
+        Ui.clear(band);
+        items.forEach((item) => {
+          const number = Ui.el('div', { class: 'stat-number' }, ['0']);
+          band.appendChild(Ui.el('div', { class: 'stat-item' }, [
+            number,
+            Ui.el('div', { class: 'stat-label' }, [item.label])
+          ]));
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach((en) => {
+              if (en.isIntersecting) {
+                animateCount(number, Number(item.value), item.suffix);
+                observer.disconnect();
+              }
+            });
+          }, { threshold: 0.3 });
+          observer.observe(number);
+        });
+        section.hidden = false;
+      } catch (e) {
+        section.hidden = true;
+      }
+    }
+    renderStats();
 
     // Page utilities.
     Ui.initReveal();
@@ -762,35 +735,15 @@
     // Dynamic footer: site name, contact details and social links from the DB.
     Ui.applySiteSettings();
 
-    // Safety: if after 2 seconds some .reveal elements are still hidden (opacity 0)
-    // and NOT in view, force them visible when they enter viewport via scroll listener.
-    setTimeout(() => {
-      const hidden = document.querySelectorAll('.reveal:not(.in)');
-      console.log('[reveal] fallback check, still hidden:', hidden.length);
-      if (hidden.length === 0) return;
-      const checkScroll = () => {
-        hidden.forEach((el) => {
-          const r = el.getBoundingClientRect();
-          if (r.top < window.innerHeight - 40 && r.bottom > 0) {
-            el.classList.add('in');
-          }
-        });
-      };
-      window.addEventListener('scroll', checkScroll, { passive: true });
-      checkScroll();
-    }, 2000);
-
-    // Every "اطلب الخدمة" CTA routes according to the auth state:
-    // customers go straight to the wizard, guests register first. The wizard
-    // guards its own role, so a guest landing here is bounced to /login by
-    // Auth.requireRole rather than by the CTA logic.
+    // Every "اطلب الخدمة" CTA routes according to the auth state. Guests go to
+    // the account-free order form; this is the main friction fix.
     (function routeCtas() {
       const u = Auth.getUser();
       let href;
       if (u && u.role === 'customer') href = '/request';
       else if (u && u.role === 'technician') href = '/technician/dashboard.html';
       else if (u && u.role === 'admin') href = '/admin/dashboard';
-      else href = '/register.html';
+      else href = '/order.html';
       ['nav-cta', 'hero-primary-cta', 'cta-bottom'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) el.setAttribute('href', href);
