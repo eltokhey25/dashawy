@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <title>حصل خطأ — {{ site_name }}</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="has-contact-dock error-page">
+  <main class="error-wrap">
+    <a href="/" class="error-brand">
+      <img src="/dashawy-brand/logo-horizontal.svg" alt="{{ site_name }}">
+    </a>
+    <div class="error-code" aria-hidden="true">500</div>
+    <h1>حصل خطأ غير متوقع</h1>
+    <p>جرّب تحديث الصفحة بعد شوية. لو المشكلة مستمرة، كلّمنا واذكر إنك كنت بتحاول تعمل إيه.</p>
+    <div class="error-actions">
+      <a class="btn btn-brand btn-lg" href="/"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
+      <button type="button" class="btn btn-outline btn-lg" onclick="window.location.reload()">
+        <i class="fa-solid fa-rotate" aria-hidden="true"></i> تحديث الصفحة
+      </button>
+    </div>
+    {% if business_phone %}
+    <a class="error-contact" href="tel:{{ business_phone_e164 }}">
+      <i class="fa-solid fa-phone" aria-hidden="true"></i> {{ business_phone }}
+    </a>
+    {% endif %}
+  </main>
+
+  {% include "partials/contact_dock.html" %}
+</body>
+</html>
