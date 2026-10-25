@@ -1,9 +1,10 @@
 {
-  "name": "دشاوي",
-  "short_name": "دشاوي",
+  "name": "{{ site_name }}",
+  "short_name": "{{ site_name }}",
   "description": "خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية",
   "lang": "ar",
   "dir": "rtl",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -13,13 +14,14 @@
   "categories": ["business", "utilities"],
   "icons": [
     { "src": "/dashawy-brand/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/dashawy-brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "/dashawy-brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/dashawy-brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     {
-      "name": "اطلب خدمة",
+      "name": "اطلب خدمة من غير حساب",
       "short_name": "اطلب",
-      "url": "/request",
+      "url": "/order.html",
       "icons": [{ "src": "/dashawy-brand/icon-192.png", "sizes": "192x192" }]
     },
     {

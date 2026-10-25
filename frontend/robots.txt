@@ -1,18 +1,42 @@
-# Dashawy — https://dashawy.pythonanywhere.com
+# {{ site_name }} — {{ site_url }}
 
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /django-admin/
+Disallow: /customer/
+Disallow: /technician/
+Disallow: /track.html
+Disallow: /complete-profile
+Disallow: /verify-otp
+Disallow: /change-password
+Disallow: /chat
+Disallow: /auth
+Disallow: /api/
 
+# AI crawlers are welcome on the public marketing pages.
 User-agent: GPTBot
 Allow: /
+Disallow: /admin/
+Disallow: /customer/
+Disallow: /technician/
+Disallow: /api/
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /admin/
+Disallow: /customer/
+Disallow: /technician/
+Disallow: /api/
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /admin/
+Disallow: /customer/
+Disallow: /technician/
+Disallow: /api/
 
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://dashawy.pythonanywhere.com/sitemap.xml
+Sitemap: {{ site_url }}/sitemap.xml
