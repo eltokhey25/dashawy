@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="/manifest.webmanifest">
+  {% include "partials/seo.html" with page_title="اطلب فني دش في الإسكندرية من غير حساب — دشاوي" page_description="اطلب فني دش أو صيانة رسيفر في الإسكندرية في دقيقة، من غير حساب. اختار منطقتك ونوع الخدمة، وتابع طلبك برابط خاص." canonical_path="/order.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="has-contact-dock order-page">
+  <a class="skip-link" href="#main-content">تخطى إلى المحتوى</a>
+
+
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="/">
+        <img class="brand-logo-image" src="/dashawy-brand/logo-horizontal.svg" alt="دشاوي — الصفحة الرئيسية">
+      </a>
+      <div class="nav-menu">
+        <a href="/#services">الخدمات</a>
+        <a href="/#areas">مناطق الخدمة</a>
+        <a href="/#faq">الأسئلة الشائعة</a>
+      </div>
+      <div class="nav-actions">
+        <span id="nav-user"></span>
+        <button class="nav-toggle" aria-label="فتح القائمة" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="main-content" tabindex="-1" class="order-wrap">
+    <div class="container">
+      <header class="order-head">
+        <span class="hero-eyebrow"><i class="fa-solid fa-bolt" aria-hidden="true"></i> طلب من غير حساب</span>
+        <h1>قولنا محتاج إيه، وهنوصّلك بفني</h1>
+        <p>
+          املأ البيانات الأساسية واختار منطقتك. بعد الإرسال هيظهرلك
+          <b>رابط متابعة خاص</b> بطلبك — احتفظ بيه عشان تشوف حالة الطلب.
+        </p>
+        <ul class="order-trust">
+          <li><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> الإسكندرية فقط</li>
+          <li><i class="fa-solid fa-circle-info" aria-hidden="true"></i> السعر بيتأكد قبل بدء الشغل</li>
+          <li><i class="fa-solid fa-user-check" aria-hidden="true"></i> فنيون متراجع ملفاتهم</li>
+        </ul>
+      </header>
+
+      <div class="order-grid">
+        <section class="order-card" aria-labelledby="order-form-title">
+          <h2 id="order-form-title" class="order-card-title">بيانات الطلب</h2>
+
+          <form id="guest-order-form" novalidate>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="go-name">الاسم <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="go-name" class="input" name="name" maxlength="100"
+                       autocomplete="name" placeholder="مثال: أحمد محمد" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="go-phone">رقم الموبايل <span class="req" aria-hidden="true">*</span></label>
+                <input type="tel" id="go-phone" class="input" name="phone" maxlength="15"
+                       inputmode="numeric" autocomplete="tel" dir="ltr" placeholder="01xxxxxxxxx"
+                       aria-describedby="go-phone-hint" required>
+                <div class="form-hint" id="go-phone-hint">11 رقم يبدأ بـ 010 أو 011 أو 012 أو 015</div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="go-area">المنطقة <span class="req" aria-hidden="true">*</span></label>
+                <select id="go-area" class="input" name="area_key" required>
+                  <option value="">اختر منطقتك…</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="go-service">نوع الخدمة <span class="req" aria-hidden="true">*</span></label>
+                <select id="go-service" class="input" name="specialty" required>
+                  <option value="">اختر الخدمة…</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group" id="custom-service-group" hidden>
+              <label class="form-label" for="go-custom-service">اسم الخدمة المطلوبة</label>
+              <input type="text" id="go-custom-service" class="input" name="custom_specialty_text"
+                     maxlength="200" placeholder="مثال: تركيب موتور دش">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="go-description">وصف المشكلة <span class="req" aria-hidden="true">*</span></label>
+              <textarea id="go-description" class="input" name="description" rows="4" maxlength="2000"
+                        placeholder="مثال: الطبق وقع بعد الهوا، ومحتاج إعادة تركيب وضبط إشارة." required></textarea>
+              <div class="form-hint">كل ما الوصف كان أوضح، الفني يجهز أدواته أسرع.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="go-location">العنوان بالتفصيل <span class="optional">(اختياري)</span></label>
+              <input type="text" id="go-location" class="input" name="location_text" maxlength="300"
+                     placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
+              <div class="form-hint">العنوان الدقيق يظهر للفني المعيّن فقط بعد قبول الطلب.</div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="go-photo">صورة توضيحية <span class="optional">(اختياري)</span></label>
+              <div class="file-upload" id="go-photo-box">
+                <input type="file" id="go-photo" name="photo" accept="image/jpeg,image/png,image/webp" hidden>
+                <label for="go-photo" class="file-upload-label">
+                  <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                  <span class="fu-text">اضغط لاختيار صورة</span>
+                  <span class="fu-hint">JPG أو PNG أو WEBP — بحد أقصى 5 ميجا</span>
+                </label>
+                <div class="file-upload-preview" id="go-photo-preview"></div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" id="go-photo-clear" hidden>إزالة الصورة</button>
+            </div>
+
+            <!-- Honeypot: hidden from people, filled by naive bots. -->
+            <div class="hp-field" aria-hidden="true">
+              <label for="go-website">Website</label>
+              <input type="text" id="go-website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <label class="consent-row" for="go-consent">
+              <input type="checkbox" id="go-consent" name="accept_terms" required>
+              <span>
+                أوافق على <a href="/terms.html" target="_blank" rel="noopener">شروط الاستخدام</a>
+                و<a href="/privacy.html" target="_blank" rel="noopener">سياسة الخصوصية</a>،
+                وعلى استخدام رقمي للتواصل بخصوص الطلب.
+              </span>
+            </label>
+
+            <p class="order-price-note">
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              السعر المعروض استرشادي، والفني بيأكده معاك قبل بدء الشغل.
+              <a href="/refund-cancellation.html">اعرف سياسة الإلغاء</a>.
+            </p>
+
+            <div id="order-alert" class="form-alert" role="alert" hidden></div>
+
+            <button type="submit" class="btn btn-brand btn-block btn-lg" id="go-submit">
+              <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+              ابعت الطلب
+            </button>
+            <p class="order-form-foot">
+              مش محتاج حساب. لو عندك حساب، <a href="/login.html">سجّل دخول</a> الأول
+              عشان الطلب يظهر في «طلباتي».
+            </p>
+          </form>
+        </section>
+
+        <aside class="order-side" aria-label="معلومات مساعدة">
+          <div class="order-side-card">
+            <h2><i class="fa-solid fa-route" aria-hidden="true"></i> إيه اللي هيحصل بعد الإرسال؟</h2>
+            <ol class="order-steps">
+              <li><b>هنستلم طلبك</b> ونحوّله لأقرب فني متاح حسب المنطقة ونوع الخدمة.</li>
+              <li><b>هيظهرلك رابط متابعة</b> تقدر تفتحه في أي وقت تشوف منه حالة الطلب.</li>
+              <li><b>الفني بيتواصل معاك</b> ويأكد السعر قبل بدء الشغل.</li>
+            </ol>
+          </div>
+
+          <div class="order-side-card">
+            <h2><i class="fa-solid fa-headset" aria-hidden="true"></i> محتاج مساعدة؟</h2>
+            <p>لو عندك استفسار قبل الطلب، تواصل معنا مباشرة:</p>
+            {% if business_whatsapp %}
+            <a class="btn btn-outline btn-block" href="{{ business_whatsapp_url }}" target="_blank" rel="noopener">
+              <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> واتساب
+            </a>
+            {% endif %}
+            {% if business_phone %}
+            <a class="btn btn-outline btn-block" href="tel:{{ business_phone_e164 }}">
+              <i class="fa-solid fa-phone" aria-hidden="true"></i> {{ business_phone }}
+            </a>
+            {% endif %}
+          </div>
+
+          <div class="order-side-card order-side-note">
+            <h2><i class="fa-solid fa-location-dot" aria-hidden="true"></i> بنخدم الإسكندرية فقط</h2>
+            <p>لو منطقتك مش في القائمة، ابعت الطلب وهنشوف أقرب فني متاح ليك.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <span>© 2026 {{ site_name }}. جميع الحقوق محفوظة.</span>
+        <span>
+          <a href="/privacy.html">الخصوصية</a> ·
+          <a href="/terms.html">الشروط</a> ·
+          <a href="/refund-cancellation.html">الإلغاء والاسترداد</a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  {% include "partials/contact_dock.html" %}
+
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+
+      // A signed-in customer already has the richer wizard; guests use this page.
+      if (Auth.isAuthed()) {
+        const role = Auth.role();
+        if (role === 'customer') {
+          window.location.replace('/request');
+          return;
+        }
+      }
+      Ui.renderNavUser($('nav-user'));
+      Ui.initNav();
+
+      const params = new URLSearchParams(window.location.search);
+      const requestedService = params.get('service') || '';
+      const phoneRe = /^01[0125]\d{8}$/;
+
+      async function loadAreas() {
+        const select = $('go-area');
+        try {
+          const data = await api('/api/alexandria-areas');
+          (data.areas || []).forEach((a) => {
+            select.appendChild(Ui.el('option', { text: a.label, attrs: { value: a.key } }));
+          });
+        } catch (e) {
+          console.warn('[order] areas failed', e);
+          select.appendChild(Ui.el('option', { text: 'تعذر تحميل المناطق — حاول تحديث الصفحة', attrs: { value: '' } }));
+        }
+      }
+
+      async function loadServices() {
+        const select = $('go-service');
+        let rows = [];
+        try {
+          const data = await api('/api/specialties');
+          rows = data.specialties || [];
+        } catch (e) {
+          console.warn('[order] services failed', e);
+        }
+        if (!rows.length) {
+          rows = Ui.serviceKeys().map((key) => ({ key, label: Ui.meta(key).label, price: null }));
+        }
+        rows.forEach((s) => {
+          const label = s.price && Number(s.price) > 0
+            ? s.label + ' — من ' + Number(s.price).toLocaleString('ar-EG') + ' جنيه'
+            : s.label;
+          select.appendChild(Ui.el('option', { text: label, attrs: { value: s.key } }));
+          if (s.key === requestedService) select.value = s.key;
+        });
+        toggleCustomService();
+      }
+
+      function toggleCustomService() {
+        $('custom-service-group').hidden = $('go-service').value !== 'other';
+      }
+      $('go-service').addEventListener('change', toggleCustomService);
+
+      function showAlert(message) {
+        const box = $('order-alert');
+        box.textContent = message;
+        box.hidden = false;
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      function clearAlert() {
+        $('order-alert').hidden = true;
+        $('order-alert').textContent = '';
+      }
+
+      function fieldError(id, message) {
+        const input = $(id);
+        input.classList.add('invalid');
+        input.setAttribute('aria-invalid', 'true');
+        const existing = input.closest('.form-group').querySelector('.form-error');
+        if (existing) existing.remove();
+        const hint = Ui.el('div', { class: 'form-error' }, [Ui.ic('fa-solid fa-circle-exclamation'), message]);
+        input.closest('.form-group').appendChild(hint);
+        return input;
+      }
+
+      function clearErrors() {
+        document.querySelectorAll('#guest-order-form .invalid').forEach((el) => {
+          el.classList.remove('invalid');
+          el.removeAttribute('aria-invalid');
+        });
+        document.querySelectorAll('#guest-order-form .form-error').forEach((el) => el.remove());
+      }
+
+      // Photo preview.
+      $('go-photo').addEventListener('change', () => {
+        const input = $('go-photo');
+        const preview = $('go-photo-preview');
+        const box = $('go-photo-box');
+        preview.textContent = '';
+        const file = input.files && input.files[0];
+        $('go-photo-clear').hidden = !file;
+        if (!file) {
+          box.classList.remove('has-file', 'has-error');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          box.classList.add('has-error');
+          box.classList.remove('has-file');
+          preview.textContent = 'الصورة أكبر من 5 ميجا';
+          input.value = '';
+          $('go-photo-clear').hidden = true;
+          return;
+        }
+        box.classList.add('has-file');
+        box.classList.remove('has-error');
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = 'معاينة الصورة المرفقة';
+        preview.appendChild(img);
+        preview.appendChild(document.createTextNode(file.name + ' (' + Math.round(file.size / 1024) + ' KB)'));
+      });
+
+      $('go-photo-clear').addEventListener('click', () => {
+        $('go-photo').value = '';
+        $('go-photo-preview').textContent = '';
+        $('go-photo-box').classList.remove('has-file', 'has-error');
+        $('go-photo-clear').hidden = true;
+      });
+
+      $('guest-order-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if ($('go-submit').disabled) return;
+        clearAlert();
+        clearErrors();
+
+        const fields = [];
+        const name = $('go-name').value.trim();
+        const phone = $('go-phone').value.trim();
+        const area = $('go-area').value;
+        const specialty = $('go-service').value;
+        const description = $('go-description').value.trim();
+
+        if (name.length < 2) fields.push(fieldError('go-name', 'اكتب اسمك (حرفين على الأقل)'));
+        if (!phoneRe.test(phone)) fields.push(fieldError('go-phone', 'اكتب رقم موبايل مصري صحيح يبدأ بـ 01'));
+        if (!area) fields.push(fieldError('go-area', 'اختار منطقتك'));
+        if (!specialty) fields.push(fieldError('go-service', 'اختار نوع الخدمة'));
+        if (description.length < 5) fields.push(fieldError('go-description', 'اكتب وصفاً بسيطاً للمشكلة'));
+        if (specialty === 'other' && !$('go-custom-service').value.trim()) {
+          fields.push(fieldError('go-custom-service', 'اكتب اسم الخدمة المطلوبة'));
+        }
+        if (!$('go-consent').checked) {
+          showAlert('لازم توافق على الشروط وسياسة الخصوصية قبل إرسال الطلب.');
+          $('go-consent').focus();
+          return;
+        }
+        if (fields.length) {
+          showAlert('راجع الحقول المحددة بالأحمر.');
+          fields[0].focus();
+          return;
+        }
+
+        const body = new FormData();
+        body.append('name', name);
+        body.append('phone', phone);
+        body.append('area_key', area);
+        body.append('specialty', specialty);
+        body.append('description', description);
+        body.append('accept_terms', 'true');
+        body.append('policy_version', 'v1.0');
+        const custom = $('go-custom-service').value.trim();
+        if (specialty === 'other' && custom) body.append('custom_specialty_text', custom);
+        const location = $('go-location').value.trim();
+        if (location) body.append('location_text', location);
+        const website = $('go-website').value;
+        if (website) body.append('website', website);
+        const photo = $('go-photo').files && $('go-photo').files[0];
+        if (photo) body.append('photo', photo);
+
+        const btn = $('go-submit');
+        Ui.btnLoading(btn, 'بنرسل طلبك…');
+        try {
+          const response = await fetch('/api/guest/requests', {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body,
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const err = new Error(data.error || 'تعذر إرسال الطلب. حاول تاني.');
+            err.status = response.status;
+            throw err;
+          }
+          const token = data.tracking_token;
+          window.location.href = '/track.html?token=' + encodeURIComponent(token) + '&new=1';
+        } catch (err) {
+          showAlert(err.message || 'تعذر إرسال الطلب. حاول تاني.');
+          Ui.btnReset(btn);
+        }
+      });
+
+      loadAreas();
+      loadServices();
+    })();
+  </script>
+  <script src="/js/pwa-install.js"></script>
+</body>
+</html>

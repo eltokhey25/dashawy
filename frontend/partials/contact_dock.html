@@ -1,0 +1,12 @@
+{% if business_whatsapp %}
+<a class="contact-dock contact-dock--whatsapp" href="{{ business_whatsapp_url }}" target="_blank" rel="noopener" aria-label="تواصل معنا على واتساب">
+  <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+  <span class="contact-dock-text">واتساب</span>
+</a>
+{% endif %}
+{% if business_phone %}
+<a class="contact-dock contact-dock--call" href="tel:{{ business_phone_e164 }}" aria-label="اتصل بنا">
+  <i class="fa-solid fa-phone" aria-hidden="true"></i>
+  <span class="contact-dock-text">اتصال</span>
+</a>
+{% endif %}
