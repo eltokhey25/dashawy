@@ -15,13 +15,17 @@ frontend was written against: the browser expects ``token`` (not SimpleJWT's
 import json
 import re
 from datetime import timedelta
+from pathlib import Path
 
+import magic
 from axes.utils import reset as reset_axes_attempts
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Count
+from django.http import FileResponse, Http404
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -32,6 +36,7 @@ from rest_framework_simplejwt.settings import api_settings as jwt_settings
 from .auth_backend import hash_password
 from .exceptions import ApiError, bad_request, forbidden, unauthorized
 from .models import (
+    Consent,
     Customer,
     Request,
     RequestBroadcast,
@@ -40,18 +45,24 @@ from .models import (
     utc_now,
 )
 from .permissions import IsAdmin, IsCustomer, IsTechnician
+from .ratelimit import client_ip, throttle
 from .serializers import (
     CreateRequestSerializer,
     RequestSerializer,
+    TechnicianDocumentUploadSerializer,
     TechnicianRequestSerializer,
 )
 from .services.assignment import assign_technician, reassign_after_rejection
+from .services.pricing import quote_for
 from .tokens import DashawyRefreshToken
+from .upload_validators import save_private_upload
 from .validation import (
+    is_egypt_mobile,
     is_non_empty_string,
     is_valid_email,
     is_valid_name,
     is_valid_phone,
+    local_mobile,
     normalize_email,
     normalize_phone,
     parse_lat_lng,
@@ -314,6 +325,7 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        throttle(request, 'customer-register', limit=20, window_seconds=3600)
         data = _body(request)
         name = data.get('name')
         phone = data.get('phone')
@@ -323,6 +335,10 @@ class RegisterView(APIView):
         location_text = data.get('location_text')
         latitude = data.get('latitude')
         longitude = data.get('longitude')
+
+        accepted = data.get('accept_terms')
+        if accepted not in (True, 'true', '1', 1, 'on'):
+            raise bad_request('لازم توافق على الشروط وسياسة الخصوصية')
 
         if not is_valid_name(name):
             raise bad_request('الاسم غير صالح (حرفان على الأقل)')
@@ -379,6 +395,13 @@ class RegisterView(APIView):
                     location_text=resolved_location,
                     latitude=coordinates[0] if coordinates else None,
                     longitude=coordinates[1] if coordinates else None,
+                )
+                Consent.objects.create(
+                    user=user,
+                    consent_type='terms_and_privacy',
+                    policy_version=str(data.get('policy_version') or 'v1.0')[:20],
+                    ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+                    user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )
         except IntegrityError:
             # The UNIQUE index is the real guarantee; the checks above merely
@@ -440,6 +463,13 @@ class MeView(APIView):
         # refresh the change-password prompt and the Telegram settings page.
         safe['must_change_password'] = bool(user.must_change_password)
         safe['telegram_linked'] = bool(user.telegram_chat_id)
+        guest_count = 0
+        if user.role == 'customer' and user.phone:
+            guest_count = Request.objects.filter(
+                customer__isnull=True,
+                guest_phone=user.phone,
+            ).exclude(status='cancelled').count()
+        safe['guest_orders_count'] = guest_count
 
         return Response({'user': safe, 'profile': _profile_for(user)})
 
@@ -494,9 +524,11 @@ class CustomerRequestListCreateView(APIView):
 
     def post(self, request):
         customer = _customer_for(request.user)
+        throttle(request, 'customer-order', limit=30, window_seconds=3600)
         serializer = CreateRequestSerializer(data=_body(request))
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        quote = quote_for(data['specialty'])
 
         created = Request.objects.create(
             customer_id=customer.pk,
@@ -507,6 +539,7 @@ class CustomerRequestListCreateView(APIView):
             latitude=data.get('latitude'),
             longitude=data.get('longitude'),
             status='pending',
+            **quote,
         )
 
         assignment = assign_technician(created.pk)
@@ -655,6 +688,278 @@ class TechnicianRequestRejectView(APIView):
                 },
                 'reassigned': reassigned,
             }
+        )
+
+
+# ---------------------------------------------------------------------------
+# Profile completion and guest-order linking
+# ---------------------------------------------------------------------------
+
+
+class CompleteProfileView(APIView):
+    """POST /api/auth/complete-profile — add phone/area to a customer account.
+
+    This is the existing phone-completion flow reused by Google sign-up. It
+    changes the account's phone but deliberately never links guest orders by
+    phone alone; the separate guest-link endpoint needs the tracking token too.
+    """
+
+    permission_classes = [IsAuthenticated, IsCustomer]
+
+    def post(self, request):
+        throttle(request, 'complete-profile', limit=20, window_seconds=3600)
+        data = _body(request)
+        user = request.user
+        customer = Customer.objects.filter(user_id=user.pk).first()
+        if customer is None:
+            customer = Customer.objects.create(user=user, name='عميل دشاوي')
+
+        name = data.get('name')
+        if not is_valid_name(name):
+            raise bad_request('اكتب اسم صحيح (حرفين على الأقل)')
+
+        local = local_mobile(data.get('phone'))
+        if not local:
+            raise bad_request('اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015')
+        phone = normalize_phone(local)
+        if User.objects.filter(phone=phone).exclude(pk=user.pk).exists():
+            raise bad_request('هذا الرقم مسجّل بالفعل. جرّب رقمًا آخر.')
+        if Customer.objects.filter(phone=phone).exclude(pk=customer.pk).exists():
+            raise bad_request('هذا الرقم مسجّل بالفعل. جرّب رقمًا آخر.')
+
+        area_key = data.get('area_key')
+        location_text = data.get('location_text')
+        if location_text is not None and not is_non_empty_string(location_text, 300):
+            raise bad_request('وصف الموقع غير صالح')
+        try:
+            resolved_location = resolve_location(area_key, location_text)
+        except KeyError:
+            raise bad_request('المنطقة غير صالحة')
+
+        accepted = data.get('accept_terms')
+        already_consented = Consent.objects.filter(
+            user_id=user.pk, consent_type='terms_and_privacy'
+        ).exists()
+        if not already_consented and accepted not in (True, 'true', '1', 1, 'on'):
+            raise bad_request('لازم توافق على الشروط وسياسة الخصوصية')
+
+        with transaction.atomic():
+            User.objects.filter(pk=user.pk).update(phone=phone)
+            Customer.objects.filter(pk=customer.pk).update(
+                name=name.strip(), phone=phone, location_text=resolved_location
+            )
+            if not already_consented:
+                Consent.objects.create(
+                    user_id=user.pk,
+                    consent_type='terms_and_privacy',
+                    policy_version=str(data.get('policy_version') or 'v1.0')[:20],
+                    ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+                    user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
+                )
+
+        user.refresh_from_db()
+        customer.refresh_from_db()
+        # Guest rows store the local ``01...`` form while the account column is
+        # canonical ``+20...``; check both so the count is not silently zero.
+        guest_count = Request.objects.filter(
+            customer__isnull=True, guest_phone__in={local, phone}
+        ).exclude(status='cancelled').count()
+
+        return Response(
+            {
+                'user': _safe_user(user, profile_complete=True),
+                'profile': _profile_for(user),
+                'guest_orders_count': guest_count,
+                'message': 'تم حفظ بياناتك',
+            }
+        )
+
+
+class GuestOrderLinkView(APIView):
+    """POST /api/customer/guest-orders/link — link one order using its token.
+
+    A phone match alone is not enough: the customer must present the unguessable
+    tracking token from the guest confirmation page.
+    """
+
+    permission_classes = [IsAuthenticated, IsCustomer]
+
+    def post(self, request):
+        throttle(request, 'guest-link', limit=20, window_seconds=3600)
+        from .guest_views import hash_token
+
+        customer = _customer_for(request.user)
+        data = _body(request)
+        token = str(data.get('token') or '').strip()
+        if not token or len(token) < 20:
+            raise bad_request('الصق رابط المتابعة أو الكود اللي وصلك بعد الطلب')
+        if token.startswith('http'):
+            token = token.split('token=', 1)[-1]
+
+        job = Request.objects.filter(guest_token_hash=hash_token(token)).first()
+        if job is None:
+            raise bad_request('رابط المتابعة غير صالح')
+        if job.customer_id is not None:
+            raise bad_request('الطلب ده مرتبط بحساب بالفعل')
+
+        # The account stores ``+2010...`` while a guest order stores the local
+        # ``010...`` form. Compare the canonical local-mobile form, never the
+        # raw string, or a legitimate owner is told the number does not match.
+        guest_local = local_mobile(job.guest_phone)
+        account_locals = {
+            local_mobile(phone)
+            for phone in (request.user.phone, customer.phone)
+            if local_mobile(phone)
+        }
+        if not guest_local or guest_local not in account_locals:
+            raise forbidden('الرقم المسجّل في الطلب مختلف عن رقم حسابك')
+
+        now = utc_now()
+        updated = Request.objects.filter(
+            pk=job.pk, customer__isnull=True
+        ).update(
+            customer_id=customer.pk,
+            guest_token_hash=None,
+            guest_linked_at=now,
+            updated_at=now,
+        )
+        if not updated:
+            raise bad_request('الطلب ده مرتبط بحساب بالفعل')
+
+        job.refresh_from_db()
+        return Response(
+            {
+                'message': 'تم ربط الطلب بحسابك',
+                'request': RequestSerializer(job).data,
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# Technician registration (with private documents)
+# ---------------------------------------------------------------------------
+
+
+class TechnicianRegisterView(APIView):
+    """POST /api/auth/register-technician — multipart onboarding.
+
+    The two identity documents are validated by magic bytes, stored under
+    ``MEDIA_ROOT/technicians/<user id>/`` with random names, and are only ever
+    streamed by the admin-only document endpoint below.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        throttle(request, 'technician-register', limit=10, window_seconds=3600)
+        data = request.data
+
+        name = data.get('name')
+        phone = data.get('phone')
+        email = data.get('email')
+        password = data.get('password')
+        area_key = data.get('area_key')
+        location_text = data.get('location_text')
+
+        if not is_valid_name(name):
+            raise bad_request('الاسم غير صالح (حرفان على الأقل)')
+        local = local_mobile(phone)
+        if not local:
+            raise bad_request('رقم الهاتف غير صالح')
+        if not is_valid_email(email):
+            raise bad_request('البريد الإلكتروني غير صالح')
+        password_problem = password_policy_error(password)
+        if password_problem:
+            raise bad_request(password_problem)
+        if data.get('accept_terms') not in (True, 'true', '1', 1, 'on'):
+            raise bad_request('لازم توافق على الشروط وسياسة الخصوصية')
+        if data.get('sensitive_consent') not in (True, 'true', '1', 1, 'on'):
+            raise bad_request('لازم توافق على معالجة مستندات التحقق')
+
+        try:
+            resolved_location = resolve_location(area_key, location_text)
+        except KeyError:
+            raise bad_request('المنطقة غير صالحة')
+        coordinates = parse_lat_lng(data.get('latitude'), data.get('longitude'))
+        if (
+            data.get('latitude') not in (None, '')
+            or data.get('longitude') not in (None, '')
+        ) and coordinates is None:
+            raise bad_request('إحداثيات الموقع غير صالحة')
+
+        norm_email = normalize_email(email)
+        norm_phone = normalize_phone(local)
+        if User.objects.filter(email=norm_email).exists():
+            raise bad_request('هذا البريد الإلكتروني مسجّل بالفعل')
+        if User.objects.filter(phone=norm_phone).exists():
+            raise bad_request('هذا الرقم مسجّل بالفعل. جرّب تسجيل الدخول.')
+
+        documents = TechnicianDocumentUploadSerializer(data={
+            'criminal_record': request.FILES.get('criminal_record'),
+            'national_id': request.FILES.get('national_id'),
+        })
+        documents.is_valid(raise_exception=True)
+
+        password_hash = hash_password(password)
+        try:
+            with transaction.atomic():
+                user = User.objects.create(
+                    email=norm_email,
+                    phone=norm_phone,
+                    password_hash=password_hash,
+                    role='technician',
+                )
+                technician = Technician.objects.create(
+                    user=user,
+                    name=name.strip(),
+                    phone=norm_phone,
+                    specialty='dish_general',
+                    location_text=resolved_location,
+                    latitude=coordinates[0] if coordinates else None,
+                    longitude=coordinates[1] if coordinates else None,
+                    approval_status='pending',
+                    availability='offline',
+                )
+                Consent.objects.create(
+                    user=user,
+                    consent_type='terms_privacy_sensitive_documents',
+                    policy_version=str(data.get('policy_version') or 'v1.0')[:20],
+                    ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+                    user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
+                )
+        except IntegrityError:
+            raise bad_request('هذا البريد الإلكتروني أو رقم الهاتف مسجّل بالفعل')
+
+        # Save documents after the row exists so the directory can be named by
+        # the account id. A failed validation above already stopped us.
+        from .upload_validators import validate_document_upload
+
+        saved = {}
+        try:
+            for field, upload in (
+                ('criminal_record', request.FILES.get('criminal_record')),
+                ('national_id', request.FILES.get('national_id')),
+            ):
+                mime = validate_document_upload(upload)
+                saved[field] = save_private_upload(
+                    upload, f'technicians/user-{user.pk}', mime
+                )
+            Technician.objects.filter(pk=technician.pk).update(
+                criminal_record_path=saved.get('criminal_record'),
+                national_id_path=saved.get('national_id'),
+            )
+        except DjangoValidationError as exc:
+            # Do not leave a half-onboarded account without its documents.
+            User.objects.filter(pk=user.pk).delete()
+            raise bad_request(exc.messages[0] if exc.messages else 'المستند غير صالح')
+
+        return Response(
+            {
+                'message': 'تم استلام طلبك — قيد المراجعة',
+                'status': 'pending',
+            },
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -832,6 +1137,136 @@ class AdminTechnicianVerifyView(APIView):
                 'technician': _admin_technician_payload(technician.pk),
             }
         )
+
+
+class AdminTechnicianDetailView(APIView):
+    """GET /api/admin/technicians/<id> — profile plus recent requests."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request, pk):
+        row = _admin_technician_payload(pk)
+        if row is None:
+            raise ApiError('الفني غير موجود', status.HTTP_404_NOT_FOUND)
+        recent = (
+            Request.objects.filter(technician_id=pk)
+            .select_related('customer', 'technician')
+            .order_by('-created_at', '-id')[:5]
+        )
+        return Response(
+            {
+                'technician': row,
+                'recentRequests': RequestSerializer(recent, many=True).data,
+            }
+        )
+
+
+class AdminTechnicianApproveView(APIView):
+    """POST /api/admin/technicians/<id>/approve — activate a reviewed account."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        technician = Technician.objects.filter(pk=pk).first()
+        if technician is None:
+            raise ApiError('الفني غير موجود', status.HTTP_404_NOT_FOUND)
+        if not technician.national_id_path or not technician.criminal_record_path:
+            raise bad_request('مينفعش نعتمد الفني قبل رفع البطاقة والفيش الجنائي')
+        Technician.objects.filter(pk=pk).update(
+            approval_status='approved',
+            approval_note=None,
+            approved_at=utc_now(),
+            approved_by=request.user.pk,
+            availability='available',
+            documents_verified=True,
+        )
+        technician.refresh_from_db()
+        return Response(
+            {
+                'message': 'تم اعتماد الفني وتفعيل حسابه',
+                'technician': _admin_technician_payload(pk),
+            }
+        )
+
+
+class AdminTechnicianRejectView(APIView):
+    """POST /api/admin/technicians/<id>/reject — refuse onboarding with a note."""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        technician = Technician.objects.filter(pk=pk).first()
+        if technician is None:
+            raise ApiError('الفني غير موجود', status.HTTP_404_NOT_FOUND)
+        note = str(_body(request).get('note') or '').strip()[:1000]
+        Technician.objects.filter(pk=pk).update(
+            approval_status='rejected',
+            approval_note=note or None,
+            availability='offline',
+            documents_verified=False,
+        )
+        technician.refresh_from_db()
+        return Response(
+            {
+                'message': 'تم رفض طلب الفني',
+                'technician': _admin_technician_payload(pk),
+            }
+        )
+
+
+class AdminTechnicianDocumentView(APIView):
+    """GET /api/admin/technicians/<id>/document/<type> — private document stream.
+
+    This is the ONLY route that can return a national ID or criminal record.
+    The files live under ``MEDIA_ROOT`` with no ``MEDIA_URL`` route, and the
+    path is re-resolved and checked so a tampered database value cannot escape
+    the uploads directory.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    DOCUMENT_FIELDS = {
+        'national_id': 'national_id_path',
+        'criminal_record': 'criminal_record_path',
+    }
+
+    def get(self, request, pk, doc_type):
+        if doc_type not in self.DOCUMENT_FIELDS:
+            raise Http404('المستند غير موجود')
+        technician = Technician.objects.filter(pk=pk).values(
+            self.DOCUMENT_FIELDS[doc_type]
+        ).first()
+        if not technician:
+            raise Http404('الفني غير موجود')
+        stored = technician.get(self.DOCUMENT_FIELDS[doc_type])
+        if not stored:
+            raise Http404('المستند غير موجود')
+
+        relative = str(stored).replace('\\', '/').lstrip('/')
+        if relative.startswith('uploads/'):
+            relative = relative[len('uploads/'):]
+        root = Path(settings.MEDIA_ROOT).resolve()
+        target = (root / relative).resolve()
+        try:
+            target.relative_to(root)
+        except ValueError:
+            raise Http404('المستند غير موجود')
+        # Only the two private document trees are ever served here; a database
+        # row pointing at a profile image must not be readable through this
+        # admin endpoint either.
+        if 'technicians/profiles/' in target.as_posix() or 'technicians/portfolio/' in target.as_posix():
+            raise Http404('المستند غير موجود')
+        if not target.is_file():
+            raise Http404('المستند غير موجود')
+
+        detected = magic.from_file(str(target), mime=True)
+        if detected not in ('image/jpeg', 'image/png', 'application/pdf'):
+            raise Http404('المستند غير موجود')
+        response = FileResponse(open(target, 'rb'), content_type=detected)
+        response['Content-Disposition'] = f'inline; filename="{doc_type}"'
+        response['Cache-Control'] = 'private, no-store'
+        response['X-Content-Type-Options'] = 'nosniff'
+        return response
 
 
 class AdminCustomerListView(APIView):

@@ -72,7 +72,13 @@ ALEXANDRIA_AREAS = [
     {'key': 'max', 'label': 'المكس'},
     {'key': 'qabari', 'label': 'القباري'},
     {'key': 'borg_el_arab', 'label': 'برج العرب'},
+    {'key': 'miami', 'label': 'ميامي'},
+    {'key': 'wardian', 'label': 'الورديان'},
 ]
+
+# Egyptian mobile prefixes accepted by the public/guest form: 010, 011, 012, 015
+# followed by 8 digits (11 digits in total).
+EGYPT_MOBILE_RE = re.compile(r'^01[0125]\d{8}$')
 
 AREAS_BY_KEY = {area['key']: area for area in ALEXANDRIA_AREAS}
 
@@ -119,6 +125,26 @@ def is_valid_email(value):
 
 def is_valid_phone(value):
     return isinstance(value, str) and bool(PHONE_RE.fullmatch(value.strip()))
+
+
+def is_egypt_mobile(value):
+    """True for a local Egyptian mobile number: 010/011/012/015 + 8 digits."""
+    return isinstance(value, str) and bool(EGYPT_MOBILE_RE.fullmatch(value.strip()))
+
+
+def local_mobile(value):
+    """Return a local ``01xxxxxxxxx`` form for a valid Egyptian mobile.
+
+    Accepts ``+2010...`` and ``002010...`` as well, so a number typed with a
+    country code is not rejected as invalid while still being stored in one
+    canonical shape. Returns ``''`` when the value is not a mobile number.
+    """
+    digits = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if digits.startswith('0020'):
+        digits = digits[2:]
+    if digits.startswith('20') and len(digits) == 12:
+        digits = '0' + digits[2:]
+    return digits if EGYPT_MOBILE_RE.fullmatch(digits) else ''
 
 
 def is_valid_name(value):
