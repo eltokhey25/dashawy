@@ -17,6 +17,7 @@ import shutil
 import tempfile
 from datetime import timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from django.conf import settings
 from django.core.cache import cache
@@ -878,6 +879,18 @@ class StartPinTests(APITestCase):
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         return detail.json()['request']['start_pin']
 
+    def assert_no_start_pin(self, payload, path='response'):
+        """Fail if ``start_pin`` is used as a key anywhere in ``payload``."""
+        if isinstance(payload, dict):
+            self.assertNotIn(
+                'start_pin', payload, f'start_pin leaked at {path}'
+            )
+            for key, value in payload.items():
+                self.assert_no_start_pin(value, f'{path}.{key}')
+        elif isinstance(payload, (list, tuple)):
+            for index, value in enumerate(payload):
+                self.assert_no_start_pin(value, f'{path}[{index}]')
+
     def test_logged_in_customer_receives_a_four_digit_code(self):
         job = self.create_customer_job()
         self.assertRegex(job['start_pin'], r'^\d{4}$')
@@ -1018,9 +1031,93 @@ class StartPinTests(APITestCase):
         )
         self.assertEqual(ok.status_code, status.HTTP_200_OK)
 
-    def test_technician_payload_never_contains_the_code(self):
+    def test_technician_list_never_contains_the_code_at_any_depth(self):
         self.create_customer_job()
         self.client.force_authenticate(user=self.tech_user)
         response = self.client.get('/api/technician/requests')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotIn('start_pin', response.json()['requests'][0])
+        self.assertEqual(len(response.json()['requests']), 1)
+        self.assert_no_start_pin(response.json())
+
+    def test_technician_start_never_contains_the_code_at_any_depth(self):
+        job = self.create_customer_job()
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{job['id']}/start",
+            {'pin': job['start_pin']},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['request']['status'], 'in_progress')
+        self.assert_no_start_pin(response.json())
+
+    def test_technician_accept_never_contains_the_code_at_any_depth(self):
+        job = self.create_customer_job()
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{job['id']}/accept",
+            {'pin': job['start_pin']},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['request']['status'], 'in_progress')
+        self.assert_no_start_pin(response.json())
+
+    def test_reject_and_reassign_never_contains_the_code_at_any_depth(self):
+        second_user = User.objects.create(
+            email='pin-tech-2@example.com',
+            phone='+201000000125',
+            password_hash=hash_password(PASSWORD),
+            role='technician',
+        )
+        second = Technician.objects.create(
+            user=second_user,
+            name='فني الكود التاني',
+            phone='+201000000125',
+            specialty='dish_install',
+            availability='available',
+            approval_status='approved',
+            location_text='العجمي',
+            latitude=31.1000,
+            longitude=29.8000,
+        )
+
+        job = self.create_customer_job()
+        stored = Request.objects.get(pk=job['id'])
+        self.assertEqual(stored.technician_id, self.technician.pk)
+        old_pin = stored.start_pin
+        self.assertRegex(old_pin, r'^\d{4}$')
+
+        # Make the new code deterministic so the "fresh PIN" assertion cannot
+        # fail on the (rare) random collision with the old code.
+        fresh_pin = '0000' if old_pin != '0000' else '1111'
+        self.client.force_authenticate(user=self.tech_user)
+        with patch(
+            'core.services.assignment.generate_start_pin',
+            return_value=fresh_pin,
+        ):
+            response = self.client.post(
+                f"/api/technician/requests/{job['id']}/reject"
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assert_no_start_pin(response.json())
+
+        body = response.json()
+        self.assertTrue(body['reassigned'])
+        self.assertEqual(body['assignment']['technician_id'], second.pk)
+        self.assertEqual(body['request']['technician_id'], second.pk)
+
+        stored.refresh_from_db()
+        self.assertEqual(stored.status, 'assigned')
+        self.assertEqual(stored.technician_id, second.pk)
+        self.assertEqual(stored.start_pin, fresh_pin)
+        self.assertNotEqual(stored.start_pin, old_pin)
+
+        # The new assignee sees the job, still without the customer's code.
+        self.client.force_authenticate(user=second_user)
+        listing = self.client.get('/api/technician/requests')
+        self.assertEqual(listing.status_code, status.HTTP_200_OK)
+        self.assert_no_start_pin(listing.json())
+        self.assertEqual(
+            [row['id'] for row in listing.json()['requests']],
+            [job['id']],
+        )
