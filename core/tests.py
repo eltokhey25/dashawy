@@ -215,6 +215,7 @@ class AuthApiTests(APITestCase):
                 'location_text': '12 Test Street',
                 'latitude': 31.2156,
                 'longitude': 29.9553,
+                'accept_terms': True,
             },
             format='json',
         )
@@ -235,6 +236,7 @@ class AuthApiTests(APITestCase):
                 'phone': '01099996666',
                 'email': 'taken@example.com',
                 'password': PASSWORD,
+                'accept_terms': True,
             },
             format='json',
         )
@@ -245,6 +247,7 @@ class AuthApiTests(APITestCase):
                 'phone': '01099995555',
                 'email': 'weak@example.com',
                 'password': 'short',
+                'accept_terms': True,
             },
             format='json',
         )
@@ -260,6 +263,7 @@ class AuthApiTests(APITestCase):
                 'phone': '01099994444',
                 'email': 'common@example.com',
                 'password': 'password1',
+                'accept_terms': True,
             },
             format='json',
         )
@@ -270,6 +274,7 @@ class AuthApiTests(APITestCase):
                 'phone': '01099993333',
                 'email': 'newcustomer@example.com',
                 'password': 'NewCustomer123',
+                'accept_terms': True,
             },
             format='json',
         )

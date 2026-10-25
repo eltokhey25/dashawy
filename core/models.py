@@ -287,6 +287,12 @@ class Request(models.Model):
         db_column='customer_id',
         related_name='requests',
         db_index=False,
+        null=True,
+        blank=True,
+        help_text=(
+            'NULL for a guest order. Guest orders carry their own name/phone '
+            'and a hashed tracking token instead of an account.'
+        ),
     )
     technician = models.ForeignKey(
         Technician,
@@ -371,6 +377,21 @@ class Request(models.Model):
 
     customer_latitude_updated_at = models.DateTimeField(null=True, blank=True)
 
+    # ------------------------------------------------------------------
+    # Guest ordering (no account required)
+    # ------------------------------------------------------------------
+    # ``guest_token_hash`` stores only a SHA-256 digest. The raw token is shown
+    # once to the guest in the tracking link and is long/random enough that IDs
+    # cannot be enumerated.
+    guest_name = models.CharField(max_length=255, null=True, blank=True)
+    guest_phone = models.CharField(max_length=32, null=True, blank=True)
+    guest_token_hash = models.CharField(
+        max_length=128, null=True, blank=True, db_index=True
+    )
+    guest_token_created_at = models.DateTimeField(null=True, blank=True)
+    guest_linked_at = models.DateTimeField(null=True, blank=True)
+    order_photo_path = models.CharField(max_length=500, null=True, blank=True)
+
     class Meta:
         db_table = 'requests'
         indexes = [
@@ -390,6 +411,48 @@ class Request(models.Model):
 
     def __str__(self):
         return f'Request #{self.pk} ({self.status})'
+
+    @property
+    def is_guest(self):
+        return self.customer_id is None
+
+    @property
+    def display_customer_name(self):
+        if self.customer_id and self.customer:
+            return self.customer.name
+        return self.guest_name or ''
+
+    @property
+    def display_customer_phone(self):
+        if self.customer_id and self.customer:
+            return self.customer.phone or ''
+        return self.guest_phone or ''
+
+    @property
+    def display_location(self):
+        if self.customer_id and self.customer:
+            return self.customer.location_text or self.location_text or ''
+        return self.location_text or ''
+
+
+class GuestSubmissionLog(models.Model):
+    """One guest-order attempt, kept for IP/phone rate limiting and abuse review.
+
+    The row deliberately stores no form content: the phone is kept because the
+    per-phone limit needs it, and it is removed by the retention task together
+    with the guest order.
+    """
+
+    id = models.AutoField(primary_key=True)
+    ip_address = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+    phone = models.CharField(max_length=32, null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(default=utc_now, db_index=True)
+
+    class Meta:
+        db_table = 'guest_submission_logs'
+
+    def __str__(self):
+        return f'{self.phone or "?"} @ {self.created_at}'
 
 
 class RequestBroadcast(models.Model):
