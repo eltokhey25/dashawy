@@ -98,6 +98,7 @@ def guest_payload(job: Request, include_photo=True) -> dict:
             else None
         ),
         'price': price_status(job),
+        'start_pin': job.start_pin if job.status == 'assigned' else None,
         'has_photo': bool(job.order_photo_path),
         'can_cancel': job.status in ('pending', 'no_technician', 'assigned'),
         'tracking_url': None,

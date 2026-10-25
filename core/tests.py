@@ -439,7 +439,26 @@ class RequestApiTests(APITestCase):
         self.assertEqual(jobs[0]['id'], created['id'])
         self.assertNotIn('start_pin', jobs[0])
 
-    def test_technician_accepts_job(self):
+    def test_technician_accepts_job_with_arrival_code(self):
+        self.authenticate(self.customer_user)
+        created = self.create_request().json()['request']
+        pin = created['start_pin']
+        self.assertRegex(pin, r'^\d{4}$')
+
+        self.authenticate(self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{created['id']}/accept", {'pin': pin}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['request']['status'], 'in_progress')
+        self.assertNotIn('start_pin', response.json()['request'])
+
+        job = Request.objects.get(pk=created['id'])
+        self.assertEqual(job.status, 'in_progress')
+        self.assertIsNotNone(job.started_at)
+        self.assertIsNone(job.start_pin)
+
+    def test_technician_accept_without_arrival_code_is_rejected(self):
         self.authenticate(self.customer_user)
         created = self.create_request().json()['request']
 
@@ -447,12 +466,10 @@ class RequestApiTests(APITestCase):
         response = self.client.post(
             f"/api/technician/requests/{created['id']}/accept"
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()['request']['status'], 'in_progress')
-
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         job = Request.objects.get(pk=created['id'])
-        self.assertEqual(job.status, 'in_progress')
-        self.assertIsNotNone(job.started_at)
+        self.assertEqual(job.status, 'assigned')
+        self.assertIsNone(job.started_at)
 
     def test_technician_cannot_act_on_another_technicians_job(self):
         self.authenticate(self.customer_user)

@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 import shutil
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 
 from django.conf import settings
@@ -807,3 +808,219 @@ class ConfigAndProxyTests(APITestCase):
             }
         )
         self.assertEqual(client_ip(request), '198.51.100.7')
+
+
+class StartPinTests(APITestCase):
+    """The customer-held four-digit code that gates ``in_progress``."""
+
+    def setUp(self):
+        cache.clear()
+        Specialty.objects.create(key='dish_install', label='تركيب دش')
+        self.customer_user = User.objects.create(
+            email='pin-customer@example.com',
+            phone='+201000000123',
+            password_hash=hash_password(PASSWORD),
+            role='customer',
+        )
+        Customer.objects.create(
+            user=self.customer_user,
+            name='عميل الكود',
+            phone='+201000000123',
+            location_text='سموحة',
+            latitude=31.2156,
+            longitude=29.9553,
+        )
+        self.tech_user = User.objects.create(
+            email='pin-tech@example.com',
+            phone='+201000000124',
+            password_hash=hash_password(PASSWORD),
+            role='technician',
+        )
+        self.technician = Technician.objects.create(
+            user=self.tech_user,
+            name='فني الكود',
+            phone='+201000000124',
+            specialty='dish_install',
+            availability='available',
+            approval_status='approved',
+            location_text='سموحة',
+            latitude=31.2160,
+            longitude=29.9560,
+        )
+
+    def create_customer_job(self):
+        self.client.force_authenticate(user=self.customer_user)
+        response = self.client.post(
+            '/api/customer/requests',
+            {
+                'specialty': 'dish_install',
+                'description': 'الطبق وقع',
+                'location_text': 'شارع الاختبار',
+                'latitude': 31.2156,
+                'longitude': 29.9553,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return response.json()['request']
+
+    def create_guest_job(self):
+        self.client.force_authenticate(user=None)
+        response = self.client.post(
+            '/api/guest/requests', guest_payload(), format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return response.json()
+
+    def guest_pin(self, token):
+        self.client.force_authenticate(user=None)
+        detail = self.client.get('/api/guest/requests/' + token)
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        return detail.json()['request']['start_pin']
+
+    def test_logged_in_customer_receives_a_four_digit_code(self):
+        job = self.create_customer_job()
+        self.assertRegex(job['start_pin'], r'^\d{4}$')
+        stored = Request.objects.get(pk=job['id'])
+        self.assertEqual(stored.start_pin, job['start_pin'])
+        self.assertEqual(stored.status, 'assigned')
+
+    def test_guest_tracking_shows_the_code(self):
+        created = self.create_guest_job()
+        pin = created['request']['start_pin']
+        self.assertRegex(pin, r'^\d{4}$')
+        self.assertEqual(self.guest_pin(created['tracking_token']), pin)
+
+    def test_guest_order_can_be_started_by_the_assigned_technician(self):
+        created = self.create_guest_job()
+        job_id = created['request']['id']
+        pin = self.guest_pin(created['tracking_token'])
+
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.post(
+            f'/api/technician/requests/{job_id}/start', {'pin': pin}
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['request']['status'], 'in_progress')
+
+        job = Request.objects.get(pk=job_id)
+        self.assertEqual(job.status, 'in_progress')
+        self.assertIsNotNone(job.started_at)
+        self.assertIsNone(job.start_pin)
+
+        self.client.force_authenticate(user=None)
+        tracked = self.client.get(
+            '/api/guest/requests/' + created['tracking_token']
+        ).json()['request']
+        self.assertEqual(tracked['status'], 'in_progress')
+        self.assertIsNone(tracked['start_pin'])
+
+    def test_wrong_code_does_not_start_the_job(self):
+        job = self.create_customer_job()
+        wrong = '9999' if job['start_pin'] != '9999' else '0000'
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{job['id']}/start", {'pin': wrong}
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        stored = Request.objects.get(pk=job['id'])
+        self.assertEqual(stored.status, 'assigned')
+        self.assertIsNone(stored.started_at)
+        self.assertEqual(stored.start_pin_attempts, 1)
+
+    def test_five_wrong_codes_lock_the_code(self):
+        job = self.create_customer_job()
+        wrong = '9999' if job['start_pin'] != '9999' else '0000'
+        self.client.force_authenticate(user=self.tech_user)
+
+        for attempt in range(4):
+            response = self.client.post(
+                f"/api/technician/requests/{job['id']}/start", {'pin': wrong}
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertEqual(
+                Request.objects.get(pk=job['id']).start_pin_attempts, attempt + 1
+            )
+
+        locked = self.client.post(
+            f"/api/technician/requests/{job['id']}/start", {'pin': wrong}
+        )
+        self.assertEqual(locked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        stored = Request.objects.get(pk=job['id'])
+        self.assertIsNotNone(stored.start_pin_locked_until)
+        self.assertEqual(stored.status, 'assigned')
+
+        # Even the right code is refused while the lock is active.
+        correct = self.client.post(
+            f"/api/technician/requests/{job['id']}/start",
+            {'pin': job['start_pin']},
+        )
+        self.assertEqual(correct.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertEqual(Request.objects.get(pk=job['id']).status, 'assigned')
+
+    def test_expired_lock_resets_the_attempt_counter(self):
+        job = self.create_customer_job()
+        Request.objects.filter(pk=job['id']).update(
+            start_pin_attempts=5,
+            start_pin_locked_until=utc_now() - timedelta(minutes=1),
+        )
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{job['id']}/start",
+            {'pin': job['start_pin']},
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        stored = Request.objects.get(pk=job['id'])
+        self.assertEqual(stored.status, 'in_progress')
+        self.assertEqual(stored.start_pin_attempts, 0)
+        self.assertIsNone(stored.start_pin_locked_until)
+
+    def test_accept_route_cannot_skip_the_code(self):
+        job = self.create_customer_job()
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.post(
+            f"/api/technician/requests/{job['id']}/accept"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        stored = Request.objects.get(pk=job['id'])
+        self.assertEqual(stored.status, 'assigned')
+        self.assertIsNone(stored.started_at)
+
+    def test_code_is_single_use(self):
+        job = self.create_customer_job()
+        self.client.force_authenticate(user=self.tech_user)
+        first = self.client.post(
+            f"/api/technician/requests/{job['id']}/start",
+            {'pin': job['start_pin']},
+        )
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        second = self.client.post(
+            f"/api/technician/requests/{job['id']}/start",
+            {'pin': job['start_pin']},
+        )
+        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_assigned_job_without_a_stored_code_gets_one_on_first_attempt(self):
+        job = self.create_customer_job()
+        Request.objects.filter(pk=job['id']).update(
+            start_pin=None, start_pin_attempts=0
+        )
+        self.client.force_authenticate(user=self.tech_user)
+        wrong = self.client.post(
+            f"/api/technician/requests/{job['id']}/start", {'pin': '9999'}
+        )
+        self.assertEqual(wrong.status_code, status.HTTP_400_BAD_REQUEST)
+        stored = Request.objects.get(pk=job['id'])
+        self.assertRegex(stored.start_pin, r'^\d{4}$')
+        ok = self.client.post(
+            f"/api/technician/requests/{job['id']}/start",
+            {'pin': stored.start_pin},
+        )
+        self.assertEqual(ok.status_code, status.HTTP_200_OK)
+
+    def test_technician_payload_never_contains_the_code(self):
+        self.create_customer_job()
+        self.client.force_authenticate(user=self.tech_user)
+        response = self.client.get('/api/technician/requests')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('start_pin', response.json()['requests'][0])

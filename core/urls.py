@@ -41,6 +41,7 @@ from .views import (
     TechnicianRequestAcceptView,
     TechnicianRequestListView,
     TechnicianRequestRejectView,
+    TechnicianRequestStartView,
 )
 
 # The trailing slash is optional because the existing frontend calls these
@@ -114,6 +115,11 @@ urlpatterns = [
         r'^technician/requests/?$',
         TechnicianRequestListView.as_view(),
         name='technician-requests',
+    ),
+    re_path(
+        r'^technician/requests/(?P<pk>\d+)/start/?$',
+        TechnicianRequestStartView.as_view(),
+        name='technician-request-start',
     ),
     re_path(
         r'^technician/requests/(?P<pk>\d+)/accept/?$',

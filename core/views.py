@@ -13,7 +13,9 @@ frontend was written against: the browser expects ``token`` (not SimpleJWT's
 """
 
 import json
+import math
 import re
+import secrets
 from datetime import timedelta
 from pathlib import Path
 
@@ -24,7 +26,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count
+from django.db.models import Count, F, Q
 from django.http import FileResponse, Http404
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -53,6 +55,13 @@ from .serializers import (
     TechnicianRequestSerializer,
 )
 from .services.assignment import assign_technician, reassign_after_rejection
+from .services.start_pin import (
+    START_PIN_ATTEMPTS,
+    START_PIN_LENGTH,
+    START_PIN_LOCK_MINUTES,
+    generate_start_pin,
+    start_pin_lock_until,
+)
 from .services.pricing import quote_for
 from .tokens import DashawyRefreshToken
 from .upload_validators import save_private_upload
@@ -613,33 +622,113 @@ class TechnicianRequestListView(APIView):
         )
 
 
-class TechnicianRequestAcceptView(APIView):
-    """POST /api/technician/requests/<id>/accept — start the job."""
+def _start_job_with_pin(request, pk):
+    """Move an assigned job to ``in_progress`` after checking the door code.
+
+    This is the **only** status transition into ``in_progress``. The assigned
+    technician must submit the four-digit code the customer received; wrong
+    guesses increment ``start_pin_attempts`` and lock the code after
+    ``START_PIN_ATTEMPTS`` failures for ``START_PIN_LOCK_MINUTES``.
+    """
+    technician = _technician_for(request.user)
+    job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
+    if job is None:
+        raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
+    if job.status != 'assigned':
+        raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
+
+    # Rows assigned before this flow existed have no code yet. Generating one
+    # lazily keeps those jobs startable instead of permanently stuck.
+    if not job.start_pin:
+        Request.objects.filter(
+            Q(start_pin__isnull=True) | Q(start_pin=''), pk=job.pk
+        ).update(start_pin=generate_start_pin())
+        job.refresh_from_db(fields=['start_pin'])
+
+    now = utc_now()
+    if job.start_pin_locked_until and job.start_pin_locked_until > now:
+        minutes = max(
+            1, math.ceil((job.start_pin_locked_until - now).total_seconds() / 60)
+        )
+        raise ApiError(
+            f'المحاولات مقفلة. حاول تاني بعد {minutes} دقيقة',
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+    if job.start_pin_locked_until:
+        # The lock has expired; start the technician with a clean counter.
+        Request.objects.filter(pk=job.pk).update(
+            start_pin_attempts=0, start_pin_locked_until=None
+        )
+        job.start_pin_attempts = 0
+        job.start_pin_locked_until = None
+
+    submitted = str(_body(request).get('pin') or '').strip()
+    valid_shape = re.fullmatch(r'\d{%d}' % START_PIN_LENGTH, submitted) is not None
+    if not valid_shape or not secrets.compare_digest(
+        submitted, job.start_pin or ''
+    ):
+        Request.objects.filter(pk=job.pk).update(
+            start_pin_attempts=F('start_pin_attempts') + 1
+        )
+        job.refresh_from_db(fields=['start_pin_attempts'])
+        if job.start_pin_attempts >= START_PIN_ATTEMPTS:
+            Request.objects.filter(pk=job.pk).update(
+                start_pin_locked_until=start_pin_lock_until(now)
+            )
+            raise ApiError(
+                'محاولات كتير غلط. الكود مقفول لمدة '
+                f'{START_PIN_LOCK_MINUTES} دقيقة',
+                status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        remaining = START_PIN_ATTEMPTS - job.start_pin_attempts
+        label = 'محاولة واحدة' if remaining == 1 else f'{remaining} محاولات'
+        raise ApiError(
+            f'الكود غلط. باقي لك {label}', status.HTTP_400_BAD_REQUEST
+        )
+
+    claimed = Request.objects.filter(
+        pk=job.pk, technician_id=technician.pk, status='assigned'
+    ).update(
+        status='in_progress',
+        started_at=now,
+        updated_at=now,
+        # Single use: once the job starts the code is no longer a valid way in.
+        start_pin=None,
+        start_pin_attempts=0,
+        start_pin_locked_until=None,
+    )
+    if not claimed:
+        raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
+
+    job.refresh_from_db()
+    return Response(
+        {
+            'message': 'تم بدء تنفيذ الطلب',
+            'request': TechnicianRequestSerializer(job).data,
+        }
+    )
+
+
+class TechnicianRequestStartView(APIView):
+    """POST /api/technician/requests/<id>/start — verify the customer's code."""
 
     permission_classes = [IsAuthenticated, IsTechnician]
 
     def post(self, request, pk):
-        technician = _technician_for(request.user)
-        job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
-        if job is None:
-            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
-        if job.status != 'assigned':
-            raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
+        return _start_job_with_pin(request, pk)
 
-        now = utc_now()
-        claimed = Request.objects.filter(
-            pk=job.pk, technician_id=technician.pk, status='assigned'
-        ).update(status='in_progress', started_at=now, updated_at=now)
-        if not claimed:
-            raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
 
-        job.refresh_from_db()
-        return Response(
-            {
-                'message': 'تم بدء تنفيذ الطلب',
-                'request': TechnicianRequestSerializer(job).data,
-            }
-        )
+class TechnicianRequestAcceptView(APIView):
+    """Deprecated alias for ``/start``; still requires the arrival code.
+
+    Kept so an older client that calls ``/accept`` is not silently bypassing
+    the gate: without a valid ``pin`` it is rejected like any other attempt.
+    """
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def post(self, request, pk):
+        return _start_job_with_pin(request, pk)
 
 
 class TechnicianRequestRejectView(APIView):

@@ -399,6 +399,27 @@
           ])
         );
 
+        // Doorstep arrival code: the customer reads it to the technician so the
+        // job can only start with their consent. It is shown while assigned.
+        if (r.start_pin && r.status === 'assigned') {
+          card.appendChild(
+            Ui.el('div', { class: 'start-pin-card' }, [
+              Ui.el('div', { class: 'spc-label' }, [
+                Ui.ic('fa-solid fa-lock'),
+                ' الرقم السري لبدء المهمة',
+              ]),
+              Ui.el('div', { class: 'spc-digits' }, [
+                ...String(r.start_pin)
+                  .split('')
+                  .map((d) => Ui.el('span', { class: 'spc-digit' }, [d])),
+              ]),
+              Ui.el('p', { class: 'spc-hint' }, [
+                'اطلب هذا الرقم من الفني عند وصوله ليبدأ المهمة',
+              ]),
+            ])
+          );
+        }
+
         // The badge now says "لا يوجد فني متاح", which tells the customer the state
         // but not what happens next. One line of plain Arabic, because a request
         // that silently sits here is exactly the dead end this feature is meant to

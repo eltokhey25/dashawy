@@ -976,7 +976,12 @@
                   // tapping a code that is already refused.
                   const job = activeList.find((r) => String(r.id) === String(requestId));
                   if (job && job.start_pin_locked_until) {
-                    const until = new Date(String(job.start_pin_locked_until));
+                    // The API returns naive UTC as 'YYYY-MM-DD HH:MM:SS'; make it
+                    // an ISO timestamp so Safari parses it too.
+                    const raw = String(job.start_pin_locked_until).trim();
+                    const until = new Date(
+                      /[TZ]/.test(raw) ? raw : raw.replace(' ', 'T') + 'Z'
+                    );
                     if (!Number.isNaN(until.getTime()) && until > new Date()) {
                       const mins = Math.max(1, Math.ceil((until - new Date()) / 60000));
                       toast('المحاولات مقفلة لمدة ' + mins + ' دقيقة', 'warn');
