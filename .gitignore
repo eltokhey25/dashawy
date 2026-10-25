@@ -46,6 +46,9 @@ uploads/
 # Legacy/alternate data locations
 data/
 
+# Database backups written by scripts/backup.sh
+backups/
+
 # ---------- Logs ----------
 *.log
 
