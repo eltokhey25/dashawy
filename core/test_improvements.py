@@ -342,6 +342,26 @@ class ConsentTests(APITestCase):
         self.assertEqual(consent.policy_version, 'v1.0')
         self.assertIsNotNone(consent.ip_address)
 
+    def test_unknown_consent_type_is_rejected(self):
+        self.client.post(
+            '/api/auth/register', self.registration_body(), format='json'
+        )
+        login = self.client.post(
+            '/api/auth/login',
+            {'identifier': 'new-customer@example.com', 'password': 'StrongPass123'},
+            format='json',
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION='Bearer ' + login.json()['token']
+        )
+        response = self.client.post(
+            '/api/consent',
+            {'consent_type': 'anything_goes', 'policy_version': 'v1.0'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Consent.objects.filter(user__email='new-customer@example.com').count(), 1)
+
 
 class PublicDataTests(APITestCase):
     def setUp(self):

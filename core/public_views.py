@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .exceptions import bad_request
+from .ratelimit import client_ip, throttle
 from .models import (
     Consent,
     Request,
@@ -296,16 +297,26 @@ class PublicReviewsView(APIView):
         return _public_cache(Response({'reviews': reviews, 'count': len(reviews)}))
 
 
+CONSENT_TYPES = frozenset(
+    {
+        'privacy_policy',
+        'terms_and_privacy',
+        'terms_privacy_sensitive_documents',
+    }
+)
+
+
 class ConsentView(APIView):
     """POST /api/consent — record an explicit consent for a signed-in account."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        throttle(request, 'consent', limit=20, window_seconds=3600)
         data = request.data if hasattr(request.data, 'get') else {}
         consent_type = str(data.get('consent_type') or '').strip()
         policy_version = str(data.get('policy_version') or 'v1.0').strip()
-        if not consent_type or len(consent_type) > 100:
+        if consent_type not in CONSENT_TYPES:
             raise bad_request('نوع الموافقة غير صالح')
         if len(policy_version) > 20:
             raise bad_request('نسخة السياسة غير صالحة')
@@ -314,7 +325,7 @@ class ConsentView(APIView):
             user_id=request.user.pk,
             consent_type=consent_type,
             policy_version=policy_version,
-            ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+            ip_address=client_ip(request),
             user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
         )
         return Response({'message': 'تم تسجيل الموافقة'}, status=201)
