@@ -78,6 +78,13 @@
         return false;
       }
 
+      // A temporary password issued by another administrator must be replaced
+      // before any admin screen (or its API calls) can be used.
+      if (u.must_change_password) {
+        window.location.replace('/change-password');
+        return false;
+      }
+
       // 4. /admin/admins requires super_admin
       if (window.location.pathname.startsWith('/admin/admins')) {
         if (!u.is_super_admin) {

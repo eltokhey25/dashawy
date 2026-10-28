@@ -13,6 +13,7 @@ from rest_framework_simplejwt.settings import api_settings
 
 from .exceptions import unauthorized
 from .models import User
+from .tokens import PASSWORD_FINGERPRINT_CLAIM, password_fingerprint
 
 
 class DashawyJWTAuthentication(JWTAuthentication):
@@ -33,5 +34,17 @@ class DashawyJWTAuthentication(JWTAuthentication):
 
         if user.blocked:
             raise unauthorized('تم إيقاف حسابك. تواصل مع الإدارة.')
+
+        # A password reset (or a voluntary password change) rotates the hash;
+        # tokens carrying the previous fingerprint must stop working even
+        # though their signature and expiry are still valid. Tokens minted
+        # before this claim existed are refused for the same reason.
+        if validated_token.get(PASSWORD_FINGERPRINT_CLAIM) != password_fingerprint(
+            user
+        ):
+            raise AuthenticationFailed(
+                'انتهت صلاحية الجلسة بعد تغيير كلمة المرور. سجّل الدخول من جديد.',
+                code='password_changed',
+            )
 
         return user

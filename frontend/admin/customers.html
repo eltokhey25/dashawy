@@ -187,7 +187,7 @@
               Ui.el('button', { class: 'btn btn-ghost btn-sm', attrs: { 'data-view': c.id } }, [Ui.ic('fa-regular fa-eye'), 'طلباته']),
               Ui.el('button', {
                 class: 'btn btn-icon btn-soft',
-                attrs: { 'data-reset-pwd': c.id, title: 'إعادة تعيين كلمة المرور' }
+                attrs: { 'data-reset-pwd': c.user_id, title: 'إعادة تعيين كلمة المرور' }
               }, [Ui.ic('fa-solid fa-key')])
             ])])
           ]));
@@ -229,61 +229,85 @@
       document.getElementById('tbody').addEventListener('click', (e) => {
         const btn = e.target.closest('[data-reset-pwd]');
         if (!btn) return;
-        const custId = Number(btn.dataset.resetPwd);
-        const cust = all.find((x) => x.id === custId);
+        const userId = Number(btn.dataset.resetPwd);
+        const cust = all.find((x) => x.user_id === userId);
         if (!cust) return;
-        openResetPasswordModal({
-          displayName: cust.name,
-          submitUrl: '/api/admin/customers/' + custId + '/reset-password'
-        });
+        openResetPasswordModal({ displayName: cust.name, userId });
       });
 
-      function openResetPasswordModal({ displayName, submitUrl }) {
+      // The server generates the temporary password; the admin sees it once and
+      // must hand it to the account owner. Nothing is typed here.
+      function openResetPasswordModal({ displayName, userId }) {
         const body = Ui.el('div', {}, [
           Ui.el('p', { style: 'color:var(--muted);font-size:0.87rem;margin-bottom:16px;line-height:1.7' }, [
             'إعادة تعيين كلمة المرور لـ ',
             Ui.el('b', { style: 'color:var(--ink)' }, [displayName]),
-            '. الباسورد الجديد هيشتغل فورًا.'
+            '. هننشئ كلمة مرور مؤقتة ونعرضها لك مرة واحدة.'
           ]),
-          Ui.el('div', { class: 'form-group' }, [
-            Ui.el('label', { class: 'form-label' }, ['كلمة المرور الجديدة']),
-            Ui.el('input', { class: 'input', id: 'rp-new', attrs: { type: 'text', minlength: '6', placeholder: '6 أحرف على الأقل' } })
-          ]),
-          Ui.el('div', { class: 'form-group' }, [
-            Ui.el('label', { class: 'form-label' }, ['تأكيد كلمة المرور']),
-            Ui.el('input', { class: 'input', id: 'rp-confirm', attrs: { type: 'text', minlength: '6', placeholder: 'أعد كتابة كلمة المرور' } })
-          ]),
-          Ui.el('div', { class: 'form-hint', style: 'margin-top:8px' }, [
-            Ui.ic('fa-solid fa-circle-info'),
-            ' الباسورد هيتنسخ تلقائيًا للحافظة بعد الحفظ.'
+          Ui.el('div', { class: 'form-hint' }, [
+            Ui.ic('fa-solid fa-shield-halved'),
+            ' سيُطلب من المستخدم تغييرها عند أول دخول، وأي جلسة قديمة هتتوقف فورًا.'
           ])
         ]);
 
         const saveBtn = Ui.el('button', {
           class: 'btn btn-brand',
           on: { click: async () => {
-            const a = document.getElementById('rp-new').value;
-            const b = document.getElementById('rp-confirm').value;
-            if (a.length < 6) { toast('كلمة المرور 6 أحرف على الأقل', 'error'); return; }
-            if (a !== b) { toast('كلمتا المرور غير متطابقتين', 'error'); return; }
-            Ui.btnLoading(saveBtn, 'جارٍ الحفظ…');
+            Ui.btnLoading(saveBtn, 'جارٍ الإنشاء…');
             try {
-              const d = await api(submitUrl, { method: 'POST', body: { new_password: a } });
-              toast('تم تعيين كلمة المرور المؤقتة. سيُطلب من المستخدم تغييرها عند أول دخول.', 'success');
-              try { await navigator.clipboard.writeText(a); } catch (e) {}
-              toast('تم نسخ كلمة المرور للحافظة', 'success');
-              Ui.openModal(null, null, null, { onClose: null });
+              const d = await api('/api/admin/users/' + userId + '/reset-password', { method: 'POST' });
+              showTemporaryPassword(displayName, d.temporary_password || d.temp_password);
             } catch (err) {
               toast(err.message, 'error');
               Ui.btnReset(saveBtn);
             }
           }}
-        }, [Ui.ic('fa-solid fa-key'), 'تعيين كلمة المرور']);
+        }, [Ui.ic('fa-solid fa-key'), 'إنشاء كلمة مرور مؤقتة']);
 
         Ui.openModal(
           { title: 'إعادة تعيين كلمة المرور', icon: { cls: 'fa-solid fa-key', bg: '#fef3c7', color: '#b45309' } },
           body,
           saveBtn
+        );
+      }
+
+      function showTemporaryPassword(displayName, password) {
+        const copyBtn = Ui.el('button', {
+          class: 'btn btn-outline',
+          on: { click: async () => {
+            try {
+              await navigator.clipboard.writeText(password);
+              toast('تم نسخ كلمة المرور للحافظة', 'success');
+            } catch (err) {
+              toast('تعذر النسخ التلقائي، انسخها يدويًا', 'error');
+            }
+          }}
+        }, [Ui.ic('fa-regular fa-copy'), 'نسخ']);
+
+        const doneBtn = Ui.el('button', {
+          class: 'btn btn-brand',
+          on: { click: () => Ui.openModal(null, null, null) }
+        }, ['تم']);
+
+        const body = Ui.el('div', {}, [
+          Ui.el('p', { style: 'color:var(--muted);font-size:0.87rem;line-height:1.7;margin-bottom:12px' }, [
+            'كلمة المرور المؤقتة لـ ',
+            Ui.el('b', { style: 'color:var(--ink)' }, [displayName]),
+            '. اعرضها للمستخدم الآن — مش هتظهر تاني.'
+          ]),
+          Ui.el('div', {
+            attrs: {
+              dir: 'ltr',
+              style: 'font-family:monospace;font-size:1.15rem;font-weight:700;letter-spacing:0.05em;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:14px;text-align:center;word-break:break-all'
+            },
+            text: password
+          })
+        ]);
+
+        Ui.openModal(
+          { title: 'كلمة المرور المؤقتة', icon: { cls: 'fa-solid fa-key', bg: '#dcfce7', color: '#15803d' } },
+          body,
+          [copyBtn, doneBtn]
         );
       }
 

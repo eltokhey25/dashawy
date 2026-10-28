@@ -277,6 +277,58 @@ class TelegramLinkToken(models.Model):
 # ---------------------------------------------------------------------------
 
 
+class AdminPasswordResetAudit(models.Model):
+    """Who reset whose password, when, and from where.
+
+    The temporary password is never stored here (or anywhere else): only the
+    fact that a reset happened. ``target`` may be any account role, while
+    ``admin`` is the authenticated administrator who performed the action.
+    """
+
+    id = models.AutoField(primary_key=True)
+    admin = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        db_column='admin_id',
+        related_name='password_resets_performed',
+        db_index=False,
+    )
+    target = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        db_column='target_id',
+        related_name='password_resets_received',
+        db_index=False,
+    )
+    created_at = models.DateTimeField(default=utc_now)
+    ip_address = models.CharField(max_length=64, null=True, blank=True)
+
+    class Meta:
+        db_table = 'admin_password_reset_audits'
+        indexes = [
+            models.Index(
+                fields=['target', 'created_at'],
+                name='idx_pwd_reset_target',
+            ),
+            models.Index(
+                fields=['admin', 'created_at'],
+                name='idx_pwd_reset_admin',
+            ),
+        ]
+
+    def __str__(self):
+        return f'admin #{self.admin_id} reset user #{self.target_id}'
+
+    # Friendly aliases for callers that read the audit by semantic name.
+    @property
+    def admin_user_id(self):
+        return self.admin_id
+
+    @property
+    def target_user_id(self):
+        return self.target_id
+
+
 class Request(models.Model):
     """A customer's service request (``requests``)."""
 

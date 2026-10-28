@@ -29,6 +29,8 @@ from .views import (
     AdminTechnicianListView,
     AdminTechnicianRejectView,
     AdminTechnicianVerifyView,
+    AdminUserResetPasswordView,
+    ChangePasswordView,
     CompleteProfileView,
     CustomerRequestDetailView,
     CustomerRequestListCreateView,
@@ -74,6 +76,11 @@ urlpatterns = [
     ),
     re_path(r'^auth/google/config/?$', GoogleConfigView.as_view(), name='google-config'),
     re_path(r'^auth/google/?$', GoogleLoginView.as_view(), name='google-login'),
+    re_path(
+        r'^auth/change-password/?$',
+        ChangePasswordView.as_view(),
+        name='auth-change-password',
+    ),
 
     # Customer
     re_path(
@@ -173,6 +180,11 @@ urlpatterns = [
         r'^admin/customers/?$',
         AdminCustomerListView.as_view(),
         name='admin-customers',
+    ),
+    re_path(
+        r'^admin/users/(?P<pk>\d+)/reset-password/?$',
+        AdminUserResetPasswordView.as_view(),
+        name='admin-user-reset-password',
     ),
     re_path(
         r'^admin/requests/(?P<pk>\d+)/cancel/?$',
