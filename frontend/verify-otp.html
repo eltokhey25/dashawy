@@ -8,18 +8,11 @@
     <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png" />
     <meta name="theme-color" content="#4f46e5" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>كود الدخول — دشاوي</title>
-    <!-- PWA -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="دشاوي" />
-    <!-- iOS splash screen (universal fallback) -->
-    <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png" />
+    <title>الخدمة غير متاحة — دشاوي</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link
@@ -35,375 +28,43 @@
       display: grid;
       place-items: center;
       padding: 24px;
+      font-family: 'Cairo', sans-serif;
     "
   >
-    <div style="max-width: 480px; width: 100%">
-      <div style="text-align: center; margin-bottom: 24px">
-        <div
-          style="
-            display: inline-grid;
-            place-items: center;
-            width: 64px;
-            height: 64px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #4f46e5, #a855f7);
-            color: #fff;
-            font-size: 1.6rem;
-            box-shadow: 0 16px 40px -10px rgba(79, 70, 229, 0.5);
-            margin-bottom: 14px;
-          "
-        >
-          <i class="fa-brands fa-telegram"></i>
-        </div>
-        <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px">
-          كود الدخول
-        </h1>
-        <p
-          id="sent-message"
-          style="color: #334155; font-size: 0.95rem; font-weight: 700; line-height: 1.7"
-        >
-          أدخل بريدك الإلكتروني لاستلام كود الدخول.
-        </p>
-        <p
-          id="sent-hint"
-          style="color: #64748b; font-size: 0.82rem; line-height: 1.7; margin-top: 4px"
-        >
-          هيوصلك كود مكوّن من 6 أرقام على تليجرام، صالح لمدة 10 دقائق.
-        </p>
+    <main style="max-width: 520px; width: 100%; text-align: center">
+      <div
+        style="
+          display: inline-grid;
+          place-items: center;
+          width: 72px;
+          height: 72px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, #4f46e5, #a855f7);
+          color: #fff;
+          font-size: 1.8rem;
+          box-shadow: 0 16px 40px -10px rgba(79, 70, 229, 0.5);
+          margin-bottom: 18px;
+        "
+      >
+        <i class="fa-solid fa-toolbox" aria-hidden="true"></i>
       </div>
-
-      <div class="card" style="padding: 26px">
-        <form id="otp-form" novalidate>
-          <div class="form-group">
-            <label class="form-label" for="otp-email">البريد الإلكتروني</label>
-            <input
-              type="email"
-              id="otp-email"
-              class="input"
-              placeholder="you@example.com"
-              autocomplete="email"
-              dir="ltr"
-              required
-            />
-          </div>
-
-          <div class="form-group" id="otp-code-group" hidden>
-            <label class="form-label" for="otp-code">كود الدخول</label>
-            <input
-              type="text"
-              id="otp-code"
-              class="input"
-              placeholder="000000"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
-              pattern="\d{6}"
-              dir="ltr"
-              disabled
-              style="
-                text-align: center;
-                letter-spacing: 0.5em;
-                font-size: 1.4rem;
-                font-weight: 700;
-                padding: 14px 10px;
-              "
-            />
-          </div>
-
-          <button type="submit" class="btn btn-brand btn-block btn-lg" id="submit-btn">
-            <i class="fa-brands fa-telegram"></i> إرسال الكود إلى تليجرام
-          </button>
-        </form>
-
-        <!-- Kept outside the form on purpose: this is a plain navigation link,
-             not a form action. No click handler is attached, so the browser
-             follows href directly. -->
-        <div
-          id="not-linked-box"
-          hidden
-          style="
-            margin-top: 16px;
-            padding: 14px;
-            border-radius: 12px;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            color: #9a3412;
-            font-size: 0.88rem;
-            line-height: 1.8;
-          "
-        >
-          <i class="fa-solid fa-link"></i>
-          حسابك غير مرتبط بتليجرام.
-          <a
-            id="telegram-link"
-            href="/telegram-link.html"
-            target="_top"
-            style="color: #c2410c; font-weight: 800; text-decoration: underline"
-          >
-            اضغط هنا لربط حسابك بتليجرام
-          </a>
-        </div>
-
-        <div
-          style="
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 12px 18px;
-            margin-top: 18px;
-            padding-top: 16px;
-            border-top: 1px solid #e2e8f0;
-          "
-        >
-          <button
-            type="button"
-            id="resend-btn"
-            hidden
-            style="
-              background: none;
-              border: none;
-              color: #4f46e5;
-              font-size: 0.85rem;
-              font-weight: 700;
-              cursor: pointer;
-              font-family: inherit;
-            "
-          >
-            <i class="fa-solid fa-rotate-right"></i> إعادة إرسال الكود
-          </button>
-          <button
-            type="button"
-            id="change-email-btn"
-            hidden
-            style="
-              background: none;
-              border: none;
-              color: #4f46e5;
-              font-size: 0.85rem;
-              font-weight: 700;
-              cursor: pointer;
-              font-family: inherit;
-            "
-          >
-            <i class="fa-solid fa-pen"></i> تغيير البريد
-          </button>
-          <a
-            href="/login.html"
-            style="
-              background: none;
-              border: none;
-              color: #94a3b8;
-              font-size: 0.85rem;
-              cursor: pointer;
-              font-family: inherit;
-              text-decoration: none;
-            "
-          >
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> تسجيل الدخول
-          </a>
-        </div>
+      <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 10px">
+        الخدمة غير متاحة حالياً
+      </h1>
+      <p style="color: #64748b; font-size: 0.95rem; line-height: 1.8; margin-bottom: 24px">
+        استرجاع كلمة المرور بالكود متوقف مؤقتاً. لو محتاج ترجّع حسابك، كلّمنا على واتساب
+        وهنساعدك.
+      </p>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap">
+        {% if business_whatsapp_url %}
+        <a class="btn btn-brand" href="{{ business_whatsapp_url }}" target="_blank" rel="noopener">
+          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> كلمنا على واتساب
+        </a>
+        {% endif %}
+        <a class="btn btn-outline" href="/login.html">
+          <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> رجوع لتسجيل الدخول
+        </a>
       </div>
-    </div>
-
-    <script src="/js/api.js"></script>
-    <script src="/js/auth.js"></script>
-    <script src="/js/ui.js"></script>
-    <script>
-      // Public page: a visitor has no session here by definition, but a signed-in
-      // user opening it still gets their address prefilled.
-      const form = document.getElementById('otp-form');
-      const btn = document.getElementById('submit-btn');
-      const emailEl = document.getElementById('otp-email');
-      const codeEl = document.getElementById('otp-code');
-      const codeGroup = document.getElementById('otp-code-group');
-      const notLinkedBox = document.getElementById('not-linked-box');
-      const sentMessage = document.getElementById('sent-message');
-      const sentHint = document.getElementById('sent-hint');
-      const resendBtn = document.getElementById('resend-btn');
-      const changeEmailBtn = document.getElementById('change-email-btn');
-
-      let step = 'request';
-
-      const sessionUser = Auth.getUser();
-      const emailFromQuery = new URLSearchParams(window.location.search).get('email') || '';
-      emailEl.value = emailFromQuery || (sessionUser && sessionUser.email) || '';
-
-      if (emailEl.value) emailEl.setAttribute('readonly', 'readonly');
-
-      /**
-       * Switches the single form between its two jobs. In `request` it only asks
-       * the server to send a code; in `verify` it exchanges the code for a
-       * session. Keeping one form means Enter works naturally in both steps.
-       *
-       * @param {'request'|'verify'} next
-       */
-      function setStep(next) {
-        step = next;
-        const verifying = step === 'verify';
-
-        codeGroup.hidden = !verifying;
-        codeEl.disabled = !verifying;
-        resendBtn.hidden = !verifying;
-        changeEmailBtn.hidden = !verifying;
-
-        if (verifying) {
-          btn.innerHTML = '<i class="fa-solid fa-key"></i> تأكيد الكود';
-          sentMessage.textContent = 'تم إرسال الكود إلى تليجرام الخاص بك.';
-          sentHint.textContent =
-            'اكتب الكود المكوّن من 6 أرقام اللي وصلك، أو اضغط إعادة إرسال لو مش وصلك.';
-          codeEl.focus();
-        } else {
-          btn.innerHTML = '<i class="fa-brands fa-telegram"></i> إرسال الكود إلى تليجرام';
-          sentMessage.textContent = 'أدخل بريدك الإلكتروني لاستلام كود الدخول.';
-          sentHint.textContent = 'هيوصلك كود مكوّن من 6 أرقام على تليجرام، صالح لمدة 10 دقائق.';
-        }
-      }
-
-      // Digits only, capped at six. A pasted " 123456 " would otherwise be
-      // rejected by the server for a reason the user cannot see.
-      codeEl.addEventListener('input', function () {
-        codeEl.value = codeEl.value.replace(/\D/g, '').slice(0, 6);
-      });
-
-      function resetAlerts() {
-        notLinkedBox.hidden = true;
-        clearFormErrors(form);
-      }
-
-      // The server tags this failure with code === 'telegram_not_linked'. The
-      // Arabic fallback keeps the behaviour if the page ever meets an older
-      // server that only sent the sentence.
-      function isNotLinked(err) {
-        return (
-          err &&
-          (err.code === 'telegram_not_linked' ||
-            /غير مرتبط بتليجرام|not linked/i.test(String(err.message || '')))
-        );
-      }
-
-      /**
-       * Mirrors login.html so both ways of obtaining a session land on the same
-       * page.
-       */
-      function destinationAfterAuth(data) {
-        const user = data.user || {};
-        if (data.must_change_password) return '/change-password';
-        if (user.role === 'customer' && user.profile_complete === false) {
-          return Auth.completeProfilePath();
-        }
-        return Auth.homePath(user.role);
-      }
-
-      /**
-       * Requests a code and keeps the page in whichever step it was already in.
-       * Returns the API payload on success, or null when the caller should stop.
-       *
-       * @param {HTMLButtonElement} trigger
-       * @param {string} loadingText
-       * @returns {Promise<object|null>}
-       */
-      async function requestCode(trigger, loadingText) {
-        resetAlerts();
-
-        const email = emailEl.value.trim();
-        if (!email) {
-          setFieldError(emailEl, 'اكتب البريد الإلكتروني');
-          emailEl.focus();
-          return null;
-        }
-
-        Ui.btnLoading(trigger, loadingText);
-        try {
-          return await api('/api/auth/request-otp', {
-            method: 'POST',
-            body: { email },
-          });
-        } catch (err) {
-          if (isNotLinked(err)) notLinkedBox.hidden = false;
-          toast(err.message, 'error');
-          return null;
-        } finally {
-          Ui.btnReset(trigger);
-        }
-      }
-
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // Step 1: ask for the code. Nothing about the OTP field is shown until
-        // this succeeds, so a user cannot submit an empty code by mistake.
-        if (step === 'request') {
-          const data = await requestCode(btn, 'جارٍ الإرسال…');
-          if (!data) return;
-
-          codeEl.value = '';
-          emailEl.setAttribute('readonly', 'readonly');
-          setStep('verify');
-          toast((data && data.message) || 'تم إرسال الكود إلى تليجرام الخاص بك.', 'success');
-          return;
-        }
-
-        // Step 2: the same submit button now exchanges the code for a session.
-        // Sending a new code here would invalidate the one being typed.
-        resetAlerts();
-
-        const email = emailEl.value.trim();
-        const otp = codeEl.value.trim();
-        if (!email) {
-          setFieldError(emailEl, 'اكتب البريد الإلكتروني');
-          emailEl.focus();
-          return;
-        }
-        if (!/^\d{6}$/.test(otp)) {
-          setFieldError(codeEl, 'اكتب الكود المكوّن من 6 أرقام');
-          codeEl.focus();
-          return;
-        }
-
-        Ui.btnLoading(btn, 'جارٍ الدخول…');
-        try {
-          const data = await api('/api/auth/verify-otp', {
-            method: 'POST',
-            body: { email, otp },
-          });
-          Auth.setSession(data);
-          toast('تم تسجيل الدخول بنجاح', 'success');
-          setTimeout(function () {
-            window.location.href = destinationAfterAuth(data);
-          }, 600);
-        } catch (err) {
-          if (isNotLinked(err)) notLinkedBox.hidden = false;
-          toast(err.message, 'error');
-          codeEl.value = '';
-          codeEl.focus();
-          Ui.btnReset(btn);
-        }
-      });
-
-      // Optional helper: ask for another code without leaving the verify step.
-      // The server's cooldown still applies, so a fast double-click cannot spam.
-      resendBtn.addEventListener('click', async () => {
-        const data = await requestCode(resendBtn, 'جارٍ الإرسال…');
-        if (!data) return;
-
-        codeEl.value = '';
-        toast((data && data.message) || 'تم إرسال الكود إلى تليجرام الخاص بك.', 'success');
-        codeEl.focus();
-      });
-
-      // Optional helper: go back to step 1 and unlock the address so it can be
-      // corrected, for example when the account is not linked to Telegram.
-      changeEmailBtn.addEventListener('click', function () {
-        resetAlerts();
-        codeEl.value = '';
-        setStep('request');
-        emailEl.removeAttribute('readonly');
-        emailEl.focus();
-      });
-
-      setStep('request');
-      if (!emailEl.value) emailEl.focus();
-    </script>
-    <script src="/js/pwa-install.js"></script>
+    </main>
   </body>
 </html>
