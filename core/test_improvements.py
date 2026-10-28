@@ -662,6 +662,28 @@ class PublicSiteTests(APITestCase):
         self.assertContains(sitemap, settings.SITE_URL + '/order.html')
         self.assertContains(sitemap, settings.SITE_URL + '/terms.html')
 
+    @override_settings(SITE_URL='https://pythonanywhere.com')
+    def test_robots_never_uses_the_bare_pythonanywhere_root(self):
+        clear_site_config_cache()
+        self.addCleanup(clear_site_config_cache)
+
+        robots = self.client.get('/robots.txt')
+        self.assertEqual(robots.status_code, status.HTTP_200_OK)
+        body = robots.content.decode('utf-8')
+        self.assertIn(
+            '# دشاوي — https://dashawy.pythonanywhere.com', body
+        )
+        self.assertIn(
+            'Sitemap: https://dashawy.pythonanywhere.com/sitemap.xml',
+            body,
+        )
+        self.assertNotIn('https://pythonanywhere.com', body)
+
+        sitemap = self.client.get('/sitemap.xml')
+        self.assertContains(
+            sitemap, 'https://dashawy.pythonanywhere.com/order.html'
+        )
+
     def test_security_headers_on_html(self):
         response = self.client.get('/')
         self.assertIn('Content-Security-Policy', response)

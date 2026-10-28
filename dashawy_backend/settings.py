@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+from core.site_url import normalize_site_url
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -69,7 +71,9 @@ def _default_site_url() -> str:
     return 'http://localhost:8000'
 
 
-SITE_URL = (os.environ.get('SITE_URL') or _default_site_url()).rstrip('/')
+SITE_URL = normalize_site_url(
+    os.environ.get('SITE_URL') or _default_site_url()
+)
 SITE_HOST = urlparse(SITE_URL).netloc if '://' in SITE_URL else SITE_URL
 SITE_ORIGIN = (
     SITE_URL
