@@ -151,8 +151,14 @@ ROOT_URLCONF = 'dashawy_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # Django serves the existing frontend directly from this directory.
-        'DIRS': [BASE_DIR / 'frontend'],
+        # Renderable pages/partials live outside the static asset tree so a
+        # static-file mapping can never expose raw Django template tags.
+        # ``frontend/`` keeps only CSS, JS and images; it stays in DIRS so any
+        # not-yet-moved template continues to resolve during the transition.
+        'DIRS': [
+            BASE_DIR / 'core' / 'templates' / 'frontend',
+            BASE_DIR / 'frontend',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
