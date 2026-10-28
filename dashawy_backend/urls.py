@@ -18,6 +18,8 @@ from django.conf import settings
 from django.contrib import admin
 from django.contrib.staticfiles.views import serve as staticfiles_serve
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.shortcuts import redirect, render
+from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
 from django.urls import include, path, re_path
 from django.views.static import serve as static_serve
@@ -44,12 +46,18 @@ NOINDEX_PREFIXES = (
 
 
 def _render_page(request, template_name, status_code=200):
-    html = render_to_string(
-        template_name, template_context(), request=request
-    )
-    response = HttpResponse(
-        html, status=status_code, content_type='text/html; charset=utf-8'
-    )
+    """Render one page through Django's template engine (never as a file)."""
+    try:
+        response = render(
+            request,
+            template_name,
+            template_context(),
+            status=status_code,
+            content_type='text/html; charset=utf-8',
+        )
+    except TemplateDoesNotExist:
+        raise Http404('Frontend page not found')
+
     response['Cache-Control'] = 'no-cache'
     if status_code >= 400 or any(
         template_name.startswith(prefix) for prefix in NOINDEX_PREFIXES
@@ -59,11 +67,15 @@ def _render_page(request, template_name, status_code=200):
 
 
 def serve_frontend(request, path=''):
-    """Serve a file from ``frontend/``, including extensionless page routes.
+    """Render pages from templates and serve assets from ``frontend/``.
 
     ``/`` becomes ``index.html`` and ``/admin`` becomes the dashboard's login
     page. A path with no suffix also tries ``.html`` and ``/index.html`` so the
     existing links such as ``/admin/dashboard`` keep working unchanged.
+
+    HTML is deliberately never read from the static asset tree: a page is only
+    ever produced by Django's template engine, so the deployed static server
+    (or ``/static/``) cannot leak ``{% ... %}`` / ``{{ ... }}`` markup.
     """
     clean = str(path or '').strip('/')
     if clean == '':
@@ -73,6 +85,8 @@ def serve_frontend(request, path=''):
     # Template partials are included by pages, never served as standalone URLs.
     if clean == 'partials' or clean.startswith('partials/'):
         raise Http404('Frontend asset not found')
+    if '..' in Path(clean).parts:
+        raise Http404('Frontend asset not found')
 
     candidates = [clean]
     if not Path(clean).suffix:
@@ -81,6 +95,13 @@ def serve_frontend(request, path=''):
 
     root = FRONTEND_ROOT.resolve()
     for candidate in candidates:
+        if candidate.lower().endswith('.html'):
+            try:
+                return _render_page(request, candidate)
+            except Http404:
+                # A missing template must not fall through to a static file.
+                continue
+
         target = (FRONTEND_ROOT / candidate).resolve()
         try:
             target.relative_to(root)
@@ -88,8 +109,6 @@ def serve_frontend(request, path=''):
             # ``..`` or an absolute path escaped the frontend directory.
             continue
         if target.is_file():
-            if target.suffix.lower() == '.html':
-                return _render_page(request, candidate)
             return static_serve(
                 request, candidate, document_root=str(FRONTEND_ROOT)
             )
@@ -98,15 +117,13 @@ def serve_frontend(request, path=''):
 
 
 def _renderer_file(request, filename, content_type):
-    root = FRONTEND_ROOT.resolve()
-    target = (FRONTEND_ROOT / filename).resolve()
+    """Render robots/sitemap/llms/manifest even though they are not HTML."""
     try:
-        target.relative_to(root)
-    except ValueError:
+        content = render_to_string(
+            filename, template_context(), request=request
+        )
+    except TemplateDoesNotExist:
         raise Http404('Frontend text file not found')
-    if not target.is_file():
-        raise Http404('Frontend text file not found')
-    content = render_to_string(filename, template_context(), request=request)
     return HttpResponse(content, content_type=content_type)
 
 
@@ -124,6 +141,11 @@ def serve_manifest(request):
     return _renderer_file(
         request, 'manifest.webmanifest', 'application/manifest+json; charset=utf-8'
     )
+
+
+def redirect_static_html(request, path):
+    """Send a page requested under /static/ to its canonical rendered URL."""
+    return redirect('/' + str(path or '').lstrip('/'), permanent=False)
 
 
 def serve_public_upload(request, path):
@@ -196,6 +218,13 @@ urlpatterns = [
     path('manifest.webmanifest', serve_manifest, name='manifest'),
     # Public technician photos only (never identity documents).
     re_path(r'^uploads/(?P<path>.*)$', serve_public_upload, name='public-upload'),
+    # A page must never be fetched from the static tree. Anything ending in
+    # .html is redirected to the canonical URL where Django renders it.
+    re_path(
+        r'^static/(?P<path>.*\.html)$',
+        redirect_static_html,
+        name='static-html-redirect',
+    ),
     # Also expose the same assets under STATIC_URL. `runserver` normally
     # intercepts this prefix, but this keeps the test client and other WSGI
     # servers consistent.

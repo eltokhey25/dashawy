@@ -51,7 +51,8 @@ python manage.py reset_admin_password  # recovery helper (see below)
 
 ## Frontend and admin
 
-Django serves the files in `frontend/` directly:
+Django renders the pages in `core/templates/frontend/` and serves the static
+assets from `frontend/`:
 
 | URL | Page |
 | --- | --- |
@@ -224,7 +225,9 @@ python manage.py createsuperuser
 dashawy_backend/    Django project: settings, URL configuration, WSGI/ASGI
 core/               Django app: legacy schema models, API views, migrations,
                     permissions, serializers, and management commands
-frontend/           HTML pages plus CSS, JS, images, and service worker
+core/templates/frontend/
+                    Django-rendered pages and partials (never served statically)
+frontend/           Static assets only: CSS, JS, images, and service worker
 database/
   schema.sql        Canonical SQLite schema
   fixrequest.db     Local SQLite database (git-ignored)

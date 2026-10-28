@@ -1,10 +1,12 @@
 """Regression tests for the Phase 2 authentication API."""
 
 import base64
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import User as DjangoUser
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.exceptions import TokenError
@@ -22,6 +24,7 @@ from .models import (
     utc_now,
 )
 from .serializers import TechnicianDocumentUploadSerializer
+from .site_config import clear_site_config_cache
 from .upload_validators import validate_document_upload
 
 PASSWORD = 'TesterPass123'
@@ -617,6 +620,47 @@ class FrontendServingTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertIn('application/json', response['Content-Type'])
         self.assertIn('error', response.json())
+
+    def test_every_page_renders_without_raw_template_tags(self):
+        root = Path(settings.BASE_DIR) / 'core' / 'templates' / 'frontend'
+        pages = [
+            path.relative_to(root).as_posix()
+            for path in sorted(root.rglob('*.html'))
+            if not path.relative_to(root).as_posix().startswith('partials/')
+        ]
+        self.assertGreater(len(pages), 20)
+
+        for page in pages:
+            with self.subTest(page=page):
+                response = self.client.get('/' + page)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                body = response.content.decode('utf-8')
+                self.assertNotIn('{%', body)
+                self.assertNotIn('{{', body)
+                self.assertNotIn('{#', body)
+
+    def test_static_html_redirects_to_the_rendered_route(self):
+        response = self.client.get('/static/index.html')
+        self.assertEqual(response.status_code, status.HTTP_302_FOUND)
+        self.assertEqual(response['Location'], '/index.html')
+
+        rendered = self.client.get('/static/index.html', follow=True)
+        self.assertEqual(rendered.status_code, status.HTTP_200_OK)
+        self.assertNotIn('{%', rendered.content.decode('utf-8'))
+
+    @override_settings(
+        BUSINESS_WHATSAPP='201025330520',
+        BUSINESS_PHONE='01025330520',
+    )
+    def test_contact_context_is_rendered_on_the_homepage(self):
+        clear_site_config_cache()
+        self.addCleanup(clear_site_config_cache)
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = response.content.decode('utf-8')
+        self.assertIn('https://wa.me/201025330520', body)
+        self.assertIn('01025330520', body)
+        self.assertIn('الإسكندرية، مصر', body)
 
 
 class AdminApiTests(APITestCase):
