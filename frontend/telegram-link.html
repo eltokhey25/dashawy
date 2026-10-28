@@ -8,18 +8,11 @@
     <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png" />
     <meta name="theme-color" content="#4f46e5" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>ربط تليجرام — دشاوي</title>
-    <!-- PWA -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="دشاوي" />
-    <!-- iOS splash screen (universal fallback) -->
-    <link rel="apple-touch-startup-image" href="/dashawy-brand/icon-512.png" />
+    <title>الخدمة غير متاحة — دشاوي</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link
@@ -35,192 +28,43 @@
       display: grid;
       place-items: center;
       padding: 24px;
+      font-family: 'Cairo', sans-serif;
     "
   >
-    <div style="max-width: 520px; width: 100%">
-      <div style="text-align: center; margin-bottom: 24px">
-        <div
-          style="
-            display: inline-grid;
-            place-items: center;
-            width: 64px;
-            height: 64px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #229ed9, #4f46e5);
-            color: #fff;
-            font-size: 1.8rem;
-            box-shadow: 0 16px 40px -10px rgba(34, 158, 217, 0.5);
-            margin-bottom: 14px;
-          "
-        >
-          <i class="fa-brands fa-telegram"></i>
-        </div>
-        <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px">
-          ربط حسابك بتليجرام
-        </h1>
-        <p style="color: #64748b; font-size: 0.9rem; line-height: 1.8">
-          بعد الربط، هنبعت كود الدخول على تليجرام بدل البريد الإلكتروني.
-        </p>
+    <main style="max-width: 520px; width: 100%; text-align: center">
+      <div
+        style="
+          display: inline-grid;
+          place-items: center;
+          width: 72px;
+          height: 72px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, #4f46e5, #a855f7);
+          color: #fff;
+          font-size: 1.8rem;
+          box-shadow: 0 16px 40px -10px rgba(79, 70, 229, 0.5);
+          margin-bottom: 18px;
+        "
+      >
+        <i class="fa-solid fa-toolbox" aria-hidden="true"></i>
       </div>
-
-      <div class="card" style="padding: 26px">
-        <div
-          id="already-linked"
-          hidden
-          style="
-            padding: 14px;
-            border-radius: 12px;
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-            color: #065f46;
-            font-size: 0.9rem;
-            line-height: 1.8;
-          "
-        >
-          <i class="fa-solid fa-circle-check"></i> حسابك مرتبط بتليجرام بالفعل.
-          <a href="/verify-otp.html" style="color: #047857; font-weight: 800; text-decoration: underline">
-            اطلب كود الدخول من هنا
-          </a>
-        </div>
-
-        <div id="link-panel">
-          <p style="color: #475569; font-size: 0.88rem; line-height: 1.9; margin-bottom: 16px">
-            اكتب البريد الإلكتروني المسجل في حسابك، وبعدها اضغط <b>Start</b> في تليجرام. الرابط
-            صالح لمدة 15 دقيقة ولمرة واحدة فقط.
-          </p>
-
-          <form id="link-form" novalidate>
-            <div class="form-group">
-              <label class="form-label" for="link-email">البريد الإلكتروني</label>
-              <input
-                type="email"
-                id="link-email"
-                class="input"
-                placeholder="you@example.com"
-                autocomplete="email"
-                dir="ltr"
-                required
-              />
-            </div>
-
-            <button type="submit" class="btn btn-brand btn-block btn-lg" id="create-btn">
-              <i class="fa-solid fa-link"></i> إنشاء رابط الربط
-            </button>
-          </form>
-
-          <div id="link-result" hidden style="margin-top: 18px">
-            <a
-              id="deep-link"
-              class="btn btn-block btn-lg"
-              href="#"
-              target="_blank"
-              rel="noopener"
-              style="background: #229ed9; color: #fff; margin-bottom: 12px"
-            >
-              <i class="fa-brands fa-telegram"></i> افتح تليجرام واربط الحساب
-            </a>
-
-            <div id="token-box" hidden>
-              <p style="color: #475569; font-size: 0.85rem; line-height: 1.8">
-                لو زر تليجرام مش شغال، ابعت الرسالة دي للبوت:
-              </p>
-              <code
-                id="link-token"
-                dir="ltr"
-                style="
-                  display: block;
-                  padding: 12px;
-                  border-radius: 10px;
-                  background: #f1f5f9;
-                  border: 1px solid #e2e8f0;
-                  word-break: break-all;
-                  font-size: 0.82rem;
-                "
-              ></code>
-            </div>
-
-            <p style="color: #94a3b8; font-size: 0.78rem; line-height: 1.8; margin-top: 12px">
-              بعد ما تبعت <b>/start</b> للبوت، ارجع لصفحة كود الدخول واطلب الكود تاني.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div style="text-align: center; margin-top: 18px">
-        <a href="/verify-otp.html" style="color: #4f46e5; font-size: 0.88rem; font-weight: 700">
-          <i class="fa-solid fa-arrow-left"></i> رجوع لصفحة كود الدخول
+      <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 10px">
+        الخدمة غير متاحة حالياً
+      </h1>
+      <p style="color: #64748b; font-size: 0.95rem; line-height: 1.8; margin-bottom: 24px">
+        ربط حسابك بتليجرام متوقف مؤقتاً. تقدر تكمل استخدام دشاوي عادي، ولو محتاج مساعدة
+        كلّمنا على واتساب.
+      </p>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap">
+        {% if business_whatsapp_url %}
+        <a class="btn btn-brand" href="{{ business_whatsapp_url }}" target="_blank" rel="noopener">
+          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> كلمنا على واتساب
+        </a>
+        {% endif %}
+        <a class="btn btn-outline" href="/login.html">
+          <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> رجوع لتسجيل الدخول
         </a>
       </div>
-    </div>
-
-    <script src="/js/api.js"></script>
-    <script src="/js/auth.js"></script>
-    <script src="/js/ui.js"></script>
-    <script>
-      // This page is PUBLIC on purpose: it is reached from the forgot-password
-      // flow, so requiring a session would bounce the visitor to login. The
-      // email entered here identifies the account; nobody is trusted from a
-      // session.
-      const form = document.getElementById('link-form');
-      const emailEl = document.getElementById('link-email');
-      const createBtn = document.getElementById('create-btn');
-      const result = document.getElementById('link-result');
-      const deepLink = document.getElementById('deep-link');
-      const tokenBox = document.getElementById('token-box');
-      const tokenEl = document.getElementById('link-token');
-      const alreadyLinked = document.getElementById('already-linked');
-
-      // Prefill from the query string (verify-otp.html can pass it along) or
-      // from a signed-in session when there happens to be one. Neither is
-      // required for the request to work.
-      const sessionUser = Auth.getUser();
-      const emailFromQuery = new URLSearchParams(window.location.search).get('email') || '';
-      emailEl.value = emailFromQuery || (sessionUser && sessionUser.email) || '';
-
-      if (!emailEl.value) emailEl.focus();
-
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        alreadyLinked.hidden = true;
-        result.hidden = true;
-
-        const email = emailEl.value.trim();
-        if (!email) {
-          setFieldError(emailEl, 'اكتب البريد الإلكتروني');
-          return;
-        }
-
-        Ui.btnLoading(createBtn, 'جارٍ إنشاء الرابط…');
-        try {
-          const data = await api('/api/auth/telegram-link', {
-            method: 'POST',
-            body: { email },
-          });
-
-          if (data.deep_link) {
-            deepLink.href = data.deep_link;
-            deepLink.hidden = false;
-          } else {
-            deepLink.hidden = true;
-          }
-
-          // The token is shown as a fallback when the bot username is not
-          // known yet (a cold boot before getMe completes).
-          tokenEl.textContent = '/start ' + data.token;
-          tokenBox.hidden = Boolean(data.deep_link);
-          result.hidden = false;
-        } catch (err) {
-          // An already-linked account does not need another handshake; do not
-          // let an anonymous caller replace a chat that is already attached.
-          if (err.code === 'telegram_already_linked') {
-            alreadyLinked.hidden = false;
-          }
-          toast(err.message, 'error');
-        } finally {
-          Ui.btnReset(createBtn);
-        }
-      });
-    </script>
-    <script src="/js/pwa-install.js"></script>
+    </main>
   </body>
 </html>
