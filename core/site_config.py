@@ -17,6 +17,7 @@ from urllib.parse import quote
 from django.conf import settings
 from django.core.cache import cache
 
+from core.site_url import normalize_site_url
 from core.validation import normalize_phone
 
 CACHE_KEY = 'dashawy:site-config:v2'
@@ -135,7 +136,9 @@ def get_site_config(force: bool = False) -> dict:
     except (TypeError, ValueError):
         commission = 20.0
 
-    site_url = (getattr(settings, 'SITE_URL', '') or '').rstrip('/')
+    # Normalised at render time too, so an override that sets the bare
+    # PythonAnywhere root still produces the correct robots.txt/sitemap host.
+    site_url = normalize_site_url(getattr(settings, 'SITE_URL', ''))
     config = {
         'site_url': site_url,
         'site_name': stored.get('site_name') or 'دشاوي',
