@@ -188,6 +188,9 @@ html {
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -197,7 +200,11 @@ body {
   line-height: var(--lh-normal);
   color: var(--body);
   background: var(--bg);
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
   letter-spacing: -0.01em;
 }
 
@@ -243,12 +250,32 @@ video {
   display: block;
 }
 
+img {
+  height: auto;
+}
+
 button,
 input,
 select,
 textarea {
   font-family: inherit;
   font-size: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Controls that must keep their intrinsic size instead of stretching. */
+input[type='checkbox'],
+input[type='radio'],
+input[type='hidden'],
+input[type='file'],
+.pin-input {
+  width: auto;
 }
 
 ::selection {
@@ -1516,6 +1543,7 @@ table.tbl tbody tr:last-child td {
 .shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 .sidebar {
   width: var(--sidebar-w);
@@ -2068,6 +2096,7 @@ table.tbl tbody tr:last-child td {
 /* Auth layout */
 .auth-wrap {
   min-height: calc(100vh - var(--header-h));
+  min-height: calc(100dvh - var(--header-h));
   display: grid;
   grid-template-columns: 1fr 1.05fr;
 }
@@ -5364,6 +5393,7 @@ main,
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
 }
 
@@ -6901,6 +6931,7 @@ main,
   /* Top clears the floating topbar, bottom clears the fixed footer. */
   padding: 100px 24px 130px;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .wizard-progress {
@@ -7511,6 +7542,7 @@ main,
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   background: #fff;
   font-family: var(--font-body);
 }
@@ -7989,6 +8021,7 @@ main,
     margin: 0 auto;
     border-inline: 1px solid var(--ink-100);
     min-height: 100vh;
+    min-height: 100dvh;
     box-shadow: 0 0 60px -20px rgba(15, 23, 42, 0.1);
   }
 }
@@ -8134,6 +8167,7 @@ main,
 .customer-home-body {
   background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   font-family: var(--font-body);
 }
@@ -9358,11 +9392,19 @@ body.has-contact-dock {
   text-underline-offset: 2px;
 }
 .hp-field {
+  /* Keep the honeypot out of the layout without positioning it off-canvas:
+     a negative left offset counts towards the document scroll width and
+     creates a huge horizontal scroll area on mobile. */
   position: absolute !important;
-  left: -9999px !important;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 .form-alert {
   background: var(--danger-50);
@@ -9833,6 +9875,7 @@ body.has-contact-dock {
 /* ---------- 404 / 500 ---------- */
 .error-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   background:
@@ -9935,4 +9978,174 @@ body.has-contact-dock {
 /* The <main> wrapper itself must not show a focus ring when targeted. */
 main[tabindex="-1"]:focus {
   outline: none;
+}
+
+/* ============================================================
+   MOBILE RESPONSIVENESS PASS — 2026-10-28
+   Global overflow guards, one-column layouts at tablet/phone
+   widths, dynamic viewport height and floating-contact spacing.
+   ============================================================ */
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Keep every media asset inside its container. */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Form controls must never be wider than the screen. */
+input,
+select,
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input[type='checkbox'],
+input[type='radio'],
+input[type='hidden'],
+input[type='file'],
+.pin-input {
+  width: auto;
+}
+
+/* The footer itself has no extra margin; only the fixed dock needs clearance. */
+.footer,
+.footer-bottom {
+  margin-bottom: 0;
+}
+
+body.has-contact-dock {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Pages that end in the dark footer must not show a light strip below it:
+   reserve the dock clearance inside the footer instead of on the body. */
+body.has-contact-dock:has(> .footer) {
+  padding-bottom: 0;
+}
+
+body.has-contact-dock > .footer {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+/* WhatsApp / phone dock: always bottom-right and above page content. */
+.contact-dock {
+  position: fixed;
+  inset-inline-start: auto;
+  inset-inline-end: auto;
+  right: 20px;
+  left: auto;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 999;
+}
+
+.contact-dock--whatsapp + .contact-dock--call {
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------- Tablet and phone: stack every two-column layout ---------- */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.8rem;
+  }
+  h2 {
+    font-size: 1.45rem;
+  }
+  h3 {
+    font-size: 1.15rem;
+  }
+
+  .form-row,
+  .form-row-3,
+  .request-layout,
+  .order-grid,
+  .track-grid,
+  .create-request-grid,
+  .auth-wrap,
+  .auth-page,
+  .chart-grid,
+  .hero-grid,
+  .hero-grid-2,
+  .tech-stats,
+  .ac-options,
+  .perm-grid,
+  .incoming-actions,
+  .service-picker,
+  .ua-actions,
+  .public-profile-header,
+  .track-details > div,
+  .footer-top,
+  .footer-grid,
+  .why-grid,
+  .how-grid,
+  .service-grid,
+  .testimonials-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Explicit sidebar + content layouts stack instead of squeezing. */
+  .request-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .order-side,
+  .create-request-aside,
+  .request-sidebar,
+  .request-aside,
+  .content-sidebar,
+  .sidebar-panel,
+  .order-side-card {
+    position: static;
+    top: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Fixed-width page containers become fluid on small screens. */
+  .container,
+  .container-narrow,
+  .wrap,
+  .page,
+  .order-wrap,
+  .track-wrap,
+  .legal-wrap,
+  .wizard-shell,
+  .auth-panel,
+  .auth-card,
+  .card,
+  .request-layout,
+  .order-grid > *,
+  .track-grid > *,
+  .create-request-grid > *,
+  .order-side,
+  .create-request-aside {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  /* Compact icon dock, side by side at the bottom-right. */
+  .contact-dock {
+    inset-inline-start: auto;
+    inset-inline-end: auto;
+    right: 20px;
+    left: auto;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .contact-dock--whatsapp + .contact-dock--call {
+    right: calc(20px + 48px + 10px);
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  }
 }
