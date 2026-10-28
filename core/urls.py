@@ -1,6 +1,8 @@
 """API routes for the core app."""
 
+from django.http import JsonResponse
 from django.urls import re_path
+from django.views.decorators.csrf import csrf_exempt
 
 from .guest_views import (
     GuestRequestCancelView,
@@ -45,6 +47,23 @@ from .views import (
     TechnicianRequestRejectView,
     TechnicianRequestStartView,
 )
+
+
+@csrf_exempt
+def api_not_found(request, *args, **kwargs):
+    """Answer every unknown ``/api/`` path with JSON, never the frontend.
+
+    Without this catch-all, ``/api/<unknown>`` falls through to the frontend
+    handler in ``dashawy_backend.urls``. That view is not CSRF-exempt, so a
+    POST to a retired endpoint (for example the old
+    ``/api/auth/request-otp`` still cached by a device) was rejected with a
+    ``403 CSRF cookie not set`` before it could return a plain 404. Keeping
+    the catch-all inside the API URLconf means unknown API calls always get
+    the same JSON error shape as any other API failure.
+    """
+
+    return JsonResponse({'error': 'المسار غير موجود'}, status=404)
+
 
 # The trailing slash is optional because the existing frontend calls these
 # paths without one ("/api/auth/login"); APPEND_SLASH would otherwise issue a
@@ -191,4 +210,8 @@ urlpatterns = [
         AdminRequestCancelView.as_view(),
         name='admin-request-cancel',
     ),
+
+    # Must stay last: unknown API paths return JSON instead of being handed
+    # to the frontend catch-all (which would reject a POST on CSRF grounds).
+    re_path(r'^.*$', api_not_found, name='api-not-found'),
 ]

@@ -20,8 +20,11 @@
  * Version: bump CACHE_VERSION on every release to force a clean cache.
  */
 
-const CACHE_VERSION = 'dashawy-v11-2026-10-25';
-const RUNTIME_CACHE = 'dashawy-runtime-v3';
+// v12 also drops the runtime cache: earlier releases could have cached HTML
+// pages before they were moved behind Django's template engine, and those old
+// pages contain raw template markers that the browser then requested as URLs.
+const CACHE_VERSION = 'dashawy-v12-2026-10-28';
+const RUNTIME_CACHE = 'dashawy-runtime-v4';
 
 const PRECACHE_URLS = ['/', '/index.html', '/offline.html', '/manifest.webmanifest'];
 
