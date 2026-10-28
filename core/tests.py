@@ -6,7 +6,7 @@ from pathlib import Path
 from django.conf import settings
 from django.contrib.auth.models import User as DjangoUser
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
+from django.test import Client, override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.exceptions import TokenError
@@ -661,6 +661,60 @@ class FrontendServingTests(APITestCase):
         self.assertIn('https://wa.me/201025330520', body)
         self.assertIn('01025330520', body)
         self.assertIn('الإسكندرية، مصر', body)
+
+
+class ProductionLogRegressionTests(APITestCase):
+    """Guards for the errors reported from the production access log."""
+
+    def test_public_endpoints_used_by_the_frontend_exist(self):
+        # These three used to 404 because the pages asked for them before the
+        # Django routes existed. They are needed by the landing page and the
+        # order/registration forms, so the routes must stay.
+        expected = {
+            '/api/public/settings': 'settings',
+            '/api/specialties': 'specialties',
+            '/api/alexandria-areas': 'areas',
+        }
+        for path, key in expected.items():
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertIn(key, response.json())
+
+    def test_retired_otp_endpoint_returns_json_404_not_csrf_403(self):
+        # A device with a cached OTP page can still POST to the retired route.
+        # It must not be routed to the frontend view, where CSRF middleware
+        # would answer with "403 CSRF cookie not set" and pollute the logs.
+        csrf_client = Client(enforce_csrf_checks=True)
+        response = csrf_client.post(
+            '/api/auth/request-otp', data='{}', content_type='application/json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('application/json', response['Content-Type'])
+        self.assertIn('error', response.json())
+
+    def test_unknown_api_paths_never_render_frontend_pages(self):
+        response = self.client.post(
+            '/api/does-not-exist', data='{}', content_type='application/json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertIn('application/json', response['Content-Type'])
+
+    def test_static_assets_contain_no_unrendered_template_markup(self):
+        # Pages live in core/templates/frontend so Django always renders them.
+        # Nothing in the static tree may reference a template variable or a
+        # retired auth route, otherwise a web server can serve raw markup.
+        root = Path(settings.BASE_DIR) / 'frontend'
+        self.assertEqual(list(root.rglob('*.html')), [])
+        for path in root.rglob('*'):
+            if path.suffix not in {'.js', '.css'}:
+                continue
+            with self.subTest(asset=path.relative_to(root).as_posix()):
+                text = path.read_text(encoding='utf-8')
+                self.assertNotIn('{{', text)
+                self.assertNotIn('{%', text)
+                self.assertNotIn('business_whatsapp_url', text)
+                self.assertNotIn('/api/auth/request-otp', text)
 
 
 class AdminApiTests(APITestCase):
