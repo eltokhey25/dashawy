@@ -91,6 +91,19 @@
           <input type="password" id="login-password" class="input" placeholder="••••••••" autocomplete="current-password">
         </div>
 
+        <!-- Self-service password reset is unavailable, so the account owner is
+             pointed at the support WhatsApp number instead of a dead-end form. -->
+        <div id="forgot-pwd-help" role="status" style="display:none;align-items:center;gap:8px;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;font-size:0.85rem;font-weight:600;margin-bottom:14px;line-height:1.6">
+          <i class="fa-brands fa-whatsapp" aria-hidden="true" style="color:#25D366;font-size:1.1rem"></i>
+          <span>
+            {% if business_whatsapp_url %}
+            <a href="{{ business_whatsapp_url }}" target="_blank" rel="noopener">كلمنا على واتساب وهنساعدك ترجّع حسابك</a>
+            {% else %}
+            كلمنا على واتساب وهنساعدك ترجّع حسابك
+            {% endif %}
+          </span>
+        </div>
+
         <div id="login-error" role="alert" style="display:none;align-items:center;gap:8px;color:var(--danger-600);background:var(--danger-50);border:1px solid var(--danger-100);border-radius:10px;padding:10px 12px;font-size:0.85rem;font-weight:600;margin-bottom:14px">
           <i class="fa-solid fa-circle-exclamation"></i>
           <span id="login-error-text"></span>
@@ -262,9 +275,10 @@
 
     document.getElementById('forgot-pwd-link').addEventListener('click', (e) => {
       e.preventDefault();
-      // Password recovery is now a Telegram code, so send the user straight to
-      // the OTP page instead of the old "contact the admin" modal.
-      window.location.href = '/verify-otp.html';
+      // There is no automated recovery flow any more. Show the support message
+      // with the WhatsApp link rather than sending the user to a dead form.
+      const help = document.getElementById('forgot-pwd-help');
+      if (help) help.style.display = 'flex';
     });
 
     Ui.initNav();
