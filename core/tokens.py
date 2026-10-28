@@ -12,10 +12,27 @@ records the outstanding token with ``user=None``. Logout can then call
 ``BlacklistedToken`` entry.
 """
 
+import hashlib
+
 from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.utils import datetime_from_epoch, get_md5_hash_password
+from rest_framework_simplejwt.utils import datetime_from_epoch
+
+# Every Dashawy token carries a fingerprint of the account's current password
+# hash. Authentication compares it with the live row, so a password change —
+# including an admin-assisted reset — instantly invalidates every token minted
+# with the old password. The claim is a one-way digest; it never contains the
+# password or its hash.
+PASSWORD_FINGERPRINT_CLAIM = 'pwd_fp'
+
+
+def password_fingerprint(user) -> str:
+    """Stable digest of the user's stored password hash."""
+    raw = getattr(user, 'password_hash', None)
+    if not raw:
+        raw = getattr(user, 'password', '') or ''
+    return hashlib.sha256(str(raw).encode('utf-8')).hexdigest()
 
 
 class DashawyRefreshToken(RefreshToken):
@@ -27,14 +44,7 @@ class DashawyRefreshToken(RefreshToken):
         token[api_settings.USER_ID_CLAIM] = str(
             getattr(user, api_settings.USER_ID_FIELD)
         )
-
-        if api_settings.CHECK_REVOKE_TOKEN:
-            password = getattr(user, 'password', None) or getattr(
-                user, 'password_hash', ''
-            )
-            token[api_settings.REVOKE_TOKEN_CLAIM] = get_md5_hash_password(
-                password or ''
-            )
+        token[PASSWORD_FINGERPRINT_CLAIM] = password_fingerprint(user)
 
         OutstandingToken.objects.create(
             user=None,

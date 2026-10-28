@@ -281,6 +281,11 @@
           return;
         }
         Auth.setSession(data);
+        if (data.must_change_password) {
+          toast('يجب تغيير كلمة المرور قبل المتابعة', 'warn');
+          setTimeout(() => { window.location.href = '/change-password'; }, 450);
+          return;
+        }
         toast('أهلًا بك في لوحة التحكم 👋', 'success');
         setTimeout(() => { window.location.href = '/admin/dashboard'; }, 450);
       } catch (err) {

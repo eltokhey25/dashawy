@@ -35,9 +35,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
 
-from .auth_backend import hash_password
+from .auth_backend import BcryptAuthBackend, hash_password
 from .exceptions import ApiError, bad_request, forbidden, unauthorized
 from .models import (
+    AdminPasswordResetAudit,
     Consent,
     Customer,
     Request,
@@ -150,6 +151,28 @@ def _issue_token(user):
     refresh['is_super_admin'] = bool(user.is_super_admin)
     access = refresh.access_token
     return str(access), str(refresh)
+
+
+TEMP_PASSWORD_ALPHABET = (
+    'ABCDEFGHJKLMNPQRSTUVWXYZ'
+    'abcdefghijkmnopqrstuvwxyz'
+    '23456789'
+)
+TEMP_PASSWORD_LENGTH = 16
+
+
+def _generate_temporary_password(length=TEMP_PASSWORD_LENGTH):
+    """A random password that always satisfies the letters+digit policy."""
+    while True:
+        value = ''.join(
+            secrets.choice(TEMP_PASSWORD_ALPHABET) for _ in range(length)
+        )
+        if (
+            any(char.islower() for char in value)
+            and any(char.isupper() for char in value)
+            and any(char.isdigit() for char in value)
+        ):
+            return value
 
 
 def _reset_axes(identifier):
@@ -481,6 +504,77 @@ class MeView(APIView):
         safe['guest_orders_count'] = guest_count
 
         return Response({'user': safe, 'profile': _profile_for(user)})
+
+
+class ChangePasswordView(APIView):
+    """POST /api/auth/change-password — rotate the signed-in account's password.
+
+    This is also the exit from a forced change: a temporary password issued by
+    an administrator sets ``must_change_password``, and saving a new password
+    here clears it. The response carries a freshly minted token pair because
+    every token tied to the old hash is invalidated by the change.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        throttle(
+            request,
+            'change-password',
+            limit=10,
+            window_seconds=3600,
+            identifier=f'user:{request.user.pk}',
+        )
+        data = _body(request)
+        current = data.get('current_password')
+        new_password = data.get('new_password')
+
+        if not isinstance(current, str) or not current:
+            raise bad_request('كلمة المرور الحالية مطلوبة')
+        if not isinstance(new_password, str) or not new_password:
+            raise bad_request('كلمة المرور الجديدة مطلوبة')
+
+        user = User.objects.filter(pk=request.user.pk).first()
+        if user is None:
+            raise unauthorized('الحساب غير موجود')
+        if not BcryptAuthBackend.verify_password(user, current):
+            raise bad_request('كلمة المرور الحالية غير صحيحة')
+        if current == new_password:
+            raise bad_request('كلمة المرور الجديدة يجب أن تختلف عن الحالية')
+
+        problem = password_policy_error(new_password)
+        if problem:
+            raise bad_request(problem)
+        strength_problem = _password_strength_error(
+            new_password, user.email, ''
+        )
+        if strength_problem:
+            raise bad_request(strength_problem)
+
+        new_hash = hash_password(new_password)
+        User.objects.filter(pk=user.pk).update(
+            password_hash=new_hash,
+            must_change_password=False,
+            failed_login_attempts=0,
+            login_locked_until=None,
+        )
+        user.password_hash = new_hash
+        user.must_change_password = False
+        user.failed_login_attempts = 0
+        user.login_locked_until = None
+        _reset_axes(user.email)
+
+        token, refresh = _issue_token(user)
+        return Response(
+            {
+                'message': 'تم تغيير كلمة المرور بنجاح',
+                'token': token,
+                'refresh': refresh,
+                'user': _safe_user(user),
+                'profile': _profile_for(user),
+                'must_change_password': False,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1386,6 +1480,72 @@ class AdminCustomerListView(APIView):
             customers.append(_json_ready(clean))
 
         return Response({'customers': customers})
+
+
+class AdminUserResetPasswordView(APIView):
+    """POST /api/admin/users/<id>/reset-password — issue a temporary password.
+
+    The plaintext password is generated server-side, returned exactly once in
+    this response (``Cache-Control: no-store``), and never written to the
+    database or to any log. The target account is forced through the
+    change-password screen on its next sign-in, and every JWT minted with the
+    previous password stops authenticating immediately.
+    """
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        throttle(
+            request,
+            'admin-password-reset',
+            limit=10,
+            window_seconds=3600,
+            identifier=f'admin:{request.user.pk}:{client_ip(request)}',
+        )
+
+        target = User.objects.filter(pk=pk).first()
+        if target is None:
+            raise ApiError('المستخدم غير موجود', status.HTTP_404_NOT_FOUND)
+
+        temporary_password = _generate_temporary_password()
+        now = utc_now()
+        with transaction.atomic():
+            User.objects.filter(pk=target.pk).update(
+                password_hash=hash_password(temporary_password),
+                must_change_password=True,
+                failed_login_attempts=0,
+                login_locked_until=None,
+            )
+            AdminPasswordResetAudit.objects.create(
+                admin_id=request.user.pk,
+                target_id=target.pk,
+                created_at=now,
+                ip_address=client_ip(request),
+            )
+
+        # A reset also clears an Axes lockout: the user is about to sign in with
+        # a brand-new credential, and leaving them blocked would defeat the
+        # admin's action.
+        _reset_axes(target.email)
+
+        target.refresh_from_db()
+        safe = _safe_user(target)
+        safe['must_change_password'] = True
+        response = Response(
+            {
+                'message': (
+                    'تم إنشاء كلمة مرور مؤقتة. اعرضها للمستخدم مرة واحدة، '
+                    'وسيُطلب منه تغييرها عند أول دخول.'
+                ),
+                'temporary_password': temporary_password,
+                'temp_password': temporary_password,
+                'must_change_password': True,
+                'user': safe,
+            }
+        )
+        response['Cache-Control'] = 'no-store, max-age=0'
+        response['Pragma'] = 'no-cache'
+        return response
 
 
 class AdminRequestCancelView(APIView):
