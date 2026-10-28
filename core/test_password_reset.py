@@ -202,13 +202,16 @@ class PasswordRecoveryUiTests(APITestCase):
         clear_site_config_cache()
 
     @override_settings(BUSINESS_WHATSAPP='201000000000')
-    def test_login_forgot_password_points_at_whatsapp(self):
-        clear_site_config_cache()
+    def test_login_forgot_password_opens_whatsapp_directly(self):
         response = self.client.get('/login.html')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(response, 'كلمنا على واتساب وهنساعدك ترجّع حسابك')
-        self.assertContains(response, 'wa.me/201000000000')
+        self.assertContains(
+            response,
+            'href="https://wa.me/201025330520?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C',
+        )
+        self.assertContains(response, 'target="_blank"')
         self.assertNotContains(response, '/verify-otp.html')
+        self.assertNotContains(response, "getElementById('forgot-pwd-link')")
 
     def test_unavailable_pages_render_a_friendly_notice(self):
         for path in ('/verify-otp.html', '/telegram-link.html'):
