@@ -34,7 +34,11 @@ from .serializers import GuestCreateRequestSerializer
 from .services.assignment import assign_technician
 from .services.pricing import price_status, quote_for
 from .site_config import get_site_config
-from .upload_validators import save_private_upload, validate_order_image
+from .upload_validators import (
+    ALLOWED_ORDER_IMAGE_MIME_TYPES,
+    save_private_upload,
+    validate_order_image,
+)
 
 RATE_LIMIT_PER_HOUR = 5
 
@@ -285,9 +289,13 @@ class GuestRequestPhotoView(APIView):
         if not target.is_file():
             raise Http404('لا توجد صورة لهذا الطلب')
         mime = magic.from_file(str(target), mime=True)
-        if not str(mime).startswith('image/'):
+        # Same allow-list as the upload check: an SVG (image/svg+xml) rendered
+        # inline from this origin would be a stored-XSS vector, so anything but
+        # a raster image is refused even if it somehow reached the disk.
+        if mime not in ALLOWED_ORDER_IMAGE_MIME_TYPES:
             raise Http404('لا توجد صورة لهذا الطلب')
         response = FileResponse(open(target, 'rb'), content_type=mime)
         response['Cache-Control'] = 'private, max-age=300'
         response['Content-Disposition'] = 'inline'
+        response['X-Content-Type-Options'] = 'nosniff'
         return response

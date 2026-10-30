@@ -323,7 +323,10 @@ SIMPLE_JWT = {
 # wildcard fallback.
 
 CORS_ALLOW_ALL_ORIGINS = False
-_default_cors = 'http://localhost:8000,' + SITE_ORIGIN
+# The localhost origin is a development convenience only: in production a page
+# on the visitor's own machine must not be able to read API responses.
+_dev_origin = 'http://localhost:8000,' if DEBUG else ''
+_default_cors = _dev_origin + SITE_ORIGIN
 CORS_ALLOWED_ORIGINS = [
     origin.strip().rstrip('/')
     for origin in os.environ.get('CORS_ALLOWED_ORIGINS', _default_cors).split(',')
@@ -333,7 +336,7 @@ CORS_ALLOWED_ORIGINS = [
 # Django's CSRF middleware stays active (see MIDDLEWARE). These origins are
 # trusted for the Django-rendered admin site and any future cookie-authenticated
 # form. The JSON API itself uses Bearer JWTs, not CSRF-protected cookies.
-_default_csrf = 'http://localhost:8000,' + SITE_ORIGIN
+_default_csrf = _dev_origin + SITE_ORIGIN
 CSRF_TRUSTED_ORIGINS = [
     origin.strip().rstrip('/')
     for origin in os.environ.get(
