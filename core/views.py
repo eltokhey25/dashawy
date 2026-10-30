@@ -83,6 +83,9 @@ from .validation import (
 # Mirrors the Express per-account brute-force brake.
 MAX_ACCOUNT_FAILURES = 5
 ACCOUNT_LOCK_MINUTES = 15
+# Failed sign-ins tolerated from one IP address per 15 minutes, across every
+# account. Generous enough for a shared office NAT, far too small for a spray.
+LOGIN_IP_FAILURE_LIMIT = 50
 
 AUTH_ERROR = 'البريد الإلكتروني/الهاتف أو كلمة المرور غير صحيحة'
 ACCOUNT_BLOCKED = 'تم إيقاف حسابك. تواصل مع الإدارة.'
@@ -304,6 +307,15 @@ class LoginView(APIView):
         if not identifier or not isinstance(password, str) or not password:
             raise unauthorized(AUTH_ERROR)
 
+        # Axes locks a (username, IP) pair, so one source could still spray a
+        # password across many accounts. This counts failures per IP only; a
+        # successful sign-in never increments it (see below).
+        ip_scope = f'ip:{client_ip(request)}'
+        throttle(
+            request, 'login-ip', limit=LOGIN_IP_FAILURE_LIMIT,
+            window_seconds=900, identifier=ip_scope, count=False,
+        )
+
         if '@' in identifier:
             user = User.objects.filter(email=normalize_email(identifier)).first()
         else:
@@ -327,6 +339,10 @@ class LoginView(APIView):
         ):
             if user is not None:
                 _note_failed_login(user)
+            throttle(
+                request, 'login-ip', limit=LOGIN_IP_FAILURE_LIMIT,
+                window_seconds=900, identifier=ip_scope,
+            )
             raise unauthorized(AUTH_ERROR)
 
         # Refuse a locked account only after the password check, and with the
@@ -432,7 +448,7 @@ class RegisterView(APIView):
                     user=user,
                     consent_type='terms_and_privacy',
                     policy_version=str(data.get('policy_version') or 'v1.0')[:20],
-                    ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+                    ip_address=client_ip(request),
                     user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )
         except IntegrityError:
@@ -606,6 +622,10 @@ def _technician_for(user):
     technician = Technician.objects.filter(user_id=user.pk).first()
     if technician is None:
         raise forbidden('حساب الفني غير مكتمل')
+    # Approval is re-checked at the API boundary: a token minted while the
+    # account was approved must stop working the moment an admin rejects it.
+    if technician.approval_status != 'approved':
+        raise forbidden('حساب الفني غير معتمد حالياً. تواصل مع الإدارة.')
     return technician
 
 
@@ -936,7 +956,7 @@ class CompleteProfileView(APIView):
                     user_id=user.pk,
                     consent_type='terms_and_privacy',
                     policy_version=str(data.get('policy_version') or 'v1.0')[:20],
-                    ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+                    ip_address=client_ip(request),
                     user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )
 
@@ -1108,7 +1128,7 @@ class TechnicianRegisterView(APIView):
                     user=user,
                     consent_type='terms_privacy_sensitive_documents',
                     policy_version=str(data.get('policy_version') or 'v1.0')[:20],
-                    ip_address=(request.META.get('REMOTE_ADDR') or '')[:64],
+                    ip_address=client_ip(request),
                     user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )
         except IntegrityError:
@@ -1506,6 +1526,14 @@ class AdminUserResetPasswordView(APIView):
         target = User.objects.filter(pk=pk).first()
         if target is None:
             raise ApiError('المستخدم غير موجود', status.HTTP_404_NOT_FOUND)
+        # Resetting an administrator's password is a takeover of that account,
+        # so only a super admin may do it. A regular admin is limited to
+        # customer and technician accounts, and nobody resets their own
+        # password here (that is what /auth/change-password is for).
+        if target.pk == request.user.pk:
+            raise bad_request('استخدم صفحة تغيير كلمة المرور لحسابك')
+        if (target.role == 'admin' or target.is_super_admin) and not request.user.is_super_admin:
+            raise forbidden('إعادة تعيين كلمة مرور مسؤول متاحة للمسؤول الأعلى فقط')
 
         temporary_password = _generate_temporary_password()
         now = utc_now()

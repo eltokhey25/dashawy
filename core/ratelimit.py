@@ -68,11 +68,12 @@ def client_ip(request) -> str:
 
 
 def throttle(request, scope: str, limit: int, window_seconds: int = 3600,
-             identifier: str = '') -> None:
+             identifier: str = '', count: bool = True) -> None:
     """Raise a 429 ``ApiError`` once ``limit`` calls are exceeded.
 
     The key includes a time bucket, so counters expire automatically and no
-    cleanup job is needed.
+    cleanup job is needed. With ``count=False`` the limit is only checked, not
+    consumed, so a caller can refuse early and charge only failed attempts.
     """
     if limit <= 0:
         return
@@ -85,6 +86,8 @@ def throttle(request, scope: str, limit: int, window_seconds: int = 3600,
             'عدد المحاولات كبير جدًا. حاول تاني بعد شوية.',
             429,
         )
+    if not count:
+        return
     # add() then set() is not atomic on every backend, but a couple of extra
     # requests in a race are not security-relevant for these limits.
     cache.set(key, current + 1, window_seconds + 5)
