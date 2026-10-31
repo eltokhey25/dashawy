@@ -5,12 +5,16 @@ client-supplied filename or Content-Type. The validated files belong under
 ``MEDIA_ROOT/uploads/technicians/``; only the ``profiles`` and ``portfolio``
 subtrees are exposed publicly, so identity documents are reachable only through
 the admin-only streaming view.
+
+Files are written through Django's default storage: ``MEDIA_ROOT`` on disk
+locally, or the ``stored_files`` table when ``UPLOAD_STORAGE=database``.
 """
 
-import magic
-from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.utils import timezone
+
+from .filetypes import HEADER_BYTES, detect_mime
 
 # Documents accepted for technician onboarding.
 ALLOWED_DOCUMENT_MIME_TYPES = frozenset(
@@ -33,7 +37,7 @@ ALLOWED_ORDER_IMAGE_MIME_TYPES = frozenset(
 
 MAX_DOCUMENT_SIZE = 5 * 1024 * 1024  # 5 MB per file
 MAX_ORDER_IMAGE_SIZE = 5 * 1024 * 1024
-MAGIC_HEADER_BYTES = 2048
+MAGIC_HEADER_BYTES = HEADER_BYTES
 
 MIME_EXTENSION = {
     'image/jpeg': 'jpg',
@@ -59,8 +63,8 @@ def validate_document_upload(uploaded_file):
         uploaded_file.seek(0)
         header = uploaded_file.read(MAGIC_HEADER_BYTES)
         uploaded_file.seek(0)
-        detected = magic.from_buffer(header, mime=True)
-    except (OSError, ValueError, magic.MagicException) as exc:
+        detected = detect_mime(header)
+    except (OSError, ValueError) as exc:
         raise ValidationError('تعذر التحقق من نوع الملف') from exc
 
     if detected not in ALLOWED_DOCUMENT_MIME_TYPES:
@@ -83,8 +87,8 @@ def validate_order_image(uploaded_file):
         uploaded_file.seek(0)
         header = uploaded_file.read(MAGIC_HEADER_BYTES)
         uploaded_file.seek(0)
-        detected = magic.from_buffer(header, mime=True)
-    except (OSError, ValueError, magic.MagicException) as exc:
+        detected = detect_mime(header)
+    except (OSError, ValueError) as exc:
         raise ValidationError('تعذر التحقق من نوع الصورة') from exc
 
     if detected not in ALLOWED_ORDER_IMAGE_MIME_TYPES:
@@ -102,23 +106,44 @@ def random_filename(mime_type):
 
 
 def save_private_upload(uploaded_file, relative_dir, mime_type):
-    """Write an upload below MEDIA_ROOT with a random name.
+    """Store an upload in the default storage with a random name.
 
     Returns the public-facing path stored in the database
     (``/uploads/<relative_dir>/<random>``). The file itself is never served by
     a blanket static route; callers expose it through an authorised view.
     """
-    from pathlib import Path
+    from pathlib import PurePosixPath
 
-    safe_dir = Path(relative_dir)
+    safe_dir = PurePosixPath(str(relative_dir).replace('\\', '/'))
     if safe_dir.is_absolute() or '..' in safe_dir.parts:
         raise ValidationError('مسار الملف غير صالح')
 
-    target_dir = Path(settings.MEDIA_ROOT) / safe_dir
-    target_dir.mkdir(parents=True, exist_ok=True)
-    name = random_filename(mime_type)
-    target = target_dir / name
-    with open(target, 'wb') as handle:
-        for chunk in uploaded_file.chunks():
-            handle.write(chunk)
-    return f'/uploads/{safe_dir.as_posix().strip("/")}/{name}'
+    name = f'{safe_dir.as_posix().strip("/")}/{random_filename(mime_type)}'
+    uploaded_file.seek(0)
+    saved = default_storage.save(name, uploaded_file)
+    return '/uploads/' + saved.replace('\\', '/')
+
+
+def resolve_stored_upload(stored):
+    """Map a database path (``/uploads/x/y``) to a storage name, or None.
+
+    Rejects anything that would climb out of the uploads tree.
+    """
+    relative = str(stored or '').replace('\\', '/').lstrip('/')
+    if relative.startswith('uploads/'):
+        relative = relative[len('uploads/'):]
+    parts = [part for part in relative.split('/') if part not in ('', '.')]
+    if not parts or '..' in parts:
+        return None
+    return '/'.join(parts)
+
+
+def open_stored_upload(name):
+    """Open a stored upload and sniff its type: ``(file, mime)`` or None."""
+    if not name or not default_storage.exists(name):
+        return None
+    handle = default_storage.open(name, 'rb')
+    handle.seek(0)
+    mime = detect_mime(handle.read(HEADER_BYTES))
+    handle.seek(0)
+    return handle, mime

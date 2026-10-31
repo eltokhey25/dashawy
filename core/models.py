@@ -973,3 +973,28 @@ class Message(models.Model):
 
     def __str__(self):
         return f'Message #{self.pk} on request #{self.request_id}'
+
+
+# ---------------------------------------------------------------------------
+# Uploaded file contents (new table, not part of the legacy schema)
+# ---------------------------------------------------------------------------
+
+
+class StoredFile(models.Model):
+    """An uploaded file kept in the database by ``core.storage.DatabaseStorage``.
+
+    Used on hosts without a persistent disk. ``name`` is the storage path
+    (``technicians/<user>/<random>.pdf``) that the other tables reference as
+    ``/uploads/<name>``.
+    """
+
+    name = models.CharField(max_length=500, unique=True)
+    content = models.BinaryField()
+    size = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=utc_now)
+
+    class Meta:
+        db_table = 'stored_files'
+
+    def __str__(self):
+        return self.name

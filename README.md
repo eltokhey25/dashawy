@@ -14,8 +14,6 @@ the existing HTML/CSS/JS frontend from a single process.
 - Python **3.10+** (developed on 3.12)
 - SQLite — a file database, no server to install
 - `pip` and `venv`
-- The system `libmagic` library used by `python-magic` for upload validation
-  (for example `apt install libmagic1` on Debian/Ubuntu)
 
 There is no build step and no bundler. The frontend is plain HTML, CSS, and
 JavaScript served directly by Django.
@@ -256,3 +254,33 @@ requirements.txt    Pinned Python dependencies
    authorised JavaScript origins, and the accounts in Search Console / Bing.
 7. Back up the SQLite database regularly. For heavier write traffic, plan a
    move to a server database.
+
+### Vercel + Neon Postgres
+
+Vercel has no persistent disk, so the hosted site keeps its data and uploads
+in Postgres. `api/index.py` and `vercel.json` run the whole Django app as one
+Python function.
+
+1. In the Vercel project, add a Neon Postgres database from the Storage tab.
+   It sets `DATABASE_URL` for you.
+2. Add these environment variables as well: `DJANGO_DEBUG=False`,
+   `DJANGO_SECRET_KEY`, `JWT_SECRET`, `SITE_URL=https://your-domain`,
+   `DJANGO_ALLOWED_HOSTS=your-domain,www.your-domain,.vercel.app`,
+   `CSRF_TRUSTED_ORIGINS=https://your-domain,https://www.your-domain`,
+   `UPLOAD_STORAGE=database` and `CACHE_BACKEND=database`, plus the optional
+   business, Google, VAPID and Telegram values.
+3. From your machine, copy the SQLite data and uploads into Neon once
+   (this also runs the migrations and creates the cache table):
+
+   ```bash
+   DATABASE_URL='postgresql://...' python manage.py import_sqlite
+   ```
+
+   Later schema changes only need
+   `DATABASE_URL='postgresql://...' python manage.py migrate`.
+4. Deploy (push to GitHub with the repository connected, or `vercel --prod`),
+   then add your domain under Settings → Domains and create the DNS records
+   Vercel shows.
+
+Vercel rejects request bodies larger than about 4.5 MB, so the two identity
+documents in one technician upload must together stay under that size.

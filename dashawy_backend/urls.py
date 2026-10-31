@@ -15,6 +15,7 @@ because ``/admin/...`` is the product's admin dashboard.
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.contrib import admin
 from django.contrib.staticfiles.views import serve as staticfiles_serve
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -167,19 +168,13 @@ def serve_public_upload(request, path):
     if '..' in clean.split('/'):
         raise Http404('File not found')
 
-    root = Path(settings.MEDIA_ROOT).resolve()
-    target = (root / clean).resolve()
-    try:
-        target.relative_to(root)
-    except ValueError:
-        raise Http404('File not found')
-    if not target.is_file():
+    if not default_storage.exists(clean):
         raise Http404('File not found')
 
-    mime, _ = mimetypes.guess_type(str(target))
+    mime, _ = mimetypes.guess_type(clean)
     if not (mime or '').startswith(('image/', 'video/')):
         raise Http404('File not found')
-    response = FileResponse(open(target, 'rb'), content_type=mime)
+    response = FileResponse(default_storage.open(clean, 'rb'), content_type=mime)
     response['Cache-Control'] = 'public, max-age=86400'
     response['X-Content-Type-Options'] = 'nosniff'
     return response

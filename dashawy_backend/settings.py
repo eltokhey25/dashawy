@@ -198,6 +198,19 @@ DATABASES = {
     }
 }
 
+# Hosted deployments (Vercel + Neon) have no persistent disk for the SQLite
+# file, so DATABASE_URL switches to Postgres. Local development keeps SQLite.
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+if DATABASE_URL and not RUNNING_TESTS:
+    import dj_database_url
+
+    DATABASES['default'] = dj_database_url.parse(
+        DATABASE_URL,
+        # Serverless functions are short-lived; Neon's pooler handles reuse.
+        conn_max_age=0,
+        ssl_require=os.environ.get('DATABASE_SSL', 'True') == 'True',
+    )
+
 
 # ---------------------------------------------------------------------------
 # Authentication
@@ -408,6 +421,35 @@ STATICFILES_DIRS = [BASE_DIR / 'frontend']
 # documents must be streamed by an authenticated view, never served as public
 # static content.
 MEDIA_ROOT = BASE_DIR / 'uploads'
+
+# UPLOAD_STORAGE=database keeps uploads in the ``stored_files`` table (see
+# core/storage.py) for hosts without a persistent disk; the default writes to
+# MEDIA_ROOT as before.
+UPLOAD_STORAGE = os.environ.get('UPLOAD_STORAGE', 'filesystem').strip().lower()
+STORAGES = {
+    'default': {
+        'BACKEND': (
+            'core.storage.DatabaseStorage'
+            if UPLOAD_STORAGE == 'database'
+            else 'django.core.files.storage.FileSystemStorage'
+        ),
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
+
+# The rate limiter (core/ratelimit.py) counts in the cache. Per-process memory
+# is lost between serverless invocations, so CACHE_BACKEND=database shares the
+# counters through the ``django_cache`` table (``manage.py createcachetable``).
+if os.environ.get('CACHE_BACKEND', '').strip().lower() == 'database':
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'django_cache',
+        }
+    }
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

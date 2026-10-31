@@ -36,6 +36,8 @@ from .services.pricing import price_status, quote_for
 from .site_config import get_site_config
 from .upload_validators import (
     ALLOWED_ORDER_IMAGE_MIME_TYPES,
+    open_stored_upload,
+    resolve_stored_upload,
     save_private_upload,
     validate_order_image,
 )
@@ -273,28 +275,18 @@ class GuestRequestPhotoView(APIView):
         job = _request_for_token(token)
         if not job.order_photo_path:
             raise Http404('لا توجد صورة لهذا الطلب')
-        from pathlib import Path
-
-        from django.conf import settings
-        import magic
-
-        relative = job.order_photo_path.lstrip('/')
-        if relative.startswith('uploads/'):
-            relative = relative[len('uploads/'):]
-        target = (Path(settings.MEDIA_ROOT) / relative).resolve()
-        try:
-            target.relative_to(Path(settings.MEDIA_ROOT).resolve())
-        except ValueError:
+        name = resolve_stored_upload(job.order_photo_path)
+        opened = open_stored_upload(name) if name else None
+        if opened is None:
             raise Http404('لا توجد صورة لهذا الطلب')
-        if not target.is_file():
-            raise Http404('لا توجد صورة لهذا الطلب')
-        mime = magic.from_file(str(target), mime=True)
+        handle, mime = opened
         # Same allow-list as the upload check: an SVG (image/svg+xml) rendered
         # inline from this origin would be a stored-XSS vector, so anything but
-        # a raster image is refused even if it somehow reached the disk.
+        # a raster image is refused even if it somehow reached storage.
         if mime not in ALLOWED_ORDER_IMAGE_MIME_TYPES:
+            handle.close()
             raise Http404('لا توجد صورة لهذا الطلب')
-        response = FileResponse(open(target, 'rb'), content_type=mime)
+        response = FileResponse(handle, content_type=mime)
         response['Cache-Control'] = 'private, max-age=300'
         response['Content-Disposition'] = 'inline'
         response['X-Content-Type-Options'] = 'nosniff'

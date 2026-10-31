@@ -17,11 +17,8 @@ import math
 import re
 import secrets
 from datetime import timedelta
-from pathlib import Path
 
-import magic
 from axes.utils import reset as reset_axes_attempts
-from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -65,7 +62,11 @@ from .services.start_pin import (
 )
 from .services.pricing import quote_for
 from .tokens import DashawyRefreshToken
-from .upload_validators import save_private_upload
+from .upload_validators import (
+    open_stored_upload,
+    resolve_stored_upload,
+    save_private_upload,
+)
 from .validation import (
     is_egypt_mobile,
     is_non_empty_string,
@@ -1421,9 +1422,9 @@ class AdminTechnicianDocumentView(APIView):
     """GET /api/admin/technicians/<id>/document/<type> — private document stream.
 
     This is the ONLY route that can return a national ID or criminal record.
-    The files live under ``MEDIA_ROOT`` with no ``MEDIA_URL`` route, and the
-    path is re-resolved and checked so a tampered database value cannot escape
-    the uploads directory.
+    The files live in the private upload storage with no ``MEDIA_URL`` route,
+    and the path is re-resolved and checked so a tampered database value cannot
+    escape the uploads tree.
     """
 
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -1445,27 +1446,22 @@ class AdminTechnicianDocumentView(APIView):
         if not stored:
             raise Http404('المستند غير موجود')
 
-        relative = str(stored).replace('\\', '/').lstrip('/')
-        if relative.startswith('uploads/'):
-            relative = relative[len('uploads/'):]
-        root = Path(settings.MEDIA_ROOT).resolve()
-        target = (root / relative).resolve()
-        try:
-            target.relative_to(root)
-        except ValueError:
+        name = resolve_stored_upload(stored)
+        if name is None:
             raise Http404('المستند غير موجود')
         # Only the two private document trees are ever served here; a database
         # row pointing at a profile image must not be readable through this
         # admin endpoint either.
-        if 'technicians/profiles/' in target.as_posix() or 'technicians/portfolio/' in target.as_posix():
+        if name.startswith(('technicians/profiles/', 'technicians/portfolio/')):
             raise Http404('المستند غير موجود')
-        if not target.is_file():
+        opened = open_stored_upload(name)
+        if opened is None:
             raise Http404('المستند غير موجود')
-
-        detected = magic.from_file(str(target), mime=True)
+        handle, detected = opened
         if detected not in ('image/jpeg', 'image/png', 'application/pdf'):
+            handle.close()
             raise Http404('المستند غير موجود')
-        response = FileResponse(open(target, 'rb'), content_type=detected)
+        response = FileResponse(handle, content_type=detected)
         response['Content-Disposition'] = f'inline; filename="{doc_type}"'
         response['Cache-Control'] = 'private, no-store'
         response['X-Content-Type-Options'] = 'nosniff'
