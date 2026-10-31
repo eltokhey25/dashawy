@@ -20,6 +20,18 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
+from .notification_views import PushSubscribeView, PushUnsubscribeView, VapidPublicKeyView
+from .profile_views import (
+    DataSubjectMyRequestsView,
+    DataSubjectRequestView,
+    PublicTechnicianDetailView,
+    PublicTechnicianListView,
+    TechnicianPortfolioItemView,
+    TechnicianPortfolioView,
+    TechnicianProfileDetailsView,
+    TechnicianProfileImageView,
+    TelegramLinkStatusView,
+)
 from .admin_manage_views import (
     AdminAccountDetailView,
     AdminAccountListView,
@@ -344,6 +356,44 @@ urlpatterns = [
         AdminTechnicianDocumentView.as_view(),
         name='admin-technician-document',
     ),
+    # Technician profile and public technician pages
+    re_path(
+        r'^technician/profile-details/?$',
+        TechnicianProfileDetailsView.as_view(),
+        name='technician-profile-details',
+    ),
+    re_path(
+        r'^technician/profile-image/?$',
+        TechnicianProfileImageView.as_view(),
+        name='technician-profile-image',
+    ),
+    re_path(r'^technician/portfolio/?$', TechnicianPortfolioView.as_view(), name='technician-portfolio'),
+    re_path(
+        r'^technician/portfolio/(?P<pk>\d+)/?$',
+        TechnicianPortfolioItemView.as_view(),
+        name='technician-portfolio-item',
+    ),
+    re_path(r'^public/technicians/?$', PublicTechnicianListView.as_view(), name='public-technicians'),
+    re_path(
+        r'^public/technicians/(?P<pk>\d+)/?$',
+        PublicTechnicianDetailView.as_view(),
+        name='public-technician-detail',
+    ),
+    # Privacy requests, Telegram status and Web Push
+    re_path(r'^data-subject/request/?$', DataSubjectRequestView.as_view(), name='data-subject-request'),
+    re_path(
+        r'^data-subject/my-requests/?$',
+        DataSubjectMyRequestsView.as_view(),
+        name='data-subject-my-requests',
+    ),
+    re_path(r'^auth/telegram-link/?$', TelegramLinkStatusView.as_view(), name='telegram-link-status'),
+    re_path(
+        r'^notifications/vapid-public-key/?$',
+        VapidPublicKeyView.as_view(),
+        name='vapid-public-key',
+    ),
+    re_path(r'^notifications/subscribe/?$', PushSubscribeView.as_view(), name='push-subscribe'),
+    re_path(r'^notifications/unsubscribe/?$', PushUnsubscribeView.as_view(), name='push-unsubscribe'),
     # Admin management
     re_path(r'^admin/admins/?$', AdminAccountListView.as_view(), name='admin-admins'),
     re_path(

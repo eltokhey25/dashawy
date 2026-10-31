@@ -73,6 +73,7 @@ def broadcast_request(request_id):
         return {'count': 0, 'technician_ids': []}
 
     now = utc_now()
+    newly_offered = []
     with transaction.atomic():
         if request.status == 'no_technician':
             Request.objects.filter(pk=request.pk).update(
@@ -91,10 +92,18 @@ def broadcast_request(request_id):
                     status=SENT,
                     sent_at=now,
                 )
+                newly_offered.append(technician.user_id)
             elif row.status in (SENT, EXPIRED):
+                if row.status == EXPIRED:
+                    newly_offered.append(technician.user_id)
                 RequestBroadcast.objects.filter(pk=row.pk).update(
                     status=SENT, sent_at=now, responded_at=None
                 )
+
+    if newly_offered:
+        from .notifications import notify_new_offer
+
+        notify_new_offer(newly_offered, request)
 
     live = list(
         RequestBroadcast.objects.filter(request_id=request.pk, status=SENT)

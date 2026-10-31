@@ -1,10 +1,9 @@
-"""Tell a customer that a technician accepted their request.
+"""Notifications that reach people when the site is closed.
 
-The in-site notice comes from the request itself: My requests polls every few
-seconds and announces the change to ``assigned`` with the technician's name.
-This module adds the message that reaches the customer when the site is closed:
-a Telegram message for accounts that linked the bot. It never raises, so a
-failed send cannot turn a successful accept into an error.
+Web Push (``services/push.py``) to every browser the user subscribed, plus a
+Telegram message for accounts that linked the bot. The in-site notices come
+from the pages themselves (My requests and the technician dashboard poll).
+Nothing here raises, so a failed send never turns the action into an error.
 """
 
 import json
@@ -44,14 +43,80 @@ def send_telegram(chat_id, text):
         return False
 
 
+def _push(user_id, payload):
+    from . import push
+
+    return push.notify(user_id, payload)
+
+
 def notify_request_accepted(request):
     """Best-effort message to the request's customer after an accept."""
     customer = getattr(request, 'customer', None) if request.customer_id else None
     user = getattr(customer, 'user', None) if customer else None
     technician = getattr(request, 'technician', None)
-    if user is None or not user.telegram_chat_id:
+    if user is None:
         return False
-    return send_telegram(
-        user.telegram_chat_id,
-        accepted_message(technician.name if technician else None),
+    name = technician.name if technician else None
+    _push(
+        user.pk,
+        {
+            'title': '✅ تم قبول طلبك',
+            'body': f'الفني: {name or "الفني"} — هيتواصل معاك قريب',
+            'url': '/customer/my-requests.html',
+            'tag': f'request-accepted-{request.pk}',
+        },
+    )
+    if not user.telegram_chat_id:
+        return False
+    return send_telegram(user.telegram_chat_id, accepted_message(name))
+
+
+def notify_new_offer(technician_user_ids, request):
+    """Tell technicians a new order is waiting in their incoming tab."""
+    from ..guest_views import _label_for
+
+    label = (
+        request.custom_specialty_text
+        if request.specialty == 'other' and request.custom_specialty_text
+        else _label_for(request.specialty)
+    )
+    area = (request.location_text or '').split('—')[0].strip()
+    payload = {
+        'title': '🔔 طلب جديد',
+        'body': label + (f' — {area}' if area else ''),
+        'url': '/technician/dashboard.html',
+        'tag': 'new-request',
+        'requireInteraction': True,
+    }
+    for user_id in technician_user_ids:
+        _push(user_id, payload)
+
+
+def notify_job_completed(request):
+    """Ask the customer to confirm the amount and rate the technician."""
+    customer = getattr(request, 'customer', None) if request.customer_id else None
+    if customer is None:
+        return
+    technician = getattr(request, 'technician', None)
+    _push(
+        customer.user_id,
+        {
+            'title': '🎉 الفني خلّص الشغل',
+            'body': f'{technician.name if technician else "الفني"} أنهى المهمة. أكّد المبلغ وقيّم الخدمة.',
+            'url': f'/customer/my-requests.html?review={request.pk}',
+            'tag': f'request-completed-{request.pk}',
+            'requireInteraction': True,
+        },
+    )
+
+
+def notify_chat_message(recipient_user_id, sender_name, body, request_id, recipient_role):
+    _push(
+        recipient_user_id,
+        {
+            'title': '💬 رسالة جديدة',
+            'body': f'{sender_name}: {body[:50]}',
+            'url': f'/chat.html?id={request_id}',
+            'tag': f'chat-{request_id}',
+        },
     )

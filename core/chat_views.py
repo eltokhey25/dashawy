@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from .exceptions import ApiError, bad_request, forbidden
 from .models import Message, Request, utc_now
 from .ratelimit import throttle
+from .services.notifications import notify_chat_message
 from .views import _body
 
 SENDABLE_STATES = ('assigned', 'in_progress')
@@ -126,6 +127,12 @@ class MessageThreadView(APIView):
         message = Message.objects.create(
             request_id=job.pk, sender_id=request.user.pk, sender_role=role, body=raw.strip()
         )
+        if role == 'customer':
+            notify_chat_message(job.technician.user_id, 'العميل', message.body, job.pk, 'technician')
+        else:
+            notify_chat_message(
+                job.customer.user_id, job.technician.name or 'الفني', message.body, job.pk, 'customer'
+            )
         return Response({'message': _message_json(message)}, status=status.HTTP_201_CREATED)
 
 

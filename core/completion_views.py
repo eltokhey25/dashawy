@@ -22,6 +22,7 @@ from .guest_views import _label_for
 from .models import Request, Review, utc_now
 from .permissions import IsCustomer, IsTechnician
 from .services.assignment import release_technician
+from .services.notifications import notify_job_completed
 from .services.payments import (
     PaymentError,
     customer_report,
@@ -94,6 +95,9 @@ class TechnicianRequestCompleteView(APIView):
                 raise bad_request('فقط طلبات العمل الجارية يمكن إكمالها')
             release_technician(technician.pk)
 
+        notify_job_completed(
+            Request.objects.select_related('customer', 'technician').get(pk=job.pk)
+        )
         return Response(
             {
                 'message': 'تم إكمال المهمة بنجاح',
