@@ -58,3 +58,4 @@ database/*.pre-recovery
 database/*.db-*
 .vercel
 .env*
+!.env.example
