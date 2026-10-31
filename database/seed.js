@@ -23,7 +23,15 @@ function ensureUser(email, password, role) {
 }
 
 function seedAdmin() {
-  ensureUser('admin@fixrequest.com', 'admin123', 'admin');
+  // No password is written into this file: the repository is public, and a
+  // seeded admin with a known password is a working login for anyone who
+  // reads it. Set SEED_ADMIN_PASSWORD to create the account.
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!password) {
+    console.log('[seed] SEED_ADMIN_PASSWORD is not set; skipping the admin account.');
+    return;
+  }
+  ensureUser('admin@fixrequest.com', password, 'admin');
 
   // The default admin must be a super admin. Every admin endpoint is guarded by an
   // explicit permission check that a super admin passes automatically, so an admin

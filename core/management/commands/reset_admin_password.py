@@ -7,44 +7,28 @@ used, and clears the failed-login lock so the account can sign in immediately.
 
 Usage::
 
-    python manage.py reset_admin_password
     python manage.py reset_admin_password --email admin@example.com --password 'NewPass123'
 
-When ``DEBUG`` is off, the built-in default password is refused: pass
-``--password`` explicitly so a production deployment can never be reset to a
-credential that is printed in this file.
+Both arguments are required. This repository is public, so no account email
+or password may ever be written into this file as a default.
 """
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from core.auth_backend import hash_password
 from core.models import User
 from core.validation import normalize_email, password_policy_error
 
-DEFAULT_EMAIL = 'eltokhey@fixrequest.com'
-DEFAULT_PASSWORD = 'Eltokhey251120'
-
 
 class Command(BaseCommand):
-    help = (
-        'Reset an account password with bcrypt (test/recovery helper). '
-        f'Defaults to {DEFAULT_EMAIL} in DEBUG mode.'
-    )
+    help = 'Reset an account password with bcrypt (test/recovery helper).'
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--email',
-            default=DEFAULT_EMAIL,
-            help=f'Account email to reset (default: {DEFAULT_EMAIL}).',
+            '--email', required=True, help='Account email to reset.'
         )
         parser.add_argument(
-            '--password',
-            default=None,
-            help=(
-                'New password. Defaults to the built-in test password only when '
-                'DEBUG is on; required when DEBUG is off.'
-            ),
+            '--password', required=True, help='New password.'
         )
 
     def handle(self, *args, **options):
@@ -53,13 +37,6 @@ class Command(BaseCommand):
             raise CommandError('An email address is required.')
 
         password = options['password']
-        if not password:
-            if not settings.DEBUG:
-                raise CommandError(
-                    'Refusing to use the built-in test password with DEBUG=False. '
-                    'Pass --password explicitly.'
-                )
-            password = DEFAULT_PASSWORD
 
         problem = password_policy_error(password)
         if problem:
