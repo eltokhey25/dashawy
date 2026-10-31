@@ -258,8 +258,10 @@ requirements.txt    Pinned Python dependencies
 ### Vercel + Neon Postgres
 
 Vercel has no persistent disk, so the hosted site keeps its data and uploads
-in Postgres. `api/index.py` and `vercel.json` run the whole Django app as one
-Python function.
+in Postgres. Vercel detects Django from `manage.py` and runs
+`WSGI_APPLICATION` as one Python function; `vercel.json` only bundles the
+templates and `frontend/` assets with it. The build reads the settings, so set
+the environment variables below before the first deploy.
 
 1. In the Vercel project, add a Neon Postgres database from the Storage tab.
    It sets `DATABASE_URL` for you.
