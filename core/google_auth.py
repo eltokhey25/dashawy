@@ -1,7 +1,8 @@
 """Server-side verification of Google Identity Services ID tokens.
 
-No extra dependency: PyJWT already ships with SimpleJWT, and Google's public
-JWKS is fetched with ``urllib`` and cached for an hour. The browser's claims are
+PyJWT (already shipped with SimpleJWT) verifies the RS256 signature; its RSA
+support needs the ``cryptography`` package, pinned in requirements.txt. Google's
+public JWKS is fetched with ``urllib`` and cached for an hour. The browser's claims are
 never trusted — signature, issuer, audience, expiry and ``email_verified`` are
 all checked here.
 """
