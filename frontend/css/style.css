@@ -10053,11 +10053,11 @@ textarea {
   box-sizing: border-box;
 }
 
+/* .pin-input is deliberately not listed: it keeps its fixed 56px boxes. */
 input[type='checkbox'],
 input[type='radio'],
 input[type='hidden'],
-input[type='file'],
-.pin-input {
+input[type='file'] {
   width: auto;
 }
 

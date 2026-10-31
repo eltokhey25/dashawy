@@ -235,13 +235,19 @@
     // --- Stars ------------------------------------------------------------
     var starsWrap = box.querySelector('#force-stars');
 
+    // Only the icon's class changes: replacing the button's contents on hover
+    // removed the element under the pointer, so the click (and on iOS the tap
+    // that first fires the hover) never selected the star.
     function paintStars(count) {
       var buttons = starsWrap.querySelectorAll('button');
       buttons.forEach(function (button, index) {
         var on = index + 1 <= count;
-        button.innerHTML = on
-          ? '<i class="fa-solid fa-star"></i>'
-          : '<i class="fa-regular fa-star"></i>';
+        var icon = button.querySelector('i');
+        if (!icon) {
+          icon = document.createElement('i');
+          button.appendChild(icon);
+        }
+        icon.className = on ? 'fa-solid fa-star' : 'fa-regular fa-star';
         button.style.color = on ? '#f59e0b' : '#cbd5e1';
       });
     }

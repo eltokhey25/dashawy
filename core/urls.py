@@ -20,6 +20,17 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
+from .completion_views import (
+    CustomerMyReviewsView,
+    CustomerPayView,
+    CustomerPendingActionsView,
+    CustomerPendingReviewsView,
+    CustomerReportPaymentView,
+    CustomerReviewView,
+    TechnicianReportPaymentView,
+    TechnicianRequestCompleteView,
+    TechnicianReviewReplyView,
+)
 from .views import (
     AdminCustomerListView,
     AdminRequestCancelView,
@@ -112,6 +123,36 @@ urlpatterns = [
         name='customer-requests',
     ),
     re_path(
+        r'^customer/requests/pending-actions/?$',
+        CustomerPendingActionsView.as_view(),
+        name='customer-pending-actions',
+    ),
+    re_path(
+        r'^customer/requests/(?P<pk>\d+)/report-payment/?$',
+        CustomerReportPaymentView.as_view(),
+        name='customer-report-payment',
+    ),
+    re_path(
+        r'^customer/requests/(?P<pk>\d+)/pay/?$',
+        CustomerPayView.as_view(),
+        name='customer-pay',
+    ),
+    re_path(
+        r'^customer/requests/(?P<pk>\d+)/review/?$',
+        CustomerReviewView.as_view(),
+        name='customer-review',
+    ),
+    re_path(
+        r'^customer/pending-reviews/?$',
+        CustomerPendingReviewsView.as_view(),
+        name='customer-pending-reviews',
+    ),
+    re_path(
+        r'^customer/my-reviews/?$',
+        CustomerMyReviewsView.as_view(),
+        name='customer-my-reviews',
+    ),
+    re_path(
         r'^customer/requests/(?P<pk>\d+)/cancel/?$',
         CustomerRequestCancelView.as_view(),
         name='customer-request-cancel',
@@ -165,6 +206,21 @@ urlpatterns = [
         r'^technician/broadcasts/(?P<pk>\d+)/(?:decline|reject)/?$',
         TechnicianBroadcastDeclineView.as_view(),
         name='technician-broadcast-decline',
+    ),
+    re_path(
+        r'^technician/requests/(?P<pk>\d+)/complete/?$',
+        TechnicianRequestCompleteView.as_view(),
+        name='technician-request-complete',
+    ),
+    re_path(
+        r'^technician/requests/(?P<pk>\d+)/report-payment/?$',
+        TechnicianReportPaymentView.as_view(),
+        name='technician-report-payment',
+    ),
+    re_path(
+        r'^technician/reviews/(?P<pk>\d+)/reply/?$',
+        TechnicianReviewReplyView.as_view(),
+        name='technician-review-reply',
     ),
     re_path(
         r'^technician/requests/(?P<pk>\d+)/start/?$',

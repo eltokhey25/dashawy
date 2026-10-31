@@ -935,8 +935,7 @@
                 attrs: {
                   type: 'tel',
                   inputmode: 'numeric',
-                  maxlength: '1',
-                  autocomplete: 'off',
+                  autocomplete: 'one-time-code',
                   'aria-label': 'رقم ' + (i + 1),
                   'data-index': String(i),
                 },
@@ -1009,8 +1008,17 @@
         // stale modal's handlers cannot fire against a newer one.
         inputs.forEach((inp, i) => {
           inp.addEventListener('input', () => {
-            inp.value = inp.value.replace(/\D/g, '').slice(0, 1);
-            if (inp.value && i < inputs.length - 1) inputs[i + 1].focus();
+            // A pasted (or autofilled) code arrives as several digits in one box:
+            // spread it across the following boxes instead of keeping only one.
+            const digits = inp.value.replace(/\D/g, '');
+            inp.value = digits.slice(0, 1);
+            let last = i;
+            for (let k = 1; k < digits.length && i + k < inputs.length; k++) {
+              inputs[i + k].value = digits[k];
+              last = i + k;
+            }
+            if (inp.value && last < inputs.length - 1) inputs[last + 1].focus();
+            else if (inp.value) inputs[last].focus();
           });
           inp.addEventListener('keydown', (e) => {
             if (e.key === 'Backspace' && !inp.value && i > 0) inputs[i - 1].focus();

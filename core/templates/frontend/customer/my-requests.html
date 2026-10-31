@@ -833,8 +833,10 @@
             const on = idx + 1 <= n;
             s.classList.toggle('on', on);
             s.setAttribute('aria-checked', on && idx + 1 === n ? 'true' : 'false');
-            s.innerHTML = '';
-            s.appendChild(Ui.ic(on ? 'fa-solid fa-star' : 'fa-regular fa-star'));
+            // Swap the icon's class instead of its node, so the element under the
+            // pointer survives the hover repaint and the click still lands.
+            const icon = s.querySelector('i') || s.appendChild(document.createElement('i'));
+            icon.className = on ? 'fa-solid fa-star' : 'fa-regular fa-star';
           });
         }
         updateStars(0);

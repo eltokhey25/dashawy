@@ -755,9 +755,16 @@ class TechnicianRequestListView(APIView):
     def get(self, request):
         technician = _technician_for(request.user)
         history = request.query_params.get('filter') == 'history'
-        statuses = ('completed', 'cancelled') if history else ('assigned', 'in_progress')
+        if history:
+            scope = Q(status__in=('completed', 'cancelled'))
+        else:
+            # A finished job whose cash amount nobody reported yet stays active:
+            # the report button lives on this list.
+            scope = Q(status__in=('assigned', 'in_progress')) | Q(
+                status='completed', amount_status__isnull=True
+            )
         jobs = (
-            Request.objects.filter(technician_id=technician.pk, status__in=statuses)
+            Request.objects.filter(scope, technician_id=technician.pk)
             .select_related('customer', 'technician')
             .order_by('-created_at', '-id')
         )
