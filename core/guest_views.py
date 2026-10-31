@@ -45,7 +45,7 @@ from .models import (
 )
 from .ratelimit import client_ip
 from .serializers import GuestCreateRequestSerializer
-from .services.assignment import assign_technician
+from .services.broadcast import broadcast_request
 from .services.pricing import price_status, quote_for
 from .upload_validators import (
     ALLOWED_ORDER_IMAGE_MIME_TYPES,
@@ -318,18 +318,17 @@ class GuestRequestCreateView(APIView):
                 Request.objects.filter(pk=job.pk).update(order_photo_path=path)
                 job.order_photo_path = path
 
-        assignment = assign_technician(job.pk)
+        # Offered to the technicians; the first to accept gets it and the
+        # customer is told who is coming.
+        offers = broadcast_request(job.pk)
         job.refresh_from_db()
 
         payload = guest_payload(job, include_photo=False)
         body = {
-            'message': (
-                'تم استلام طلبك وربطك بفني'
-                if assignment.get('assigned')
-                else 'تم استلام طلبك، وهنحوّله لأقرب فني متاح في أسرع وقت'
-            ),
+            'message': 'تم تلقي طلبك وسيتم التواصل معك',
             'request': payload,
-            'assigned': bool(assignment.get('assigned')),
+            'broadcast': {'sent_to': offers['count']},
+            'assigned': False,
             'redirect': '/customer/my-requests.html',
             'account_created': new_user is not None,
         }

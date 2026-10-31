@@ -359,29 +359,63 @@ class RequestApiTests(APITestCase):
         body.update(overrides)
         return self.client.post('/api/customer/requests', body, format='json')
 
-    def test_create_request_assigns_matching_technician(self):
+    def accept_offer(self, tech_user, request_id):
+        """Accept the broadcast offer for ``request_id`` as ``tech_user``."""
+        self.authenticate(tech_user)
+        incoming = self.client.get('/api/technician/incoming').json()['requests']
+        offer = next(o for o in incoming if o['request_id'] == request_id)
+        return self.client.post(
+            f"/api/technician/broadcasts/{offer['broadcast_id']}/accept"
+        )
+
+    def create_accepted_request(self):
+        self.authenticate(self.customer_user)
+        request_id = self.create_request().json()['request']['id']
+        self.assertEqual(self.accept_offer(self.tech_user, request_id).status_code, 200)
+        self.authenticate(self.customer_user)
+        return self.client.get(f'/api/customer/requests/{request_id}').json()['request']
+
+    def test_create_request_is_offered_to_technicians(self):
         self.authenticate(self.customer_user)
         response = self.create_request()
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = response.json()
-        self.assertTrue(body['assigned'])
-        self.assertEqual(body['message'], 'تم تعيين فني لطلبك')
-        self.assertEqual(body['request']['status'], 'assigned')
-        self.assertEqual(body['request']['technician_id'], self.technician.id)
+        self.assertFalse(body['assigned'])
+        self.assertEqual(body['message'], 'تم تلقي طلبك وسيتم التواصل معك')
+        self.assertEqual(body['broadcast']['sent_to'], 1)
+        self.assertEqual(body['request']['status'], 'pending')
+        self.assertIsNone(body['request']['technician_id'])
         self.assertEqual(body['request']['customer_id'], self.customer.id)
-        self.assertEqual(body['request']['customer_name'], 'Test Customer')
-        self.assertEqual(
-            body['request']['technician_profile_url'],
-            '/technician-profile.html?id=' + str(self.technician.id),
-        )
-
-        self.technician.refresh_from_db()
-        self.assertEqual(self.technician.availability, 'busy')
-        broadcast = RequestBroadcast.objects.get(
+        offer = RequestBroadcast.objects.get(
             request_id=body['request']['id'], technician=self.technician
         )
-        self.assertEqual(broadcast.status, 'accepted')
+        self.assertEqual(offer.status, 'sent')
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'available')
+
+    def test_accepting_the_offer_assigns_the_technician(self):
+        self.authenticate(self.customer_user)
+        request_id = self.create_request().json()['request']['id']
+
+        accepted = self.accept_offer(self.tech_user, request_id)
+        self.assertEqual(accepted.status_code, status.HTTP_200_OK)
+        self.assertNotIn('start_pin', accepted.json()['request'])
+
+        self.authenticate(self.customer_user)
+        job = self.client.get(f'/api/customer/requests/{request_id}').json()['request']
+        self.assertEqual(job['status'], 'assigned')
+        self.assertEqual(job['technician_id'], self.technician.id)
+        self.assertEqual(job['technician_name'], 'Test Technician')
+        self.assertRegex(job['start_pin'], r'^\d{4}$')
+        self.assertEqual(
+            job['technician_profile_url'],
+            '/technician-profile.html?id=' + str(self.technician.id),
+        )
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'busy')
+        offer = RequestBroadcast.objects.get(request_id=request_id, technician=self.technician)
+        self.assertEqual(offer.status, 'accepted')
 
     def test_create_request_without_technician_stays_pending(self):
         self.authenticate(self.customer_user)
@@ -389,16 +423,9 @@ class RequestApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = response.json()
-        self.assertFalse(body['assigned'])
-        self.assertEqual(
-            body['message'],
-            'تم استلام طلبك بنجاح وسيتم التواصل معك قريباً',
-        )
+        self.assertEqual(body['broadcast']['sent_to'], 0)
         self.assertEqual(body['request']['status'], 'pending')
         self.assertIsNone(body['request']['technician_id'])
-        self.assertEqual(
-            body['assignment']['reason'], 'no_technician_available'
-        )
 
     def test_customer_lists_and_reads_only_own_requests(self):
         self.authenticate(self.customer_user)
@@ -431,8 +458,7 @@ class RequestApiTests(APITestCase):
         self.assertEqual(denied.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_technician_lists_jobs_without_start_pin(self):
-        self.authenticate(self.customer_user)
-        created = self.create_request().json()['request']
+        created = self.create_accepted_request()
 
         self.authenticate(self.tech_user)
         response = self.client.get('/api/technician/requests')
@@ -443,8 +469,7 @@ class RequestApiTests(APITestCase):
         self.assertNotIn('start_pin', jobs[0])
 
     def test_technician_accepts_job_with_arrival_code(self):
-        self.authenticate(self.customer_user)
-        created = self.create_request().json()['request']
+        created = self.create_accepted_request()
         pin = created['start_pin']
         self.assertRegex(pin, r'^\d{4}$')
 
@@ -462,8 +487,7 @@ class RequestApiTests(APITestCase):
         self.assertIsNone(job.start_pin)
 
     def test_technician_accept_without_arrival_code_is_rejected(self):
-        self.authenticate(self.customer_user)
-        created = self.create_request().json()['request']
+        created = self.create_accepted_request()
 
         self.authenticate(self.tech_user)
         response = self.client.post(
@@ -516,8 +540,7 @@ class RequestApiTests(APITestCase):
             approval_status='approved',
         )
 
-        self.authenticate(self.customer_user)
-        created = self.create_request().json()['request']
+        created = self.create_accepted_request()
         self.assertEqual(created['technician_id'], self.technician.id)
 
         self.authenticate(self.tech_user)
@@ -526,9 +549,12 @@ class RequestApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = response.json()
-        self.assertTrue(body['reassigned'])
-        self.assertEqual(body['request']['technician_id'], second.id)
+        self.assertEqual(body['broadcast']['sent_to'], 1)
+        self.assertEqual(body['request']['status'], 'pending')
+        self.assertIsNone(body['request']['technician_id'])
 
+        # The other technician has it on offer and can take it.
+        self.assertEqual(self.accept_offer(second_user, created['id']).status_code, 200)
         self.technician.refresh_from_db()
         second.refresh_from_db()
         self.assertEqual(self.technician.availability, 'available')
@@ -542,8 +568,7 @@ class RequestApiTests(APITestCase):
         self.assertEqual(decline.status, 'declined')
 
     def test_rejection_with_no_other_technician_returns_to_pending(self):
-        self.authenticate(self.customer_user)
-        created = self.create_request().json()['request']
+        created = self.create_accepted_request()
 
         self.authenticate(self.tech_user)
         response = self.client.post(
@@ -551,7 +576,7 @@ class RequestApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = response.json()
-        self.assertFalse(body['reassigned'])
+        self.assertEqual(body['broadcast']['sent_to'], 0)
         self.assertEqual(body['request']['status'], 'pending')
         self.assertIsNone(body['request']['technician_id'])
 

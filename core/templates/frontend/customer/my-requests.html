@@ -79,7 +79,7 @@
 
       // Arriving from the public order form, which also created the account.
       if (new URLSearchParams(window.location.search).get('new') === '1') {
-        toast('تم استلام طلبك ✅ تقدر تتابعه من هنا', 'success');
+        toast('تم تلقي طلبك وسيتم التواصل معك ✅', 'success');
         history.replaceState(null, '', window.location.pathname);
       }
 
@@ -313,8 +313,8 @@
         const badge =
           r.status === 'pending'
             ? Ui.el('span', { class: 'badge b-pending' }, [
-                Ui.ic('fa-solid fa-magnifying-glass'),
-                'قيد البحث عن فني متاح',
+                Ui.ic('fa-regular fa-clock'),
+                'في انتظار قبول فني',
               ])
             : Ui.statusBadge(r.status);
 
@@ -641,10 +641,51 @@
         rows.forEach((r) => listEl.appendChild(cardFor(r)));
       }
 
+      // Last status seen for each request, so the customer is told when a
+      // technician accepts one (pending -> assigned): live while the page polls,
+      // and on the next visit too, since the map is kept in this browser.
+      const SEEN_KEY = 'dashawy_seen_request_statuses';
+      let knownStatuses = null;
+
+      function loadSeenStatuses() {
+        try {
+          const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || 'null');
+          return raw ? new Map(Object.entries(raw).map(([id, st]) => [Number(id), st])) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function announceAccepted(requests) {
+        const previous = knownStatuses || loadSeenStatuses();
+        knownStatuses = new Map(requests.map((r) => [r.id, r.status]));
+        try {
+          localStorage.setItem(SEEN_KEY, JSON.stringify(Object.fromEntries(knownStatuses)));
+        } catch (e) {
+          /* private mode: only the live announcement works */
+        }
+        if (!previous) return;
+        requests.forEach((r) => {
+          const before = previous.get(r.id);
+          if (r.status !== 'assigned' || !before || before === 'assigned') return;
+          const name = r.technician_name || 'فني';
+          const text = 'تم قبول طلبك #' + r.id + ' — الفني: ' + name;
+          toast('✅ ' + text, 'success');
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification('تم قبول طلبك', { body: 'الفني: ' + name, icon: '/dashawy-brand/icon-192.png' });
+            } catch (e) {
+              /* some browsers only allow notifications from a service worker */
+            }
+          }
+        });
+      }
+
       async function load() {
         try {
           const data = await api('/api/customer/requests');
           allRequests = data.requests || [];
+          announceAccepted(allRequests);
           // Reviews are fetched alongside the list so a card can never render a
           // "rate now" button for a request that was already reviewed.
           await loadMyReviews();

@@ -53,7 +53,16 @@ from .serializers import (
     TechnicianDocumentUploadSerializer,
     TechnicianRequestSerializer,
 )
-from .services.assignment import assign_technician, reassign_after_rejection
+from .services.assignment import mark_declined, release_technician
+from .services.broadcast import (
+    BroadcastError,
+    accept_broadcast,
+    broadcast_request,
+    close_offers,
+    decline_broadcast,
+    incoming_for_technician,
+)
+from .services.notifications import notify_request_accepted
 from .services.start_pin import (
     START_PIN_ATTEMPTS,
     START_PIN_LENGTH,
@@ -668,32 +677,51 @@ class CustomerRequestListCreateView(APIView):
             **quote,
         )
 
-        assignment = assign_technician(created.pk)
+        # The request is offered to the technicians; the customer hears back
+        # when one of them accepts (see TechnicianBroadcastAcceptView).
+        offers = broadcast_request(created.pk)
         created.refresh_from_db()
-        # Read the row rather than trusting the return value, so a concurrent
-        # assignment cannot make the message disagree with the request.
-        assigned = (
-            created.status == 'assigned' and created.technician_id is not None
-        )
 
-        payload = RequestSerializer(created).data
         return Response(
             {
-                # Exact wording the Phase 3 contract specifies.
-                'message': (
-                    'تم تعيين فني لطلبك'
-                    if assigned
-                    else 'تم استلام طلبك بنجاح وسيتم التواصل معك قريباً'
-                ),
-                'request': payload,
-                'assignment': {
-                    'assigned': assigned,
-                    'technician_id': assignment.get('technician_id'),
-                    'reason': assignment.get('reason'),
-                },
-                'assigned': assigned,
+                'message': 'تم تلقي طلبك وسيتم التواصل معك',
+                'request': RequestSerializer(created).data,
+                'broadcast': {'sent_to': offers['count']},
+                'assigned': False,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+class CustomerRequestCancelView(APIView):
+    """POST /api/customer/requests/<id>/cancel — cancel before work starts."""
+
+    permission_classes = [IsAuthenticated, IsCustomer]
+
+    def post(self, request, pk):
+        customer = _customer_for(request.user)
+        job = Request.objects.filter(pk=pk, customer_id=customer.pk).first()
+        if job is None:
+            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
+        cancellable = ('pending', 'no_technician', 'assigned')
+        if job.status not in cancellable:
+            raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
+
+        now = utc_now()
+        with transaction.atomic():
+            updated = Request.objects.filter(pk=job.pk, status__in=cancellable).update(
+                status='cancelled',
+                cancel_reason='ألغى العميل الطلب',
+                updated_at=now,
+            )
+            if not updated:
+                raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
+            release_technician(job.technician_id)
+            close_offers(job.pk)
+
+        job.refresh_from_db()
+        return Response(
+            {'message': 'تم إلغاء الطلب', 'request': RequestSerializer(job).data}
         )
 
 
@@ -726,17 +754,68 @@ class TechnicianRequestListView(APIView):
 
     def get(self, request):
         technician = _technician_for(request.user)
+        history = request.query_params.get('filter') == 'history'
+        statuses = ('completed', 'cancelled') if history else ('assigned', 'in_progress')
         jobs = (
-            Request.objects.filter(
-                technician_id=technician.pk,
-                status__in=('assigned', 'in_progress'),
-            )
+            Request.objects.filter(technician_id=technician.pk, status__in=statuses)
             .select_related('customer', 'technician')
             .order_by('-created_at', '-id')
         )
         return Response(
-            {'requests': TechnicianRequestSerializer(jobs, many=True).data}
+            {
+                'requests': TechnicianRequestSerializer(jobs, many=True).data,
+                'filter': 'history' if history else 'active',
+            }
         )
+
+
+class TechnicianIncomingView(APIView):
+    """GET /api/technician/incoming — orders offered to this technician."""
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def get(self, request):
+        technician = _technician_for(request.user)
+        offers = incoming_for_technician(technician)
+        return Response({'requests': offers, 'count': len(offers)})
+
+
+class TechnicianBroadcastAcceptView(APIView):
+    """POST /api/technician/broadcasts/<id>/accept — first accept wins."""
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def post(self, request, pk):
+        technician = _technician_for(request.user)
+        if technician.availability == 'busy':
+            raise bad_request('خلّص الطلب اللي معاك الأول')
+        try:
+            job = accept_broadcast(pk, technician)
+        except BroadcastError as exc:
+            raise ApiError(exc.message, exc.status_code)
+        job = Request.objects.select_related('customer__user', 'technician').get(pk=job.pk)
+        notify_request_accepted(job)
+        return Response(
+            {
+                'message': 'تم قبول الطلب بنجاح',
+                'request_id': job.pk,
+                'request': TechnicianRequestSerializer(job).data,
+            }
+        )
+
+
+class TechnicianBroadcastDeclineView(APIView):
+    """POST /api/technician/broadcasts/<id>/decline (alias /reject)."""
+
+    permission_classes = [IsAuthenticated, IsTechnician]
+
+    def post(self, request, pk):
+        technician = _technician_for(request.user)
+        try:
+            decline_broadcast(pk, technician)
+        except BroadcastError as exc:
+            raise ApiError(exc.message, exc.status_code)
+        return Response({'message': 'تم رفض الطلب'})
 
 
 def _start_job_with_pin(request, pk):
@@ -873,26 +952,22 @@ class TechnicianRequestRejectView(APIView):
         if not released:
             raise bad_request('لا يمكن رفض هذا الطلب في حالته الحالية')
 
-        # Records the decline (JSON column + broadcast row), frees the
-        # technician and runs assignment again among the remaining candidates.
-        assignment = reassign_after_rejection(job.pk, technician.pk)
+        # Record the decline, free the technician and offer the request to
+        # the remaining technicians again.
+        mark_declined(job.pk, technician.pk)
+        release_technician(technician.pk)
+        offers = broadcast_request(job.pk)
         job.refresh_from_db()
-        reassigned = bool(assignment.get('assigned'))
 
         return Response(
             {
                 'message': (
-                    'تم رفض الطلب وإعادة تعيينه لفني آخر'
-                    if reassigned
+                    'تم رفض الطلب وعرضه على فنيين تانيين'
+                    if offers['count']
                     else 'تم رفض الطلب، ولا يوجد فني متاح حالياً'
                 ),
                 'request': TechnicianRequestSerializer(job).data,
-                'assignment': {
-                    'assigned': reassigned,
-                    'technician_id': assignment.get('technician_id'),
-                    'reason': assignment.get('reason'),
-                },
-                'reassigned': reassigned,
+                'broadcast': {'sent_to': offers['count']},
             }
         )
 

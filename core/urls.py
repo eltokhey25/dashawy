@@ -34,6 +34,7 @@ from .views import (
     AdminUserResetPasswordView,
     ChangePasswordView,
     CompleteProfileView,
+    CustomerRequestCancelView,
     CustomerRequestDetailView,
     CustomerRequestListCreateView,
     GuestOrderLinkView,
@@ -41,6 +42,9 @@ from .views import (
     LogoutView,
     MeView,
     RegisterView,
+    TechnicianBroadcastAcceptView,
+    TechnicianBroadcastDeclineView,
+    TechnicianIncomingView,
     TechnicianRegisterView,
     TechnicianRequestAcceptView,
     TechnicianRequestListView,
@@ -108,6 +112,11 @@ urlpatterns = [
         name='customer-requests',
     ),
     re_path(
+        r'^customer/requests/(?P<pk>\d+)/cancel/?$',
+        CustomerRequestCancelView.as_view(),
+        name='customer-request-cancel',
+    ),
+    re_path(
         r'^customer/requests/(?P<pk>\d+)/?$',
         CustomerRequestDetailView.as_view(),
         name='customer-request-detail',
@@ -141,6 +150,21 @@ urlpatterns = [
         r'^technician/requests/?$',
         TechnicianRequestListView.as_view(),
         name='technician-requests',
+    ),
+    re_path(
+        r'^technician/incoming/?$',
+        TechnicianIncomingView.as_view(),
+        name='technician-incoming',
+    ),
+    re_path(
+        r'^technician/broadcasts/(?P<pk>\d+)/accept/?$',
+        TechnicianBroadcastAcceptView.as_view(),
+        name='technician-broadcast-accept',
+    ),
+    re_path(
+        r'^technician/broadcasts/(?P<pk>\d+)/(?:decline|reject)/?$',
+        TechnicianBroadcastDeclineView.as_view(),
+        name='technician-broadcast-decline',
     ),
     re_path(
         r'^technician/requests/(?P<pk>\d+)/start/?$',

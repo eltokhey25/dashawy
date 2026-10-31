@@ -431,6 +431,15 @@
             data = await sendOrder(body);
           }
           if (data.token) Auth.setSession(data);
+          try {
+            // Lets My requests announce the technician's name when one accepts.
+            const key = 'dashawy_seen_request_statuses';
+            const seen = JSON.parse(localStorage.getItem(key) || '{}') || {};
+            seen[data.request.id] = 'pending';
+            localStorage.setItem(key, JSON.stringify(seen));
+          } catch (e) {
+            /* storage unavailable */
+          }
           window.location.href = (data.redirect || '/customer/my-requests.html') + '?new=1';
         } catch (err) {
           showAlert(err.message || 'تعذر إرسال الطلب. حاول تاني.');

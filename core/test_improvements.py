@@ -893,6 +893,12 @@ class TechnicianRegistrationTests(APITestCase):
 class ConfigAndProxyTests(APITestCase):
     """Every public value must come from configuration, never the source."""
 
+    def setUp(self):
+        # The site config is cached; a value cached by an earlier test would
+        # hide the SITE_URL these tests override.
+        clear_site_config_cache()
+        self.addCleanup(clear_site_config_cache)
+
     @override_settings(SITE_URL='https://example.test')
     def test_llms_txt_uses_configured_values(self):
         response = self.client.get('/llms.txt')
@@ -974,7 +980,19 @@ class StartPinTests(APITestCase):
             longitude=29.9560,
         )
 
+    def accept_offer(self, tech_user, request_id):
+        """Accept the broadcast offer for ``request_id`` as ``tech_user``."""
+        self.client.force_authenticate(user=tech_user)
+        incoming = self.client.get('/api/technician/incoming').json()['requests']
+        offer = next(o for o in incoming if o['request_id'] == request_id)
+        response = self.client.post(
+            f"/api/technician/broadcasts/{offer['broadcast_id']}/accept"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        return response
+
     def create_customer_job(self):
+        """A customer order that the technician has accepted (``assigned``)."""
         self.client.force_authenticate(user=self.customer_user)
         response = self.client.post(
             '/api/customer/requests',
@@ -988,7 +1006,10 @@ class StartPinTests(APITestCase):
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        return response.json()['request']
+        request_id = response.json()['request']['id']
+        self.accept_offer(self.tech_user, request_id)
+        self.client.force_authenticate(user=self.customer_user)
+        return self.client.get(f'/api/customer/requests/{request_id}').json()['request']
 
     def create_guest_job(self):
         self.client.force_authenticate(user=None)
@@ -1217,21 +1238,18 @@ class StartPinTests(APITestCase):
         # fail on the (rare) random collision with the old code.
         fresh_pin = '0000' if old_pin != '0000' else '1111'
         self.client.force_authenticate(user=self.tech_user)
-        with patch(
-            'core.services.assignment.generate_start_pin',
-            return_value=fresh_pin,
-        ):
-            response = self.client.post(
-                f"/api/technician/requests/{job['id']}/reject"
-            )
+        response = self.client.post(f"/api/technician/requests/{job['id']}/reject")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assert_no_start_pin(response.json())
-
         body = response.json()
-        self.assertTrue(body['reassigned'])
-        self.assertEqual(body['assignment']['technician_id'], second.pk)
-        self.assertEqual(body['request']['technician_id'], second.pk)
+        # Offered to the remaining technician again, not auto-assigned.
+        self.assertEqual(body['broadcast']['sent_to'], 1)
+        self.assertEqual(body['request']['status'], 'pending')
+
+        with patch('core.services.broadcast.generate_start_pin', return_value=fresh_pin):
+            accepted = self.accept_offer(second_user, job['id'])
+        self.assert_no_start_pin(accepted.json())
 
         stored.refresh_from_db()
         self.assertEqual(stored.status, 'assigned')

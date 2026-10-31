@@ -53,22 +53,6 @@
 
       <footer class="uber-sheet hidden" id="uber-sheet"></footer>
 
-      <div class="uber-searching" id="uber-searching" style="display: none">
-        <div class="usr-radar">
-          <div class="usr-circle"></div>
-          <div class="usr-circle"></div>
-          <div class="usr-circle"></div>
-          <div class="usr-center"><i class="fa-solid fa-satellite-dish"></i></div>
-        </div>
-        <h2 class="usr-title">جاري البحث عن فني...</h2>
-        <p class="usr-sub" id="usr-sub">بنبحث في أقرب الفنيين المتاحين في منطقتك</p>
-        <div class="usr-timer" id="usr-timer">30</div>
-        <div class="usr-timer-label" id="usr-timer-label">ثانية متبقية للبحث</div>
-        <button class="btn btn-ghost" id="usr-cancel" type="button">إلغاء الطلب</button>
-      </div>
-
-      <div class="uber-accepted" id="uber-accepted" style="display: none"></div>
-
       <div class="uber-queued" id="uber-queued" style="display: none"></div>
     </div>
 
@@ -81,9 +65,7 @@
 
         const main = document.getElementById('uber-main');
         const sheet = document.getElementById('uber-sheet');
-        const searchingEl = document.getElementById('uber-searching');
-        const acceptedEl = document.getElementById('uber-accepted');
-        const queuedEl = document.getElementById('uber-queued');
+        const receivedEl = document.getElementById('uber-queued');
 
         const state = {
           step: 'service',
@@ -95,15 +77,6 @@
           latitude: null,
           longitude: null,
           requestId: null,
-          pollingTimer: null,
-          // Searching-screen bookkeeping.
-          // searchStartedAt anchors both the countdown and the queued switch, so
-          // the two can never disagree about when the search ends.
-          // noTechniciansAtStart records that the broadcast reached nobody, which
-          // is the only thing that changes the wording on the searching screen.
-          searchStartedAt: 0,
-          timerInterval: null,
-          noTechniciansAtStart: false,
         };
 
         const STEPS = ['service', 'location', 'details', 'confirm'];
@@ -118,20 +91,6 @@
           details: ['وصف المشكلة', 'اكتب تفاصيل بسيطة — الفني هيعرف يتصرف'],
           confirm: ['تأكيد الطلب', 'راجع البيانات قبل ما تبعتها'],
         };
-
-        const POLL_MS = 3000;
-
-        // How long the searching screen stays up MINIMUM, whatever the broadcast
-        // said.
-        //
-        // Jumping straight to "queued" the instant the server reports zero
-        // technicians read as a dead end: the customer never sees that anything
-        // was attempted on their behalf, and they cannot tell "nobody is free"
-        // apart from "the app gave up". Thirty seconds of visible searching —
-        // with a countdown, so the wait is legible — lets the radar do that job,
-        // and in practice it also catches a technician who accepts a moment
-        // after the request was created.
-        const MIN_SEARCH_MS = 30000;
 
         let specialties = [];
         let areas = [];
@@ -630,394 +589,59 @@
 
             const data = await api('/api/customer/requests', { method: 'POST', body });
             state.requestId = data.request.id;
+            rememberPending(data.request.id);
 
-            // Everyone goes through the searching screen, INCLUDING the case where
-            // the broadcast reached nobody. The server's `queued` flag is the
-            // authority on whether the queue took the request; sent_to === 0 is
-            // the signal for the wording on the searching screen, not a reason to
-            // skip it.
-            state.noTechniciansAtStart =
-              Boolean(data.queued) || !data.broadcast || data.broadcast.sent_to === 0;
-            showSearching(data.broadcast ? data.broadcast.sent_to : 0);
+            showReceived();
           } catch (err) {
             toast(err.message, 'error');
             Ui.btnReset(btn);
           }
         }
 
-        function stopPolling() {
-          if (state.pollingTimer) {
-            clearInterval(state.pollingTimer);
-            state.pollingTimer = null;
-          }
-          // The countdown belongs to the search, so it dies with the search. Doing
-          // it here rather than at each call site means an interval can never
-          // outlive the screen it was counting down for.
-          if (state.timerInterval) {
-            clearInterval(state.timerInterval);
-            state.timerInterval = null;
-          }
-        }
-
-        // Whether a final screen is showing. The searching overlay is
-        // deliberately NOT one of them: it is a live state that still needs its
-        // polling, and treating it as terminal is what used to strand a customer
-        // on the radar after returning from a backgrounded tab.
-        function terminalScreenUp() {
-          return acceptedEl.style.display === 'flex' || queuedEl.style.display === 'flex';
-        }
-
-        // Seconds left on the minimum-search countdown, never below zero.
-        function searchSecondsLeft() {
-          if (!state.searchStartedAt) return 0;
-          const elapsed = Date.now() - state.searchStartedAt;
-          return Math.max(0, Math.ceil((MIN_SEARCH_MS - elapsed) / 1000));
-        }
-
-        function showSearching(sentTo) {
-          sheet.classList.add('hidden');
-          searchingEl.style.display = 'flex';
-          state.searchStartedAt = Date.now();
-
-          // Claiming nobody was contacted is the one case where "we are searching
-          // the nearest available technicians" would be a lie, so the line changes
-          // rather than the screen being skipped.
-          const sub = document.getElementById('usr-sub');
-          if (sub) {
-            sub.textContent = state.noTechniciansAtStart
-              ? 'مفيش فني متاح في منطقتك دلوقتي — بنجهّز طلبك ونفضل نتابع'
-              : 'بنبحث في أقرب الفنيين المتاحين في منطقتك';
-          }
-
-          const timerEl = document.getElementById('usr-timer');
-          const left = searchSecondsLeft();
-          if (timerEl) timerEl.textContent = String(left);
-
-          stopPolling(); // clears any countdown left over from a previous attempt
-          state.timerInterval = setInterval(() => {
-            const remaining = searchSecondsLeft();
-            const el = document.getElementById('usr-timer');
-            if (el) el.textContent = String(remaining);
-            if (remaining <= 0) {
-              // Hand over to the poller rather than switching screens from here:
-              // it is the only thing that knows whether the request was accepted
-              // in the meantime, and a switch here could race it.
-              clearInterval(state.timerInterval);
-              state.timerInterval = null;
-              checkStatus();
-            }
-          }, 1000);
-
-          state.pollingTimer = setInterval(checkStatus, POLL_MS);
-          checkStatus();
-          console.info('[request] broadcast sent to', sentTo, 'technician(s)');
-        }
-
-        async function checkStatus() {
-          if (!state.requestId) return;
+        // ------------------------------------------------------------
+        // Received: the order is with the technicians now
+        // ------------------------------------------------------------
+        // The request is offered to every eligible technician and the first to
+        // accept gets it. There is nothing to wait for on this page: the
+        // customer is told the order arrived, and My requests (which polls)
+        // announces the technician's name when one accepts.
+        // My requests announces "accepted — technician: X" by comparing with the
+        // statuses it saw last; recording the new order as pending here means the
+        // announcement also fires if the customer first opens it after the accept.
+        function rememberPending(requestId) {
           try {
-            const data = await api('/api/customer/requests/' + state.requestId);
-            const r = data.request;
-            if (r.status === 'assigned' || r.status === 'in_progress' || r.status === 'completed') {
-              // Accepted (possibly and finished while the page sat open). This is
-              // never held back by the countdown: a technician taking the job is
-              // the answer, and it should feel instant.
-              stopPolling();
-              showAccepted(r);
-              return;
-            }
-            if (r.status === 'cancelled' && state.searchStartedAt && searchSecondsLeft() > 0) {
-              // Somebody cancelled it on another device inside our own search
-              // window. Holding the radar up now would be theatre — the request
-              // is gone, so the queued copy would be a lie. Say so immediately.
-              stopPolling();
-              showQueued({ cancelled: true });
-              return;
-            }
-            if (r.status === 'cancelled' || r.status === 'no_technician') {
-              stopPolling();
-              showQueued();
-              return;
-            }
+            const key = 'dashawy_seen_request_statuses';
+            const seen = JSON.parse(localStorage.getItem(key) || '{}') || {};
+            seen[requestId] = 'pending';
+            localStorage.setItem(key, JSON.stringify(seen));
           } catch (e) {
-            /* silent: a transient network blip must not end the search */
-          }
-          // Still pending (or the poll failed). Once the minimum has elapsed the
-          // wait has done its job, whatever the server said: the request stays
-          // live and the queue service keeps re-offering it, so the queued screen
-          // is the honest place to leave the customer.
-          if (state.pollingTimer && searchSecondsLeft() <= 0) {
-            stopPolling();
-            showQueued();
+            /* storage unavailable: the card still shows the technician's name */
           }
         }
 
-        // Polling pauses while the tab is hidden: a backgrounded tab should not
-        // spend a request every three seconds, and the immediate check on return
-        // closes the gap.
-        document.addEventListener('visibilitychange', () => {
-          if (!state.requestId) return;
-          if (document.hidden) {
-            stopPolling();
-          } else if (!state.pollingTimer && !terminalScreenUp()) {
-            state.pollingTimer = setInterval(checkStatus, POLL_MS);
-            checkStatus();
-          }
-        });
-
-        // ------------------------------------------------------------
-        // Accepted
-        // ------------------------------------------------------------
-        function haversineKm(lat1, lon1, lat2, lon2) {
-          const toRad = (d) => (d * Math.PI) / 180;
-          const R = 6371;
-          const dLat = toRad(lat2 - lat1);
-          const dLon = toRad(lon2 - lon1);
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        }
-
-        // The request carries no ETA field, so a number is only ever shown when it
-        // can be derived: 25 km/h average city driving speed plus a fixed 5-minute
-        // buffer. With no technician coordinates the line degrades to "on the way"
-        // rather than inventing a minute count.
-        function etaText(tech, km) {
-          if (!Number.isFinite(km)) return 'الفني في الطريق إليك';
-          const minutes = Math.max(5, Math.round((km / 25) * 60) + 5);
-          return 'سيصل خلال ' + minutes + ' دقيقة تقريباً';
-        }
-
-        async function showAccepted(request) {
-          searchingEl.style.display = 'none';
-          acceptedEl.style.display = 'flex';
-          Ui.clear(acceptedEl);
-
-          const meta = Ui.statusMeta(request.status);
-          const done = request.status === 'completed';
-
-          acceptedEl.appendChild(
-            Ui.el('div', { class: 'ua-hero' }, [
-              Ui.el('div', { class: 'ua-check' }, [
-                Ui.ic(done ? 'fa-solid fa-circle-check' : 'fa-solid fa-check'),
-              ]),
-              Ui.el('h1', { class: 'ua-title' }, [
-                done ? 'الخدمة تمّت' : request.technician_name ? 'فني في الطريق' : 'تم استلام طلبك',
-              ]),
-              Ui.el('p', { class: 'ua-sub' }, ['طلب #' + request.id + ' · ' + meta.label]),
-            ])
-          );
-
-          const body = Ui.el('div', { class: 'ua-body' });
-          acceptedEl.appendChild(body);
-
-          // Rating, avatar photo and coordinates all live on the public profile
-          // endpoint; the request payload itself carries only a name and a phone.
-          let profile = null;
-          let profileExtra = null;
-          if (request.technician_id) {
-            try {
-              const res = await api('/api/public/technicians/' + request.technician_id);
-              profile = res.technician || null;
-              profileExtra = res.profile || null;
-            } catch (e) {
-              /* the card below is built to work without it */
-            }
-          }
-
-          const techName = request.technician_name || 'الفني';
-          const avatar = Ui.el('div', { class: 'ua-tech-avatar' }, [Ui.initials(techName)]);
-          if (profileExtra && profileExtra.profile_image_path) {
-            avatar.textContent = '';
-            avatar.appendChild(
-              Ui.el('img', {
-                attrs: {
-                  // Stored as the full public path, same as every other screen
-                  // that renders it — so it is used verbatim.
-                  src: profileExtra.profile_image_path,
-                  alt: techName,
-                  loading: 'lazy',
-                },
-              })
-            );
-          }
-
-          const metaRow = Ui.el('div', { class: 'ua-tech-meta' }, [
-            Ui.el('span', {}, [
-              Ui.ic('fa-solid fa-screwdriver-wrench'),
-              ' ' + selectedServiceLabel(),
-            ]),
-          ]);
-          if (profile && profile.avg_rating) {
-            metaRow.appendChild(
-              Ui.el('span', { class: 'ub-stars' }, [
-                Ui.ic('fa-solid fa-star'),
-                ' ' +
-                  profile.avg_rating +
-                  (profile.review_count ? ' (' + profile.review_count + ' تقييم)' : ''),
-              ])
-            );
-          }
-          if (profile && profile.location_text) {
-            metaRow.appendChild(
-              Ui.el('span', {}, [Ui.ic('fa-solid fa-location-dot'), ' ' + profile.location_text])
-            );
-          }
-
-          const km =
-            profile &&
-            Number.isFinite(profile.latitude) &&
-            Number.isFinite(profile.longitude) &&
-            Number.isFinite(state.latitude) &&
-            Number.isFinite(state.longitude)
-              ? haversineKm(state.latitude, state.longitude, profile.latitude, profile.longitude)
-              : null;
-
-          body.appendChild(
-            Ui.el('div', { class: 'ua-tech-card' }, [
-              avatar,
-              Ui.el('div', { class: 'ua-tech-info' }, [
-                Ui.el('div', { class: 'ua-tech-name' }, [techName]),
-                metaRow,
-              ]),
-            ])
-          );
-
-          // --- Start PIN -------------------------------------------------
-          // The customer is the only party who ever sees this code; the
-          // technician has to ask for it at the door. It is deliberately not
-          // shown once the job has started, because by then it has done its job.
-          if (request.start_pin && request.status === 'assigned') {
-            body.appendChild(
-              Ui.el('div', { class: 'start-pin-card' }, [
-                Ui.el('div', { class: 'spc-label' }, [
-                  Ui.ic('fa-solid fa-lock'),
-                  ' الرقم السري لبدء المهمة',
-                ]),
-                Ui.el('div', { class: 'spc-digits' }, [
-                  ...String(request.start_pin)
-                    .split('')
-                    .map((d) => Ui.el('span', { class: 'spc-digit' }, [d])),
-                ]),
-                Ui.el('p', { class: 'spc-hint' }, [
-                  'اطلب هذا الرقم من الفني عند وصوله ليبدأ المهمة',
-                ]),
-              ])
-            );
-          } else if (request.status === 'in_progress') {
-            body.appendChild(
-              Ui.el('div', { class: 'job-started-banner' }, [
-                Ui.ic('fa-solid fa-circle-check'),
-                ' الفني بدأ المهمة',
-              ])
-            );
-          }
-
-          // --- Public profile of the technician --------------------------
-          // Available as soon as a technician is attached, so the customer can
-          // read the reviews before deciding who to let in.
-          if (request.technician_id) {
-            body.appendChild(
-              Ui.el(
-                'a',
-                {
-                  class: 'btn btn-outline btn-block',
-                  attrs: {
-                    href:
-                      request.technician_profile_url ||
-                      '/technician-profile.html?id=' + request.technician_id,
-                    target: '_blank',
-                    rel: 'noopener',
-                  },
-                },
-                [Ui.ic('fa-solid fa-user'), ' عرض بروفايل الفني']
-              )
-            );
-          }
-
-          body.appendChild(
-            Ui.el('div', { class: 'ub-eta' }, [
-              Ui.ic('fa-solid fa-location-arrow'),
-              ' ' + etaText(profile, km),
-            ])
-          );
-
-          const actions = Ui.el('div', { class: 'ua-actions' });
-          if (request.technician_phone) {
-            actions.appendChild(
-              Ui.el(
-                'a',
-                { class: 'btn btn-brand', attrs: { href: 'tel:' + request.technician_phone } },
-                [Ui.ic('fa-solid fa-phone'), ' اتصل بالفني']
-              )
-            );
-          }
-          actions.appendChild(
-            Ui.el(
-              'a',
-              { class: 'btn btn-outline', attrs: { href: '/customer/my-requests.html' } },
-              [Ui.ic('fa-solid fa-list-check'), ' متابعة']
-            )
-          );
-          // Chat is available for exactly as long as somebody is on the job.
-          if (request.technician_id && ['assigned', 'in_progress'].includes(request.status)) {
-            actions.appendChild(
-              Ui.el('a', { class: 'chat-button', attrs: { href: '/chat.html?id=' + request.id } }, [
-                Ui.ic('fa-solid fa-comments'),
-                ' شات',
-              ])
-            );
-          }
-          body.appendChild(actions);
-
-          if (!done) {
-            const cancelBtn = sheetButton('إلغاء الطلب', {
-              id: 'ub-accept-cancel',
-              variant: 'btn-ghost',
-              on: { click: cancelRequest },
-            });
-            body.appendChild(Ui.el('div', { class: 'ub-cancel-row' }, [cancelBtn]));
-          }
-        }
-
-        // ------------------------------------------------------------
-        // Queued / no technicians
-        // ------------------------------------------------------------
-        function showQueued(opts) {
-          // `cancelled` means the request itself is gone (cancelled elsewhere
-          // inside the search window), so the copy must not promise a notification
-          // for something that no longer exists.
-          const wasCancelled = Boolean(opts && opts.cancelled);
-          stopPolling();
-          searchingEl.style.display = 'none';
+        function showReceived() {
           sheet.classList.add('hidden');
-          queuedEl.style.display = 'flex';
-          Ui.clear(queuedEl);
+          Ui.clear(main);
+          receivedEl.style.display = 'flex';
+          Ui.clear(receivedEl);
 
-          queuedEl.appendChild(
-            Ui.el('div', { class: 'uq-icon' }, [
-              Ui.ic(wasCancelled ? 'fa-solid fa-ban' : 'fa-solid fa-hourglass-half'),
-            ])
+          receivedEl.appendChild(
+            Ui.el('div', { class: 'uq-icon uq-icon-ok' }, [Ui.ic('fa-solid fa-circle-check')])
           );
-          queuedEl.appendChild(
-            Ui.el('h1', { class: 'uq-title' }, [
-              wasCancelled ? 'تم إلغاء الطلب' : 'مفيش فني متاح حالياً',
-            ])
+          receivedEl.appendChild(
+            Ui.el('h1', { class: 'uq-title' }, ['تم تلقي طلبك وسيتم التواصل معك'])
           );
-          queuedEl.appendChild(
+          receivedEl.appendChild(
             Ui.el('p', { class: 'uq-sub' }, [
-              wasCancelled
-                ? 'الطلب اتلغى من جهاز تاني. ابعت طلب جديد وخلاص، وهنوصّلك أقرب فني.'
-                : 'تم حفظ طلبك بأمان. هنبعتلك إشعار بمجرد توفر فني في منطقتك.',
+              'طلبك اتبعت للفنيين. أول ما فني يقبله هيظهرلك اسمه في «طلباتي» وهيتواصل معاك.',
             ])
           );
-          queuedEl.appendChild(
+          receivedEl.appendChild(
             Ui.el('div', { class: 'uq-actions' }, [
               Ui.el(
                 'a',
                 { class: 'btn btn-brand', attrs: { href: '/customer/my-requests.html' } },
-                ['متابعة حالة الطلب']
+                ['متابعة الطلب']
               ),
               Ui.el(
                 'button',
@@ -1034,10 +658,7 @@
         }
 
         function resetFlow() {
-          stopPolling();
-          queuedEl.style.display = 'none';
-          acceptedEl.style.display = 'none';
-          searchingEl.style.display = 'none';
+          receivedEl.style.display = 'none';
           state.step = 'service';
           state.service = null;
           state.customText = '';
@@ -1047,34 +668,10 @@
           state.latitude = null;
           state.longitude = null;
           state.requestId = null;
-          // The search is over, so its clock stops with it. Without this a stale
-          // searchStartedAt would make the NEXT request's countdown jump straight
-          // to 0 and skip the searching screen entirely.
-          state.searchStartedAt = 0;
-          state.noTechniciansAtStart = false;
           render();
         }
 
-        async function cancelRequest() {
-          if (!state.requestId) {
-            resetFlow();
-            return;
-          }
-          if (!confirm('إلغاء الطلب؟')) return;
-          try {
-            await api('/api/customer/requests/' + state.requestId + '/cancel', { method: 'POST' });
-            resetFlow();
-          } catch (e) {
-            toast(e.message, 'error');
-          }
-        }
-
-        document.getElementById('usr-cancel').addEventListener('click', cancelRequest);
-        document.getElementById('ub-logout').addEventListener('click', () => {
-          if (terminalScreenUp() && !confirm('فيه طلب لسه شغال. تخرج برضه؟')) return;
-          stopPolling();
-          Auth.logout();
-        });
+        document.getElementById('ub-logout').addEventListener('click', () => Auth.logout());
 
         await loadData();
         render();

@@ -7990,7 +7990,12 @@ main,
   font-size: 2.5rem;
   margin-bottom: 12px;
 }
+.uq-icon-ok {
+  background: var(--success-50, #ecfdf5);
+  color: var(--success-600, #059669);
+}
 .uq-title {
+  max-width: 520px;
   font-size: 1.5rem;
   font-weight: 800;
   color: var(--ink-900);
