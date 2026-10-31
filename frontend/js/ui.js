@@ -601,11 +601,13 @@
         }
         return;
       }
-      const name = (profile && profile.name) || user.email;
+      // Accounts made from the order form may have no email; show the phone.
+      const contact = user.email || user.phone || '';
+      const name = (profile && profile.name) || contact;
       const roleLabel = { customer: 'عميل', technician: 'فني', admin: 'إدارة' }[user.role] || '';
       const head = Ui.el('div', { class: 'dropdown-head' }, [
         Ui.el('b', {}, [name]),
-        Ui.el('span', {}, [roleLabel + ' · ' + user.email]),
+        Ui.el('span', {}, [contact ? roleLabel + ' · ' + contact : roleLabel]),
       ]);
       const links = [];
       if (user.role === 'customer') {

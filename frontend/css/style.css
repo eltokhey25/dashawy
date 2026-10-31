@@ -9391,6 +9391,47 @@ body.has-contact-dock {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.order-account {
+  margin: 4px 0 18px;
+  padding: 16px;
+  border: 1px solid var(--brand-100, #e0e7ff);
+  border-radius: 14px;
+  background: var(--brand-50, #f5f7ff);
+}
+.order-account-title {
+  /* float keeps the legend inside the box instead of on its border */
+  float: inline-start;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  margin-bottom: 4px;
+}
+.order-account-title + * {
+  clear: both;
+}
+#go-photo-clear[hidden] {
+  display: none;
+}
+.order-account-title i {
+  color: var(--brand-600);
+}
+.order-account > .form-hint {
+  margin-bottom: 12px;
+}
+.order-show-password {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.order-show-password input {
+  accent-color: var(--brand-600);
+}
 .hp-field {
   /* Keep the honeypot out of the layout without positioning it off-canvas:
      a negative left offset counts towards the document scroll width and

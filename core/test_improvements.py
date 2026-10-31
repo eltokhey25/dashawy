@@ -2,8 +2,10 @@
 
 Coverage highlights:
 
-* account-free ordering, token secrecy, honeypot and rate limits;
-* guest-order linking only with both the token and a matching phone;
+* the order form creating (or reusing) the customer's account, honeypot and
+  rate limits;
+* legacy token-tracked guest orders: token secrecy, cancel, private photo, and
+  linking only with both the token and a matching phone;
 * required terms/privacy consent on registration and guest ordering;
 * truthful public stats/reviews (no invented numbers);
 * private technician documents (admin-only, never publicly served);
@@ -21,12 +23,15 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .auth_backend import hash_password
+from .guest_views import hash_token
 from .models import (
     Consent,
     Customer,
@@ -39,9 +44,11 @@ from .models import (
     User,
     utc_now,
 )
+from .services.assignment import assign_technician
 from .site_config import clear_site_config_cache
 
 PASSWORD = 'TesterPass123'
+ORDER_PASSWORD = 'OrderPass123'
 
 PNG_BYTES = base64.b64decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk'
@@ -58,9 +65,33 @@ def guest_payload(**overrides):
         'description': 'الطبق وقع ومحتاج تركيب جديد',
         'accept_terms': True,
         'policy_version': 'v1.0',
+        'password': ORDER_PASSWORD,
     }
     body.update(overrides)
     return body
+
+
+def make_guest_order(phone='01000000001', photo=None, **fields):
+    """A legacy token-tracked guest order, as made before accounts were
+    required. Returns ``(job, token)``."""
+    token = 'legacy-guest-token-' + phone + '-' + 'x' * 24
+    job = Request.objects.create(
+        customer_id=None,
+        guest_name='عميل من غير حساب',
+        guest_phone=phone,
+        guest_token_hash=hash_token(token),
+        guest_token_created_at=utc_now(),
+        specialty='dish_install',
+        description='الطبق وقع ومحتاج تركيب جديد',
+        location_text='سموحة',
+        status='pending',
+        **fields,
+    )
+    if photo is not None:
+        name = default_storage.save('orders/legacy.png', ContentFile(photo))
+        Request.objects.filter(pk=job.pk).update(order_photo_path='/uploads/' + name)
+        job.refresh_from_db()
+    return job, token
 
 
 class GuestOrderTests(APITestCase):
@@ -85,31 +116,109 @@ class GuestOrderTests(APITestCase):
         self.assertIn('الشروط', response.json()['error'])
         self.assertEqual(Request.objects.count(), 0)
 
-    def test_guest_order_is_created_with_hashed_token_only(self):
+    def test_order_creates_the_customer_account(self):
         response = self.create_guest()
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = response.json()
-        token = body['tracking_token']
-        self.assertGreaterEqual(len(token), 40)
-        self.assertTrue(body['tracking_url'].endswith('/track.html?token=' + token))
+        self.assertTrue(body['account_created'])
+        self.assertTrue(body['token'])
+        self.assertTrue(body['refresh'])
+        self.assertEqual(body['redirect'], '/customer/my-requests.html')
+        self.assertNotIn('tracking_token', body)
+        # No email was given: the placeholder never reaches the browser.
+        self.assertEqual(body['user']['email'], '')
+        self.assertEqual(body['user']['role'], 'customer')
 
+        user = User.objects.get(phone='+201000000001')
+        self.assertTrue(user.email.endswith('@phone.dashawy.invalid'))
+        customer = Customer.objects.get(user=user)
+        self.assertEqual(customer.name, 'عميل من غير حساب')
         job = Request.objects.get(pk=body['request']['id'])
-        self.assertIsNone(job.customer_id)
-        self.assertEqual(job.guest_name, 'عميل من غير حساب')
-        self.assertEqual(job.guest_phone, '01000000001')
-        self.assertNotEqual(job.guest_token_hash, token)
-        self.assertEqual(len(job.guest_token_hash), 64)
-        self.assertNotIn(token, job.guest_token_hash)
+        self.assertEqual(job.customer_id, customer.pk)
+        self.assertIsNone(job.guest_token_hash)
+        self.assertIsNotNone(job.guest_linked_at)
+        self.assertTrue(
+            Consent.objects.filter(user=user, consent_type='terms_and_privacy').exists()
+        )
         self.assertTrue(GuestSubmissionLog.objects.exists())
 
-    def test_tracking_requires_the_token_and_never_leaks_it(self):
-        created = self.create_guest().json()
-        token = created['tracking_token']
+        # The new account signs in with the phone number and password.
+        login = self.client.post(
+            '/api/auth/login',
+            {'identifier': '01000000001', 'password': ORDER_PASSWORD},
+            format='json',
+        )
+        self.assertEqual(login.status_code, status.HTTP_200_OK)
+
+    def test_order_keeps_an_optional_email(self):
+        response = self.create_guest(email='Order.Customer@Example.com')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()['user']['email'], 'order.customer@example.com')
+
+    def test_order_without_password_creates_nothing(self):
+        body = guest_payload()
+        body.pop('password')
+        response = self.client.post('/api/guest/requests', body, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['code'], 'password_required')
+        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(Request.objects.count(), 0)
+
+    def test_weak_password_is_rejected(self):
+        response = self.create_guest(password='12345678')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(Request.objects.count(), 0)
+
+    def test_taken_email_is_rejected(self):
+        User.objects.create(
+            email='taken@example.com', password_hash='x', role='customer'
+        )
+        response = self.create_guest(email='taken@example.com')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['code'], 'email_taken')
+        self.assertEqual(Request.objects.count(), 0)
+
+    def test_existing_phone_must_sign_in(self):
+        user = User.objects.create(
+            email='existing@example.com',
+            phone='+201000000001',
+            password_hash=hash_password(PASSWORD),
+            role='customer',
+        )
+        customer = Customer.objects.create(user=user, name='عميل قديم', phone='+201000000001')
+
+        response = self.create_guest()
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(response.json()['code'], 'account_exists')
+        self.assertEqual(Request.objects.count(), 0)
+        self.assertEqual(User.objects.count(), 1)
+
+        # After signing in, the same form saves the order on that account.
+        self.client.force_authenticate(user=user)
+        signed_in = self.create_guest(password='')
+        self.assertEqual(signed_in.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(signed_in.json()['account_created'])
+        self.assertNotIn('token', signed_in.json())
+        job = Request.objects.get(pk=signed_in.json()['request']['id'])
+        self.assertEqual(job.customer_id, customer.pk)
+
+    def test_non_customer_account_cannot_use_the_order_form(self):
+        tech = User.objects.create(
+            email='form-tech@example.com', password_hash='x', role='technician'
+        )
+        self.client.force_authenticate(user=tech)
+        response = self.create_guest()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Request.objects.count(), 0)
+
+    def test_legacy_tracking_requires_the_token_and_never_leaks_it(self):
+        job, token = make_guest_order()
 
         detail = self.client.get('/api/guest/requests/' + token)
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         payload = detail.json()['request']
-        self.assertEqual(payload['reference'], '#' + str(created['request']['id']))
+        self.assertEqual(payload['reference'], '#' + str(job.pk))
         self.assertNotIn('guest_token_hash', payload)
         self.assertNotIn('customer_phone', payload)
         self.assertEqual(payload['is_guest'], True)
@@ -138,13 +247,11 @@ class GuestOrderTests(APITestCase):
 
     def test_per_phone_rate_limit_across_ips(self):
         for index in range(5):
-            response = self.client.post(
-                '/api/guest/requests',
-                guest_payload(phone='01000000111'),
-                format='json',
-                REMOTE_ADDR='10.0.0.%d' % index,
+            GuestSubmissionLog.objects.create(
+                ip_address='10.0.0.%d' % index,
+                phone='01000000111',
+                created_at=utc_now(),
             )
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         blocked = self.client.post(
             '/api/guest/requests',
             guest_payload(phone='01000000111'),
@@ -171,22 +278,18 @@ class GuestOrderTests(APITestCase):
             longitude=29.9553,
         )
 
-        created = self.create_guest()
-        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
-        body = created.json()
-        self.assertTrue(body['assigned'])
+        job, token = make_guest_order()
+        self.assertTrue(assign_technician(job.pk)['assigned'])
         technician.refresh_from_db()
         self.assertEqual(technician.availability, 'busy')
 
-        cancelled = self.client.post(
-            '/api/guest/requests/' + body['tracking_token'] + '/cancel'
-        )
+        cancelled = self.client.post('/api/guest/requests/' + token + '/cancel')
         self.assertEqual(cancelled.status_code, status.HTTP_200_OK)
         self.assertEqual(cancelled.json()['request']['status'], 'cancelled')
         technician.refresh_from_db()
         self.assertEqual(technician.availability, 'available')
 
-    def test_guest_order_photo_is_private(self):
+    def test_order_photo_is_saved(self):
         photo = SimpleUploadedFile('problem.png', PNG_BYTES, content_type='image/png')
         response = self.client.post(
             '/api/guest/requests',
@@ -194,9 +297,10 @@ class GuestOrderTests(APITestCase):
             format='multipart',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        body = response.json()
-        token = body['tracking_token']
-        self.assertTrue(body['request']['has_photo'])
+        self.assertTrue(response.json()['request']['has_photo'])
+
+    def test_legacy_guest_order_photo_is_private(self):
+        job, token = make_guest_order(photo=PNG_BYTES)
 
         detail = self.client.get('/api/guest/requests/' + token)
         photo_url = detail.json()['request']['photo_url']
@@ -223,9 +327,8 @@ class GuestLinkingTests(APITestCase):
         )
 
     def create_guest(self, phone='01000000001'):
-        return self.client.post(
-            '/api/guest/requests', guest_payload(phone=phone), format='json'
-        ).json()
+        job, token = make_guest_order(phone=phone)
+        return {'tracking_token': token, 'request': {'id': job.pk}}
 
     def test_link_requires_auth(self):
         created = self.create_guest()
@@ -889,11 +992,13 @@ class StartPinTests(APITestCase):
 
     def create_guest_job(self):
         self.client.force_authenticate(user=None)
-        response = self.client.post(
-            '/api/guest/requests', guest_payload(), format='json'
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        return response.json()
+        job, token = make_guest_order(latitude=31.2156, longitude=29.9553)
+        self.assertTrue(assign_technician(job.pk)['assigned'])
+        job.refresh_from_db()
+        return {
+            'tracking_token': token,
+            'request': {'id': job.pk, 'start_pin': job.start_pin},
+        }
 
     def guest_pin(self, token):
         self.client.force_authenticate(user=None)

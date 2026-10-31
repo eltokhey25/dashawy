@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png">
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
-  {% include "partials/seo.html" with page_title="اطلب فني دش في الإسكندرية من غير حساب — دشاوي" page_description="اطلب فني دش أو صيانة رسيفر في الإسكندرية في دقيقة، من غير حساب. اختار منطقتك ونوع الخدمة، وتابع طلبك برابط خاص." canonical_path="/order.html" %}
+  {% include "partials/seo.html" with page_title="اطلب فني دش في الإسكندرية — دشاوي" page_description="اطلب فني دش أو صيانة رسيفر في الإسكندرية في دقيقة. اختار منطقتك ونوع الخدمة، وحسابك بيتعمل مع الطلب عشان تتابعه." canonical_path="/order.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -40,11 +40,11 @@
   <main id="main-content" tabindex="-1" class="order-wrap">
     <div class="container">
       <header class="order-head">
-        <span class="hero-eyebrow"><i class="fa-solid fa-bolt" aria-hidden="true"></i> طلب من غير حساب</span>
+        <span class="hero-eyebrow"><i class="fa-solid fa-bolt" aria-hidden="true"></i> طلب في دقيقة</span>
         <h1>قولنا محتاج إيه، وهنوصّلك بفني</h1>
         <p>
-          املأ البيانات الأساسية واختار منطقتك. بعد الإرسال هيظهرلك
-          <b>رابط متابعة خاص</b> بطلبك — احتفظ بيه عشان تشوف حالة الطلب.
+          املأ البيانات الأساسية واختار كلمة سر. هنعملك <b>حساب مع الطلب</b>
+          تتابع منه حالة طلبك في أي وقت.
         </p>
         <ul class="order-trust">
           <li><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> الإسكندرية فقط</li>
@@ -122,6 +122,30 @@
               <button type="button" class="btn btn-ghost btn-sm" id="go-photo-clear" hidden>إزالة الصورة</button>
             </div>
 
+            <fieldset class="order-account" aria-describedby="go-account-hint">
+              <legend class="form-label order-account-title">
+                <i class="fa-solid fa-user-lock" aria-hidden="true"></i> حسابك
+              </legend>
+              <p class="form-hint" id="go-account-hint">
+                هنعملك حساب مع الطلب عشان تتابعه من «طلباتي». بعد كده تدخل برقم موبايلك وكلمة السر دي.
+              </p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label" for="go-password" id="go-password-label">كلمة السر <span class="req" aria-hidden="true">*</span></label>
+                  <input type="password" id="go-password" class="input" name="password" maxlength="128"
+                         autocomplete="new-password" dir="ltr" placeholder="8 حروف على الأقل، فيها حرف ورقم" required>
+                  <label class="order-show-password">
+                    <input type="checkbox" id="go-show-password"> إظهار كلمة السر
+                  </label>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="go-email">البريد الإلكتروني <span class="optional">(اختياري)</span></label>
+                  <input type="email" id="go-email" class="input" name="email" maxlength="254"
+                         autocomplete="email" dir="ltr" placeholder="name@example.com">
+                </div>
+              </div>
+            </fieldset>
+
             <!-- Honeypot: hidden from people, filled by naive bots. -->
             <div class="hp-field" aria-hidden="true">
               <label for="go-website">Website</label>
@@ -150,8 +174,7 @@
               ابعت الطلب
             </button>
             <p class="order-form-foot">
-              مش محتاج حساب. لو عندك حساب، <a href="/login.html">سجّل دخول</a> الأول
-              عشان الطلب يظهر في «طلباتي».
+              عندك حساب بالفعل أو عايز تدخل بجوجل؟ <a href="/login.html">سجّل دخول</a> الأول.
             </p>
           </form>
         </section>
@@ -161,7 +184,7 @@
             <h2><i class="fa-solid fa-route" aria-hidden="true"></i> إيه اللي هيحصل بعد الإرسال؟</h2>
             <ol class="order-steps">
               <li><b>هنستلم طلبك</b> ونحوّله لأقرب فني متاح حسب المنطقة ونوع الخدمة.</li>
-              <li><b>هيظهرلك رابط متابعة</b> تقدر تفتحه في أي وقت تشوف منه حالة الطلب.</li>
+              <li><b>هتتابع طلبك من حسابك</b> في «طلباتي» في أي وقت.</li>
               <li><b>الفني بيتواصل معاك</b> ويأكد السعر قبل بدء الشغل.</li>
             </ol>
           </div>
@@ -355,6 +378,14 @@
         if (specialty === 'other' && !$('go-custom-service').value.trim()) {
           fields.push(fieldError('go-custom-service', 'اكتب اسم الخدمة المطلوبة'));
         }
+        const password = $('go-password').value;
+        const email = $('go-email').value.trim();
+        if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+          fields.push(fieldError('go-password', 'كلمة السر 8 حروف على الأقل، فيها حرف إنجليزي ورقم'));
+        }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          fields.push(fieldError('go-email', 'اكتب بريد صحيح أو سيبه فاضي'));
+        }
         if (!$('go-consent').checked) {
           showAlert('لازم توافق على الشروط وسياسة الخصوصية قبل إرسال الطلب.');
           $('go-consent').focus();
@@ -382,27 +413,73 @@
         if (website) body.append('website', website);
         const photo = $('go-photo').files && $('go-photo').files[0];
         if (photo) body.append('photo', photo);
+        body.append('password', password);
+        if (email) body.append('email', email);
 
         const btn = $('go-submit');
         Ui.btnLoading(btn, 'بنرسل طلبك…');
         try {
-          const response = await fetch('/api/guest/requests', {
-            method: 'POST',
-            headers: { Accept: 'application/json' },
-            body,
-          });
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            const err = new Error(data.error || 'تعذر إرسال الطلب. حاول تاني.');
-            err.status = response.status;
-            throw err;
+          let data;
+          try {
+            data = await sendOrder(body);
+          } catch (err) {
+            if (err.code !== 'account_exists') throw err;
+            // This phone already has an account: the password typed here may
+            // be that account's. Sign in with it (the normal login and its
+            // lockout rules), then send the same order on the account.
+            await signInExisting(phone, password);
+            data = await sendOrder(body);
           }
-          const token = data.tracking_token;
-          window.location.href = '/track.html?token=' + encodeURIComponent(token) + '&new=1';
+          if (data.token) Auth.setSession(data);
+          window.location.href = (data.redirect || '/customer/my-requests.html') + '?new=1';
         } catch (err) {
           showAlert(err.message || 'تعذر إرسال الطلب. حاول تاني.');
+          if (err.field) fieldError(err.field, err.message).focus();
           Ui.btnReset(btn);
         }
+      });
+
+      async function sendOrder(body) {
+        const headers = { Accept: 'application/json' };
+        const token = Auth.getToken();
+        if (token) headers.Authorization = 'Bearer ' + token;
+        const response = await fetch('/api/guest/requests', { method: 'POST', headers, body });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const err = new Error(data.error || 'تعذر إرسال الطلب. حاول تاني.');
+          err.status = response.status;
+          err.code = data.code;
+          if (data.code && data.code.indexOf('password') === 0) err.field = 'go-password';
+          if (data.code && data.code.indexOf('email') === 0) err.field = 'go-email';
+          throw err;
+        }
+        return data;
+      }
+
+      async function signInExisting(phone, password) {
+        try {
+          const data = await api('/api/auth/login', {
+            method: 'POST',
+            body: { identifier: phone, password },
+          });
+          if (data.user && data.user.role !== 'customer') {
+            throw new Error('الرقم ده مسجّل على حساب فني أو أدمن. استخدم رقم تاني للطلب.');
+          }
+          Auth.setSession(data);
+        } catch (err) {
+          $('go-password-label').firstChild.textContent = 'كلمة سر حسابك ';
+          const e = new Error(
+            err.status === 401
+              ? 'الرقم ده عليه حساب بالفعل، وكلمة السر مش مطابقة. اكتب كلمة سر حسابك، ولو نسيتها كلّمنا على الواتساب.'
+              : err.message
+          );
+          e.field = 'go-password';
+          throw e;
+        }
+      }
+
+      $('go-show-password').addEventListener('change', (event) => {
+        $('go-password').type = event.target.checked ? 'text' : 'password';
       });
 
       loadAreas();

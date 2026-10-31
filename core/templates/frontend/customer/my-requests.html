@@ -77,6 +77,12 @@
       Ui.renderNavUser(document.getElementById('nav-user'));
       Ui.initNav();
 
+      // Arriving from the public order form, which also created the account.
+      if (new URLSearchParams(window.location.search).get('new') === '1') {
+        toast('تم استلام طلبك ✅ تقدر تتابعه من هنا', 'success');
+        history.replaceState(null, '', window.location.pathname);
+      }
+
       let currentTab = 'active';
       let allRequests = [];
       const listEl = document.getElementById('request-list');

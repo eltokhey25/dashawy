@@ -34,6 +34,7 @@ from rest_framework_simplejwt.settings import api_settings as jwt_settings
 
 from .auth_backend import BcryptAuthBackend, hash_password
 from .exceptions import ApiError, bad_request, forbidden, unauthorized
+from .guest_views import is_placeholder_email
 from .models import (
     AdminPasswordResetAudit,
     Consent,
@@ -111,7 +112,8 @@ def _safe_user(user, profile_complete=None):
         profile_complete = user.role != 'customer' or bool(user.phone)
     return {
         'id': user.id,
-        'email': user.email,
+        # Accounts made from the order form may have no real email.
+        'email': '' if is_placeholder_email(user.email) else user.email,
         'phone': user.phone or None,
         'role': user.role,
         'is_super_admin': bool(user.is_super_admin),
@@ -1491,7 +1493,8 @@ class AdminCustomerListView(APIView):
         for row in rows:
             clean = dict(row)
             clean['user_id'] = clean.pop('user', None)
-            clean['email'] = clean.pop('user__email', None)
+            email = clean.pop('user__email', None)
+            clean['email'] = None if is_placeholder_email(email) else email
             clean['account_phone'] = clean.pop('user__phone', None)
             customers.append(_json_ready(clean))
 
