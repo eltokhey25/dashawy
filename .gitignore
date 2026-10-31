@@ -56,3 +56,5 @@ backups/
 database/*.recovered
 database/*.pre-recovery
 database/*.db-*
+.vercel
+.env*
