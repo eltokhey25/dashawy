@@ -615,6 +615,13 @@ class FrontendServingTests(APITestCase):
         self.assertEqual(root_icon.status_code, status.HTTP_200_OK)
         self.assertEqual(root_icon['Content-Type'], 'image/x-icon')
 
+        verification = self.client.get('/google949f04ecbcd2e64b.html')
+        self.assertEqual(verification.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            verification.content,
+            b'google-site-verification: google949f04ecbcd2e64b.html',
+        )
+
         static_css = self.client.get('/static/css/style.css')
         self.assertEqual(static_css.status_code, status.HTTP_200_OK)
         self.assertIn('text/css', static_css['Content-Type'])

@@ -137,6 +137,18 @@ def serve_sitemap(request):
     return _renderer_file(request, 'sitemap.xml', 'application/xml; charset=utf-8')
 
 
+# Google Search Console ownership file for https://dashawy.vercel.app. Keep it
+# in place: removing it un-verifies the property.
+GOOGLE_VERIFICATION_FILE = 'google949f04ecbcd2e64b.html'
+
+
+def serve_google_verification(request):
+    return HttpResponse(
+        f'google-site-verification: {GOOGLE_VERIFICATION_FILE}',
+        content_type='text/html; charset=utf-8',
+    )
+
+
 def serve_root_favicon(request):
     """Crawlers (Bing, older browsers) look for /favicon.ico at the root."""
     response = FileResponse(
@@ -221,6 +233,11 @@ urlpatterns = [
     ),
     path('sitemap.xml', serve_sitemap, name='sitemap'),
     path('favicon.ico', serve_root_favicon, name='favicon'),
+    path(
+        GOOGLE_VERIFICATION_FILE,
+        serve_google_verification,
+        name='google-verification',
+    ),
     path('manifest.webmanifest', serve_manifest, name='manifest'),
     # Public technician photos only (never identity documents).
     re_path(r'^uploads/(?P<path>.*)$', serve_public_upload, name='public-upload'),
