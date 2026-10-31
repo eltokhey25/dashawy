@@ -1398,6 +1398,11 @@ class AdminTechnicianListView(APIView):
         )
 
 
+    def post(self, request):
+        from .admin_manage_views import create_technician
+
+        return create_technician(request)
+
 class AdminTechnicianVerifyView(APIView):
     """POST /api/admin/technicians/<id>/verify — toggle document verification."""
 
@@ -1448,6 +1453,16 @@ class AdminTechnicianDetailView(APIView):
             }
         )
 
+
+    def put(self, request, pk):
+        from .admin_manage_views import update_technician
+
+        return update_technician(request, pk)
+
+    def delete(self, request, pk):
+        from .admin_manage_views import delete_technician
+
+        return delete_technician(request, pk)
 
 class AdminTechnicianApproveView(APIView):
     """POST /api/admin/technicians/<id>/approve — activate a reviewed account."""

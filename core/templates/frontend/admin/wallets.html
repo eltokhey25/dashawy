@@ -363,6 +363,35 @@
           });
         }
 
+        // The two per-technician actions; the delegated click handler below
+        // opens the matching modal from data-payout / data-history.
+        function rowActions(w, debt) {
+          const buttons = [];
+          if (debt > 0.001) {
+            buttons.push(
+              Ui.el(
+                'button',
+                {
+                  class: 'adm-btn sm primary',
+                  attrs: { 'data-payout': w.technician_id, type: 'button' },
+                },
+                [Ui.ic('fa-solid fa-hand-holding-dollar'), 'تسجيل سداد']
+              )
+            );
+          }
+          buttons.push(
+            Ui.el(
+              'button',
+              {
+                class: 'adm-btn sm',
+                attrs: { 'data-history': w.technician_id, type: 'button' },
+              },
+              [Ui.ic('fa-solid fa-clock-rotate-left'), 'السجل']
+            )
+          );
+          return Ui.el('div', { attrs: { style: 'display:flex;gap:6px;flex-wrap:wrap' } }, buttons);
+        }
+
         function renderWalletsTab(container) {
           const searchInput = Ui.el('input', {
             class: 'input',
@@ -1011,7 +1040,7 @@
               });
               toast(d.message || 'تم تسجيل الدفعة بنجاح', 'success');
               handle.close();
-              await load();
+              await loadAll(true);
             } catch (err) {
               toast(err.message, 'error');
               Ui.btnReset(confirmBtn);

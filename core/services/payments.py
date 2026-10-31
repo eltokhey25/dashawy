@@ -125,8 +125,11 @@ def _commission_percent(request):
     return commission_rate()
 
 
-def _settle(request_id, final_amount, status):
-    """Book the commission once and mark the request settled."""
+def _settle(request_id, final_amount, status, admin_user_id=None, note=None):
+    """Book the commission once and mark the request settled.
+
+    ``admin_user_id``/``note`` record an admin's decision on a dispute.
+    """
     with transaction.atomic():
         request = Request.objects.select_for_update().get(pk=request_id)
         if request.technician_id and WalletTransaction.objects.filter(
@@ -149,6 +152,15 @@ def _settle(request_id, final_amount, status):
             commission_amount=commission,
             technician_earning=_round2(amount - commission),
             updated_at=now,
+            **(
+                {
+                    'dispute_resolved_at': now,
+                    'dispute_resolved_by_id': admin_user_id,
+                    'dispute_note': note,
+                }
+                if admin_user_id
+                else {}
+            ),
         )
         if request.technician_id:
             add_wallet_transaction(
@@ -159,6 +171,24 @@ def _settle(request_id, final_amount, status):
                 note=f'عمولة المنصة على طلب #{request_id} (كاش {amount} ج.م)',
             )
     return {'status': status, 'final_amount': amount, 'commission': commission}
+
+
+ADMIN_DECIDABLE = ('pending', 'disputed')
+
+
+def resolve_dispute(request_id, raw_amount, admin_user_id, note=None):
+    """An admin settles a pending or disputed cash confirmation."""
+    amount = parse_amount(raw_amount)
+    request = Request.objects.filter(pk=request_id).first()
+    if request is None:
+        raise PaymentError('الطلب غير موجود', 404)
+    if request.amount_status not in ADMIN_DECIDABLE:
+        raise PaymentError('هذا الطلب تم تأكيده أو حله بالفعل — لا يحتاج تدخل')
+    if request.status != 'completed':
+        raise PaymentError('الطلب لم يُكتمل بعد')
+    if not request.technician_id:
+        raise PaymentError('لا يوجد فني مرتبط بالطلب')
+    return _settle(request_id, amount, 'resolved', admin_user_id, note or 'تأكيد إداري')
 
 
 def try_match(request_id):
@@ -311,3 +341,68 @@ def request_withdrawal(technician_id, raw_amount):
         technician_id=technician_id, amount=amount, status='pending'
     )
     return {'id': row.pk, 'amount': amount, 'status': 'pending'}
+
+
+def _withdrawal(withdrawal_id):
+    from ..models import WithdrawalRequest
+
+    row = WithdrawalRequest.objects.filter(pk=withdrawal_id).first()
+    if row is None:
+        raise PaymentError('طلب السحب غير موجود', 404)
+    return row
+
+
+def approve_withdrawal(withdrawal_id, admin_user_id):
+    from ..models import WithdrawalRequest
+
+    row = _withdrawal(withdrawal_id)
+    updated = WithdrawalRequest.objects.filter(pk=row.pk, status='pending').update(
+        status='approved', processed_at=utc_now(), processed_by_id=admin_user_id
+    )
+    if not updated:
+        raise PaymentError('الطلب ليس قيد المراجعة')
+    row.refresh_from_db()
+    return row
+
+
+def mark_withdrawal_paid(withdrawal_id, admin_user_id, note=None):
+    """The money left the platform: debit the technician's balance once."""
+    from ..models import WithdrawalRequest
+
+    row = _withdrawal(withdrawal_id)
+    if row.status == 'paid':
+        raise PaymentError('تم دفع هذا الطلب بالفعل', 409)
+    if row.status not in ('pending', 'approved'):
+        raise PaymentError('لا يمكن دفع طلب مرفوض')
+    amount = _round2(row.amount)
+    with transaction.atomic():
+        if _round2(ensure_wallet(row.technician_id).balance or 0) < amount:
+            raise PaymentError('رصيد الفني غير كافٍ لتنفيذ التحويل')
+        updated = WithdrawalRequest.objects.filter(
+            pk=row.pk, status__in=('pending', 'approved')
+        ).update(
+            status='paid', processed_at=utc_now(), processed_by_id=admin_user_id, note=note
+        )
+        if not updated:
+            raise PaymentError('تم دفع هذا الطلب بالفعل', 409)
+        add_wallet_transaction(
+            row.technician_id,
+            type=WalletTransaction.TYPE_WITHDRAWAL,
+            amount=amount,
+            note=note or f'سحب معتمد #{row.pk}',
+        )
+    row.refresh_from_db()
+    return row
+
+
+def reject_withdrawal(withdrawal_id, admin_user_id, note=None):
+    from ..models import WithdrawalRequest
+
+    row = _withdrawal(withdrawal_id)
+    updated = WithdrawalRequest.objects.filter(pk=row.pk, status='pending').update(
+        status='rejected', processed_at=utc_now(), processed_by_id=admin_user_id, note=note
+    )
+    if not updated:
+        raise PaymentError('لا يمكن رفض هذا الطلب')
+    row.refresh_from_db()
+    return row

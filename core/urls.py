@@ -20,6 +20,47 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
+from .admin_manage_views import (
+    AdminAccountDetailView,
+    AdminAccountListView,
+    AdminAccountResetPasswordView,
+    AdminAccountToggleView,
+    AdminCustomerBlockView,
+    AdminCustomerDetailView,
+    AdminDataRequestListView,
+    AdminDataRequestUpdateView,
+    AdminRequestAssignView,
+    AdminRequestBroadcastsView,
+    AdminRequestDeleteView,
+    AdminRequestQueuedView,
+    AdminRequestRebroadcastView,
+    AdminRequestUnassignView,
+    AdminReviewActionView,
+    AdminReviewDeleteView,
+    AdminReviewListView,
+    AdminReviewStatsView,
+    AdminTechnicianPendingView,
+    AdminUserEraseView,
+)
+from .admin_config_views import (
+    AdminPricingListView,
+    AdminPricingUpdateView,
+    AdminSettingsView,
+    AdminSpecialtyDetailView,
+    AdminSpecialtyListView,
+)
+from .admin_finance_views import (
+    AdminPaymentConfirmView,
+    AdminPaymentRefundView,
+    AdminPaymentResolveView,
+    AdminPaymentsDisputedView,
+    AdminPaymentsPendingView,
+    AdminWalletListView,
+    AdminWalletPayoutView,
+    AdminWalletTransactionsView,
+    AdminWithdrawalActionView,
+    AdminWithdrawalListView,
+)
 from .chat_views import MessageMarkReadView, MessageThreadView, MessageUnreadCountView
 from .wallet_views import TechnicianWalletView, TechnicianWithdrawalsView
 from .completion_views import (
@@ -302,6 +343,120 @@ urlpatterns = [
         r'^admin/technicians/(?P<pk>\d+)/document/(?P<doc_type>[a-z_]+)/?$',
         AdminTechnicianDocumentView.as_view(),
         name='admin-technician-document',
+    ),
+    # Admin management
+    re_path(r'^admin/admins/?$', AdminAccountListView.as_view(), name='admin-admins'),
+    re_path(
+        r'^admin/admins/(?P<pk>\d+)/reset-password/?$',
+        AdminAccountResetPasswordView.as_view(),
+        name='admin-admin-reset-password',
+    ),
+    re_path(
+        r'^admin/admins/(?P<pk>\d+)/toggle-active/?$',
+        AdminAccountToggleView.as_view(),
+        name='admin-admin-toggle',
+    ),
+    re_path(r'^admin/admins/(?P<pk>\d+)/?$', AdminAccountDetailView.as_view(), name='admin-admin-detail'),
+    re_path(
+        r'^admin/technicians/pending/?$',
+        AdminTechnicianPendingView.as_view(),
+        name='admin-technicians-pending',
+    ),
+    re_path(
+        r'^admin/customers/(?P<pk>\d+)/block/?$',
+        AdminCustomerBlockView.as_view(),
+        name='admin-customer-block',
+    ),
+    re_path(r'^admin/customers/(?P<pk>\d+)/?$', AdminCustomerDetailView.as_view(), name='admin-customer-detail'),
+    re_path(r'^admin/requests/queued/?$', AdminRequestQueuedView.as_view(), name='admin-requests-queued'),
+    re_path(
+        r'^admin/requests/(?P<pk>\d+)/assign/?$',
+        AdminRequestAssignView.as_view(),
+        name='admin-request-assign',
+    ),
+    re_path(
+        r'^admin/requests/(?P<pk>\d+)/unassign/?$',
+        AdminRequestUnassignView.as_view(),
+        name='admin-request-unassign',
+    ),
+    re_path(
+        r'^admin/requests/(?P<pk>\d+)/rebroadcast/?$',
+        AdminRequestRebroadcastView.as_view(),
+        name='admin-request-rebroadcast',
+    ),
+    re_path(
+        r'^admin/requests/(?P<pk>\d+)/broadcasts/?$',
+        AdminRequestBroadcastsView.as_view(),
+        name='admin-request-broadcasts',
+    ),
+    re_path(r'^admin/requests/(?P<pk>\d+)/?$', AdminRequestDeleteView.as_view(), name='admin-request-delete'),
+    re_path(r'^admin/reviews/?$', AdminReviewListView.as_view(), name='admin-reviews'),
+    re_path(r'^admin/reviews/stats/?$', AdminReviewStatsView.as_view(), name='admin-review-stats'),
+    re_path(
+        r'^admin/reviews/(?P<pk>\d+)/(?P<action>hide|unhide)/?$',
+        AdminReviewActionView.as_view(),
+        name='admin-review-action',
+    ),
+    re_path(r'^admin/reviews/(?P<pk>\d+)/?$', AdminReviewDeleteView.as_view(), name='admin-review-delete'),
+    re_path(
+        r'^admin/data-subject-requests/?$',
+        AdminDataRequestListView.as_view(),
+        name='admin-data-requests',
+    ),
+    re_path(
+        r'^admin/data-subject-requests/(?P<pk>\d+)/?$',
+        AdminDataRequestUpdateView.as_view(),
+        name='admin-data-request-update',
+    ),
+    re_path(r'^admin/users/(?P<pk>\d+)/erase/?$', AdminUserEraseView.as_view(), name='admin-user-erase'),
+    # Admin configuration
+    re_path(r'^admin/settings/?$', AdminSettingsView.as_view(), name='admin-settings'),
+    re_path(r'^admin/pricing/?$', AdminPricingListView.as_view(), name='admin-pricing'),
+    re_path(
+        r'^admin/pricing/(?P<service_key>[a-z][a-z0-9_]*)/?$',
+        AdminPricingUpdateView.as_view(),
+        name='admin-pricing-update',
+    ),
+    re_path(r'^admin/specialties/?$', AdminSpecialtyListView.as_view(), name='admin-specialties'),
+    re_path(
+        r'^admin/specialties/(?P<pk>\d+)/?$',
+        AdminSpecialtyDetailView.as_view(),
+        name='admin-specialty-detail',
+    ),
+    # Admin money screens
+    re_path(r'^admin/wallets/?$', AdminWalletListView.as_view(), name='admin-wallets'),
+    re_path(
+        r'^admin/wallets/(?P<technician_id>\d+)/transactions/?$',
+        AdminWalletTransactionsView.as_view(),
+        name='admin-wallet-transactions',
+    ),
+    re_path(
+        r'^admin/wallets/(?P<technician_id>\d+)/payout/?$',
+        AdminWalletPayoutView.as_view(),
+        name='admin-wallet-payout',
+    ),
+    re_path(r'^admin/withdrawals/?$', AdminWithdrawalListView.as_view(), name='admin-withdrawals'),
+    re_path(
+        r'^admin/withdrawals/(?P<pk>\d+)/(?P<action>approve|paid|reject)/?$',
+        AdminWithdrawalActionView.as_view(),
+        name='admin-withdrawal-action',
+    ),
+    re_path(r'^admin/payments/pending/?$', AdminPaymentsPendingView.as_view(), name='admin-payments-pending'),
+    re_path(r'^admin/payments/disputed/?$', AdminPaymentsDisputedView.as_view(), name='admin-payments-disputed'),
+    re_path(
+        r'^admin/payments/(?P<pk>\d+)/resolve-dispute/?$',
+        AdminPaymentResolveView.as_view(),
+        name='admin-payment-resolve',
+    ),
+    re_path(
+        r'^admin/payments/(?P<pk>\d+)/confirm/?$',
+        AdminPaymentConfirmView.as_view(),
+        name='admin-payment-confirm',
+    ),
+    re_path(
+        r'^admin/payments/(?P<pk>\d+)/refund/?$',
+        AdminPaymentRefundView.as_view(),
+        name='admin-payment-refund',
     ),
     re_path(
         r'^admin/customers/?$',
