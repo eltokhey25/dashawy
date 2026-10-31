@@ -611,6 +611,10 @@ class FrontendServingTests(APITestCase):
         icon = self.client.get('/dashawy-brand/favicon.svg')
         self.assertEqual(icon.status_code, status.HTTP_200_OK)
 
+        root_icon = self.client.get('/favicon.ico')
+        self.assertEqual(root_icon.status_code, status.HTTP_200_OK)
+        self.assertEqual(root_icon['Content-Type'], 'image/x-icon')
+
         static_css = self.client.get('/static/css/style.css')
         self.assertEqual(static_css.status_code, status.HTTP_200_OK)
         self.assertIn('text/css', static_css['Content-Type'])

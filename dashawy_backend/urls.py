@@ -137,6 +137,16 @@ def serve_sitemap(request):
     return _renderer_file(request, 'sitemap.xml', 'application/xml; charset=utf-8')
 
 
+def serve_root_favicon(request):
+    """Crawlers (Bing, older browsers) look for /favicon.ico at the root."""
+    response = FileResponse(
+        open(FRONTEND_ROOT / 'dashawy-brand' / 'favicon.ico', 'rb'),
+        content_type='image/x-icon',
+    )
+    response['Cache-Control'] = 'public, max-age=604800'
+    return response
+
+
 def serve_manifest(request):
     """Render the web app manifest so its start URL follows ``SITE_URL``."""
     return _renderer_file(
@@ -210,6 +220,7 @@ urlpatterns = [
         name='robots',
     ),
     path('sitemap.xml', serve_sitemap, name='sitemap'),
+    path('favicon.ico', serve_root_favicon, name='favicon'),
     path('manifest.webmanifest', serve_manifest, name='manifest'),
     # Public technician photos only (never identity documents).
     re_path(r'^uploads/(?P<path>.*)$', serve_public_upload, name='public-upload'),
