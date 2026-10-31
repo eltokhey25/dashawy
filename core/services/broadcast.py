@@ -19,6 +19,7 @@ from django.db import transaction
 
 from ..models import Request, RequestBroadcast, Technician, utc_now
 from .assignment import GENERALIST_SPECIALTY, declined_technician_ids
+from .payments import over_debt_limit_ids
 from .start_pin import generate_start_pin
 
 SENT = 'sent'
@@ -47,7 +48,9 @@ def eligible_technicians(request):
     specialist may not answer. Technicians who declined this request are left
     out so a refusal is honoured.
     """
-    excluded = declined_technician_ids(request)
+    # A technician whose unpaid commission reached the ceiling is not offered
+    # new work until they settle with the platform.
+    excluded = declined_technician_ids(request) | over_debt_limit_ids()
     specialties = {request.specialty, GENERALIST_SPECIALTY}
     return list(
         Technician.objects.filter(
@@ -121,6 +124,11 @@ def accept_broadcast(broadcast_id, technician):
         if row.status == DECLINED:
             raise BroadcastError('إنت رفضت الطلب ده قبل كده', 409)
         raise BroadcastError('فني تاني قبل الطلب ده', 409)
+
+    if technician.pk in over_debt_limit_ids():
+        raise BroadcastError(
+            'حسابك موقوف مؤقتاً بسبب تجاوز حد المديونية. يرجى سداد المستحقات.', 403
+        )
 
     now = utc_now()
     with transaction.atomic():

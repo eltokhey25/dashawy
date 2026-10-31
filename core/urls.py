@@ -20,6 +20,8 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
+from .chat_views import MessageMarkReadView, MessageThreadView, MessageUnreadCountView
+from .wallet_views import TechnicianWalletView, TechnicianWithdrawalsView
 from .completion_views import (
     CustomerMyReviewsView,
     CustomerPayView,
@@ -191,6 +193,32 @@ urlpatterns = [
         r'^technician/requests/?$',
         TechnicianRequestListView.as_view(),
         name='technician-requests',
+    ),
+    re_path(
+        r'^technician/wallet/?$',
+        TechnicianWalletView.as_view(),
+        name='technician-wallet',
+    ),
+    re_path(
+        r'^technician/withdrawals/?$',
+        TechnicianWithdrawalsView.as_view(),
+        name='technician-withdrawals',
+    ),
+    # Chat (the literal unread-count route must come before <request_id>)
+    re_path(
+        r'^messages/unread-count/?$',
+        MessageUnreadCountView.as_view(),
+        name='messages-unread-count',
+    ),
+    re_path(
+        r'^messages/(?P<request_id>\d+)/read/?$',
+        MessageMarkReadView.as_view(),
+        name='messages-read',
+    ),
+    re_path(
+        r'^messages/(?P<request_id>\d+)/?$',
+        MessageThreadView.as_view(),
+        name='messages-thread',
     ),
     re_path(
         r'^technician/incoming/?$',

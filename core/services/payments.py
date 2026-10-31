@@ -232,3 +232,82 @@ def settlement_view(request_id):
         'customer_amount': request.customer_reported_amount,
         'technician_amount': request.technician_reported_amount,
     }
+
+
+# ---------------------------------------------------------------------------
+# Wallet settings, debt ceiling and withdrawals
+# ---------------------------------------------------------------------------
+
+
+def _setting_number(key, default):
+    from ..models import Setting
+
+    raw = Setting.objects.filter(key=key).values_list('value', flat=True).first()
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def debt_limit():
+    """Debt at which a technician stops receiving new orders (``wallet_debt_limit``)."""
+    return _setting_number('wallet_debt_limit', 300.0)
+
+
+def withdrawal_settings():
+    return {
+        'min': _setting_number('min_withdrawal', 50.0),
+        'eta_hours': _setting_number('withdrawal_eta_hours', 24.0),
+    }
+
+
+def over_debt_limit_ids():
+    """Technicians whose unpaid commission reached the ceiling."""
+    return set(
+        TechnicianWallet.objects.filter(total_debt__gte=debt_limit()).values_list(
+            'technician_id', flat=True
+        )
+    )
+
+
+def can_receive_requests(technician_id):
+    return technician_id not in over_debt_limit_ids()
+
+
+def pending_withdrawal(technician_id):
+    from ..models import WithdrawalRequest
+
+    row = (
+        WithdrawalRequest.objects.filter(
+            technician_id=technician_id, status__in=('pending', 'approved')
+        )
+        .values('id', 'amount', 'status', 'requested_at')
+        .first()
+    )
+    if row and row['requested_at']:
+        row['requested_at'] = row['requested_at'].strftime('%Y-%m-%d %H:%M:%S')
+    return row
+
+
+def request_withdrawal(technician_id, raw_amount):
+    """Queue a payout for an admin; the balance moves only when it is paid."""
+    from ..models import WithdrawalRequest
+
+    try:
+        amount = _round2(float(raw_amount))
+    except (TypeError, ValueError):
+        raise PaymentError('مبلغ غير صالح')
+    if amount <= 0:
+        raise PaymentError('مبلغ غير صالح')
+    minimum = withdrawal_settings()['min']
+    if amount < minimum:
+        raise PaymentError(f'الحد الأدنى للسحب {minimum:g} ج.م')
+    if _round2(ensure_wallet(technician_id).balance or 0) < amount:
+        raise PaymentError('رصيدك غير كافٍ للسحب')
+    if pending_withdrawal(technician_id):
+        raise PaymentError('لديك طلب سحب قيد المراجعة بالفعل', 409)
+    row = WithdrawalRequest.objects.create(
+        technician_id=technician_id, amount=amount, status='pending'
+    )
+    return {'id': row.pk, 'amount': amount, 'status': 'pending'}
