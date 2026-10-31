@@ -713,7 +713,8 @@
       try {
         const data = await api('/api/public/stats');
         const items = (data.items || []).filter((i) => i.visible && i.value !== null);
-        if (!items.length) {
+        // A single number alone in the wide band looks empty; wait for two.
+        if (items.length < 2) {
           section.hidden = true;
           return;
         }

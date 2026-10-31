@@ -445,7 +445,9 @@
         },
         {
           threshold: 0.01,
-          rootMargin: '0px 0px 0px 0px',
+          // Start the fade a little before the element scrolls into view so
+          // fast scrolling never shows an empty gap.
+          rootMargin: '0px 0px 25% 0px',
         }
       );
 
@@ -785,5 +787,32 @@
     }
   };
 
+  // Hide the floating WhatsApp/call buttons while a form marked
+  // [data-hides-contact-dock] covers the bottom of the screen, so they never
+  // sit on top of a field (the matching CSS only applies on phones).
+  Ui.initContactDockAvoidance = function initContactDockAvoidance() {
+    const forms = document.querySelectorAll('[data-hides-contact-dock]');
+    if (!forms.length || !('IntersectionObserver' in window)) return;
+    const covering = new Set();
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((en) => {
+          if (en.isIntersecting) covering.add(en.target);
+          else covering.delete(en.target);
+        });
+        document.body.classList.toggle('contact-dock-hidden', covering.size > 0);
+      },
+      // Watch only the bottom fifth of the viewport, where the buttons sit.
+      { rootMargin: '-80% 0px 0px 0px', threshold: 0 }
+    );
+    forms.forEach((form) => obs.observe(form));
+  };
+
   window.Ui = Ui;
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', Ui.initContactDockAvoidance);
+  } else {
+    Ui.initContactDockAvoidance();
+  }
 })();
