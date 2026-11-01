@@ -417,7 +417,16 @@ class RequestApiTests(APITestCase):
         offer = RequestBroadcast.objects.get(request_id=request_id, technician=self.technician)
         self.assertEqual(offer.status, 'accepted')
 
+    def test_request_reaches_technicians_of_any_specialty(self):
+        # Every technician handles every dish service: a repair request is
+        # offered to the installer too, and the first to accept wins.
+        self.authenticate(self.customer_user)
+        response = self.create_request(specialty='dish_repair')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()['broadcast']['sent_to'], 1)
+
     def test_create_request_without_technician_stays_pending(self):
+        Technician.objects.filter(pk=self.technician.pk).update(availability='offline')
         self.authenticate(self.customer_user)
         response = self.create_request(specialty='dish_repair')
 

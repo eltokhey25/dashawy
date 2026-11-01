@@ -18,7 +18,7 @@ no longer runs when a request is created.
 from django.db import transaction
 
 from ..models import Request, RequestBroadcast, Technician, utc_now
-from .assignment import GENERALIST_SPECIALTY, declined_technician_ids
+from .assignment import declined_technician_ids
 from .payments import over_debt_limit_ids
 from .start_pin import generate_start_pin
 
@@ -41,22 +41,20 @@ class BroadcastError(Exception):
 
 
 def eligible_technicians(request):
-    """Approved, available technicians for this request's trade.
+    """Approved, available technicians, whatever their listed specialty.
 
-    Exact specialty matches and generalists are both offered the job: with
-    first-accept-wins there is no reason to hold a generalist back while a
-    specialist may not answer. Technicians who declined this request are left
-    out so a refusal is honoured.
+    Every technician on the platform handles every dish service, and the
+    ``specialty`` column is a label that predates that rule (most accounts
+    carry ``dish_repair``). Filtering on it left four of the five services
+    reaching a single technician, so offers go to the whole available pool
+    and the first to accept wins. Technicians who declined this request, or
+    whose unpaid commission reached the ceiling, are left out.
     """
-    # A technician whose unpaid commission reached the ceiling is not offered
-    # new work until they settle with the platform.
     excluded = declined_technician_ids(request) | over_debt_limit_ids()
-    specialties = {request.specialty, GENERALIST_SPECIALTY}
     return list(
         Technician.objects.filter(
             availability='available',
             approval_status='approved',
-            specialty__in=specialties,
         ).exclude(pk__in=excluded)
     )
 

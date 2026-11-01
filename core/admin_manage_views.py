@@ -430,8 +430,8 @@ class AdminRequestAssignView(APIView):
         tech = Technician.objects.filter(pk=_body(request).get('technician_id')).first()
         if tech is None:
             raise _not_found('الفني غير موجود')
-        if tech.specialty not in (job.specialty, GENERALIST_SPECIALTY):
-            raise bad_request('هذا الفني لا يطابق تخصص الطلب')
+        if tech.approval_status != 'approved':
+            raise bad_request('هذا الفني غير معتمد')
         now = utc_now()
         with transaction.atomic():
             updated = Request.objects.filter(
