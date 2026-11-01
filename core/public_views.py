@@ -315,7 +315,7 @@ class ConsentView(APIView):
         throttle(request, 'consent', limit=20, window_seconds=3600)
         data = request.data if hasattr(request.data, 'get') else {}
         consent_type = str(data.get('consent_type') or '').strip()
-        policy_version = str(data.get('policy_version') or 'v1.0').strip()
+        policy_version = str(data.get('policy_version') or 'v2.0').strip()
         if consent_type not in CONSENT_TYPES:
             raise bad_request('نوع الموافقة غير صالح')
         if len(policy_version) > 20:

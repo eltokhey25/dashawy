@@ -62,7 +62,7 @@ from .services.broadcast import (
     decline_broadcast,
     incoming_for_technician,
 )
-from .services.notifications import notify_request_accepted
+from .services.notifications import notify_request_accepted, notify_request_cancelled
 from .services.start_pin import (
     START_PIN_ATTEMPTS,
     START_PIN_LENGTH,
@@ -459,7 +459,7 @@ class RegisterView(APIView):
                 Consent.objects.create(
                     user=user,
                     consent_type='terms_and_privacy',
-                    policy_version=str(data.get('policy_version') or 'v1.0')[:20],
+                    policy_version=str(data.get('policy_version') or 'v2.0')[:20],
                     ip_address=client_ip(request),
                     user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )
@@ -719,6 +719,14 @@ class CustomerRequestCancelView(APIView):
             release_technician(job.technician_id)
             close_offers(job.pk)
 
+        if job.technician_id:
+            tech_user_id = (
+                Technician.objects.filter(pk=job.technician_id)
+                .values_list('user_id', flat=True)
+                .first()
+            )
+            if tech_user_id:
+                notify_request_cancelled(tech_user_id, job.pk)
         job.refresh_from_db()
         return Response(
             {'message': 'تم إلغاء الطلب', 'request': RequestSerializer(job).data}
@@ -1040,7 +1048,7 @@ class CompleteProfileView(APIView):
                 Consent.objects.create(
                     user_id=user.pk,
                     consent_type='terms_and_privacy',
-                    policy_version=str(data.get('policy_version') or 'v1.0')[:20],
+                    policy_version=str(data.get('policy_version') or 'v2.0')[:20],
                     ip_address=client_ip(request),
                     user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )
@@ -1212,7 +1220,7 @@ class TechnicianRegisterView(APIView):
                 Consent.objects.create(
                     user=user,
                     consent_type='terms_privacy_sensitive_documents',
-                    policy_version=str(data.get('policy_version') or 'v1.0')[:20],
+                    policy_version=str(data.get('policy_version') or 'v2.0')[:20],
                     ip_address=client_ip(request),
                     user_agent=(request.META.get('HTTP_USER_AGENT') or '')[:1000],
                 )

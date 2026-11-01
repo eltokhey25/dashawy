@@ -6313,6 +6313,15 @@ main,
   padding: 16px 18px;
   margin-bottom: 20px;
 }
+/* Approaching the limit (not blocked yet): amber instead of red. */
+.debt-warning.is-near {
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  color: #92400e;
+  border-color: #fde68a;
+}
+.debt-warning.is-near i {
+  color: #d97706;
+}
 .debt-warning i {
   font-size: 1.3rem;
   color: var(--danger-500);

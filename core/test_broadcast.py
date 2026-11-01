@@ -191,3 +191,27 @@ class BroadcastFlowTests(APITestCase):
         self.assertEqual(body['message'], 'تم تلقي طلبك وسيتم التواصل معك')
         self.assertEqual(body['broadcast']['sent_to'], 2)
         self.assertEqual(body['request']['status'], 'pending')
+
+
+class OfferPrivacyTests(BroadcastFlowTests):
+    def test_offer_shows_the_area_but_not_the_street(self):
+        self.client.force_authenticate(user=self.customer_user)
+        request_id = self.client.post(
+            '/api/customer/requests',
+            {
+                'specialty': 'dish_install',
+                'description': 'الدش مش شغال',
+                'area_key': 'smouha',
+                'location_text': 'شارع فوزي معاذ، عمارة 12',
+            },
+            format='json',
+        ).json()['request']['id']
+        offer = next(o for o in self.incoming(self.tech_a) if o['request_id'] == request_id)
+        self.assertEqual(offer['location_text'], 'سموحة')
+        self.assertEqual(offer['customer_area'], 'سموحة')
+        self.assertNotIn('فوزي', str(offer))
+
+        # The technician who accepts gets the full address.
+        self.client.force_authenticate(user=self.tech_a)
+        accepted = self.client.post(f"/api/technician/broadcasts/{offer['broadcast_id']}/accept").json()
+        self.assertIn('فوزي', accepted['request']['location_text'])

@@ -186,6 +186,11 @@ def close_offers(request_id):
     )
 
 
+def _area_only(location_text):
+    """'سموحة — شارع ..، عمارة ..' -> 'سموحة'."""
+    return (location_text or '').split(' — ')[0].strip() or None
+
+
 def incoming_for_technician(technician):
     """Live offers for one technician, newest first."""
     rows = (
@@ -206,7 +211,9 @@ def incoming_for_technician(technician):
                 'specialty': job.specialty,
                 'custom_specialty_text': job.custom_specialty_text,
                 'description': job.description,
-                'location_text': job.location_text,
+                # Area only: the street/building and the phone are shared
+                # with the technician who accepts, not with every offer.
+                'location_text': _area_only(job.location_text),
                 'status': job.status,
                 'created_at': (
                     job.created_at.strftime('%Y-%m-%d %H:%M:%S')
@@ -215,9 +222,7 @@ def incoming_for_technician(technician):
                 ),
                 'service_price': job.service_price,
                 'customer_name': job.display_customer_name,
-                # The area only: the exact address and phone are shared after
-                # the technician accepts.
-                'customer_area': job.location_text,
+                'customer_area': _area_only(job.location_text),
             }
         )
     return offers

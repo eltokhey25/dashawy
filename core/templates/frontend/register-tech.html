@@ -423,7 +423,7 @@
       fd.append('national_id', idFile);
       fd.append('accept_terms', 'true');
       fd.append('sensitive_consent', 'true');
-      fd.append('policy_version', 'v1.0');
+      fd.append('policy_version', 'v2.0');
 
       try {
         const res = await fetch('/api/auth/register-technician', { method: 'POST', body: fd });

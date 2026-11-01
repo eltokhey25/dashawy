@@ -353,7 +353,7 @@
           password: $('reg-password').value,
           area_key: $('reg-area').value,
           accept_terms: true,
-          policy_version: 'v1.0'
+          policy_version: 'v2.0'
         };
         const loc = $('reg-location').value.trim();
         if (loc) body.location_text = loc;
@@ -433,7 +433,7 @@
         // Record explicit consent for personal-data processing (Law 151/2020),
         // same as the password path below — the account is created either way.
         try {
-          await api('/api/consent', { method: 'POST', body: { consent_type: 'privacy_policy', policy_version: 'v1.0' } });
+          await api('/api/consent', { method: 'POST', body: { consent_type: 'privacy_policy', policy_version: 'v2.0' } });
         } catch (err) { console.warn('Consent recording failed', err); }
 
         toast(data.profile_complete ? 'تم تسجيل الدخول بحساب جوجل 🎉' : 'تم إنشاء حسابك 🎉', 'success');

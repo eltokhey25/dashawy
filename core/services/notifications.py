@@ -120,3 +120,69 @@ def notify_chat_message(recipient_user_id, sender_name, body, request_id, recipi
             'tag': f'chat-{request_id}',
         },
     )
+
+
+def _money(value):
+    return f'{value:g}'
+
+
+def notify_debt_change(technician_id, before, after):
+    """Warn a technician as their unpaid commission nears the debt limit.
+
+    Fires once when the debt crosses the warning line, once when it reaches
+    the limit (new orders stop), and once when a payment brings it back
+    under the limit. Push plus Telegram for linked accounts.
+    """
+    from ..models import Technician
+    from .payments import debt_limit, debt_warning_threshold
+
+    limit = debt_limit()
+    warning = debt_warning_threshold()
+    if before < limit <= after:
+        title = '⛔ حسابك اتوقف عن استقبال الطلبات'
+        body = (
+            f'المستحق عليك للمنصة {_money(after)} ج.م ووصل للحد ({_money(limit)} ج.م). '
+            'سدد المستحقات عشان الطلبات ترجع توصلك.'
+        )
+    elif before < warning <= after < limit:
+        title = '⚠️ قربت توصل لحد المديونية'
+        body = (
+            f'المستحق عليك للمنصة {_money(after)} ج.م. لو وصل {_money(limit)} ج.م '
+            f'حسابك هيتوقف عن استقبال الطلبات — باقي {_money(round(limit - after, 2))} ج.م. '
+            'سدد دلوقتي عشان شغلك ميقفش.'
+        )
+    elif after < limit <= before:
+        title = '✅ حسابك رجع يستقبل طلبات'
+        body = f'تم تسجيل السداد. المستحق عليك دلوقتي {_money(after)} ج.م.'
+    else:
+        return False
+
+    tech = Technician.objects.filter(pk=technician_id).select_related('user').first()
+    if tech is None or tech.user is None:
+        return False
+    _push(
+        tech.user_id,
+        {
+            'title': title,
+            'body': body,
+            'url': '/technician/dashboard.html?tab=wallet',
+            'tag': 'wallet-debt',
+            'requireInteraction': True,
+        },
+    )
+    if tech.user.telegram_chat_id:
+        send_telegram(tech.user.telegram_chat_id, f'{title}\n{body}')
+    return True
+
+
+def notify_request_cancelled(technician_user_id, request_id):
+    """Tell the assigned technician the customer cancelled the job."""
+    _push(
+        technician_user_id,
+        {
+            'title': '❌ العميل لغى الطلب',
+            'body': f'طلب #{request_id} اتلغى وإنت متاح دلوقتي لطلبات تانية.',
+            'url': '/technician/dashboard.html',
+            'tag': f'request-cancelled-{request_id}',
+        },
+    )

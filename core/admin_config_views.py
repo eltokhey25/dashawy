@@ -35,6 +35,7 @@ EDITABLE_SETTINGS = frozenset(
         'instapay_number',
         'instapay_name',
         'wallet_debt_limit',
+        'wallet_debt_warning',
         'payment_methods',
         'commission_percent',
         'working_hours',

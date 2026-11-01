@@ -64,8 +64,8 @@
       <div id="debt-warning" class="debt-warning" style="display: none">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <div>
-          <b>حسابك موقوف مؤقتاً</b>
-          <span
+          <b id="debt-warning-title">حسابك موقوف مؤقتاً</b>
+          <span id="debt-warning-text"
             >تجاوزت حد المديونية (<span id="debt-limit-num">300</span> ج.م). يرجى سداد المستحقات
             لاستعادة استقبال الطلبات.</span
           >
@@ -225,9 +225,22 @@
         // would be misleading.
         const warning = document.getElementById('debt-warning');
         const isApproved = !profile || profile.approval_status !== 'pending';
+        const limit = Number(data.debtLimit || 300);
+        const warnAt = Number(data.debtWarning || limit * 0.8);
         if (!data.canReceiveRequests && isApproved) {
           warning.style.display = 'flex';
-          document.getElementById('debt-limit-num').textContent = Number(data.debtLimit || 300);
+          warning.classList.remove('is-near');
+          document.getElementById('debt-warning-title').textContent = 'حسابك موقوف مؤقتاً';
+          document.getElementById('debt-warning-text').textContent =
+            'وصلت لحد المديونية (' + limit + ' ج.م). سدد المستحقات عشان الطلبات ترجع توصلك.';
+        } else if (isApproved && debt >= warnAt) {
+          // Close to the limit: say how much room is left before orders stop.
+          warning.style.display = 'flex';
+          warning.classList.add('is-near');
+          document.getElementById('debt-warning-title').textContent = 'قربت توصل لحد المديونية';
+          document.getElementById('debt-warning-text').textContent =
+            'باقي ' + Math.max(0, limit - debt).toFixed(2) + ' ج.م وحسابك يتوقف عن استقبال الطلبات عند ' +
+            limit + ' ج.م. سدد دلوقتي عشان شغلك ميقفش.';
         } else {
           warning.style.display = 'none';
         }
@@ -1266,7 +1279,9 @@
         await pollUnread();
       }
 
-      // Init + polling.
+      // Init + polling. A notification can deep-link a tab (?tab=wallet).
+      const linkedTab = new URLSearchParams(window.location.search).get('tab');
+      if (['incoming', 'active', 'history', 'wallet'].includes(linkedTab)) switchTab(linkedTab);
       paintCardsAndBadges();
       // 15s keeps offers feeling live while staying inside the server's rate
       // limit for a long-open tab. See pollAll for the arithmetic.

@@ -77,6 +77,7 @@ def add_wallet_transaction(technician_id, *, type, amount, request_id=None, note
         wallet = TechnicianWallet.objects.select_for_update().get(pk=wallet.pk)
         balance = _round2(wallet.balance or 0)
         debt = _round2(wallet.total_debt or 0)
+        debt_before = debt
         earned = _round2(wallet.total_earned or 0)
         owed = _round2(wallet.total_owed or 0)
         paid = _round2(wallet.total_paid_to_platform or 0)
@@ -110,6 +111,10 @@ def add_wallet_transaction(technician_id, *, type, amount, request_id=None, note
             total_withdrawn=withdrawn,
             last_updated=utc_now(),
         )
+    if debt != debt_before:
+        from .notifications import notify_debt_change
+
+        notify_debt_change(technician_id, debt_before, debt)
     return {'balance': balance, 'total_debt': debt}
 
 
@@ -283,6 +288,17 @@ def _setting_number(key, default):
 def debt_limit():
     """Debt at which a technician stops receiving new orders (``wallet_debt_limit``)."""
     return _setting_number('wallet_debt_limit', 300.0)
+
+
+def debt_warning_threshold():
+    """Debt at which the technician is warned (``wallet_debt_warning``).
+
+    Defaults to 80 % of the limit (240 of 300), so there is room for one or
+    two more jobs' commission before new orders stop.
+    """
+    limit = debt_limit()
+    warning = _setting_number('wallet_debt_warning', round(limit * 0.8, 2))
+    return min(warning, limit)
 
 
 def withdrawal_settings():

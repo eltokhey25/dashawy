@@ -177,3 +177,44 @@ class WalletTests(ChatWalletBase):
     def test_customers_cannot_open_the_wallet(self):
         self.client.force_authenticate(user=self.customer_user)
         self.assertEqual(self.client.get('/api/technician/wallet').status_code, 403)
+
+
+class DebtWarningTests(ChatWalletBase):
+    def setUp(self):
+        super().setUp()
+        push = patch('core.services.push.notify', return_value={'sent': 1, 'failed': 0})
+        self.push = push.start()
+        self.addCleanup(push.stop)
+
+    def titles(self):
+        return [call.args[1]['title'] for call in self.push.call_args_list]
+
+    def test_warning_then_block_then_unblock_each_fire_once(self):
+        tid = self.technician.pk
+        add_wallet_transaction(tid, type='debt', amount=200)
+        self.assertEqual(self.titles(), [])
+
+        add_wallet_transaction(tid, type='debt', amount=50)  # 250 >= 240 warning line
+        self.assertEqual(len(self.titles()), 1)
+        self.assertIn('قربت', self.titles()[0])
+        body = self.push.call_args.args[1]['body']
+        self.assertIn('250', body)
+        self.assertIn('باقي 50', body)
+
+        add_wallet_transaction(tid, type='debt', amount=20)  # 270: already warned
+        self.assertEqual(len(self.titles()), 1)
+
+        add_wallet_transaction(tid, type='debt', amount=40)  # 310 >= 300
+        self.assertIn('اتوقف', self.titles()[-1])
+
+        add_wallet_transaction(tid, type='payout', amount=100)  # 210 < 300
+        self.assertIn('رجع', self.titles()[-1])
+        self.assertEqual(len(self.titles()), 3)
+        self.assertEqual(self.push.call_args.args[0], self.tech_user.pk)
+
+    def test_custom_warning_line_and_wallet_api(self):
+        Setting.objects.create(key='wallet_debt_warning', value='100')
+        add_wallet_transaction(self.technician.pk, type='debt', amount=120)
+        self.assertEqual(len(self.titles()), 1)
+        self.client.force_authenticate(user=self.tech_user)
+        self.assertEqual(self.client.get('/api/technician/wallet').json()['debtWarning'], 100)

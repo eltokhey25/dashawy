@@ -103,6 +103,8 @@ def _db_settings() -> dict:
                     'facebook_url',
                     'instagram_url',
                     'commission_percent',
+                    'wallet_debt_limit',
+                    'wallet_debt_warning',
                 )
             )
         }
@@ -136,6 +138,17 @@ def get_site_config(force: bool = False) -> dict:
     except (TypeError, ValueError):
         commission = 20.0
 
+    def _positive(raw, default):
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return default
+        return value if value > 0 else default
+
+    # Same defaults as services/payments.py (300, warning at 80 %).
+    debt_limit = _positive(stored.get('wallet_debt_limit'), 300.0)
+    debt_warning = min(_positive(stored.get('wallet_debt_warning'), round(debt_limit * 0.8, 2)), debt_limit)
+
     # Normalised at render time too, so an override that sets the bare
     # PythonAnywhere root still produces the correct robots.txt/sitemap host.
     site_url = normalize_site_url(getattr(settings, 'SITE_URL', ''))
@@ -153,6 +166,8 @@ def get_site_config(force: bool = False) -> dict:
         'social_tiktok': tiktok,
         'commission_rate': commission,
         'commission_percent_label': ('%g' % commission),
+        'wallet_debt_limit_label': ('%g' % debt_limit),
+        'wallet_debt_warning_label': ('%g' % debt_warning),
         'areas': [
             {'key': key, 'label': PUBLIC_AREA_LABELS[key]}
             for key in PUBLIC_AREA_KEYS

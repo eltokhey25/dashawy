@@ -286,7 +286,7 @@ class GuestRequestCreateView(APIView):
                 consent_type='terms_and_privacy',
                 defaults={
                     'policy_version': str(
-                        request.data.get('policy_version') or 'v1.0'
+                        request.data.get('policy_version') or 'v2.0'
                     )[:20],
                     'ip_address': ip,
                     'user_agent': (request.META.get('HTTP_USER_AGENT') or '')[:1000],

@@ -404,7 +404,7 @@
         body.append('specialty', specialty);
         body.append('description', description);
         body.append('accept_terms', 'true');
-        body.append('policy_version', 'v1.0');
+        body.append('policy_version', 'v2.0');
         const custom = $('go-custom-service').value.trim();
         if (specialty === 'other' && custom) body.append('custom_specialty_text', custom);
         const location = $('go-location').value.trim();
