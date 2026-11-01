@@ -114,6 +114,40 @@ def send_message(chat_id, text):
         return False
 
 
+def send_document(chat_id, filename, data, caption=''):
+    """Upload a file to a chat (multipart ``sendDocument``). Returns a bool."""
+    token = bot_token()
+    if not chat_id or not token:
+        return False
+    boundary = '----dashawy' + secrets.token_hex(12)
+    parts = []
+    for name, value in (('chat_id', str(chat_id)), ('caption', caption or '')):
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode('utf-8')
+        )
+    parts.append(
+        (
+            f'--{boundary}\r\nContent-Disposition: form-data; name="document"; '
+            f'filename="{filename}"\r\nContent-Type: application/gzip\r\n\r\n'
+        ).encode('utf-8')
+        + data
+        + b'\r\n'
+    )
+    parts.append(f'--{boundary}--\r\n'.encode('utf-8'))
+    body = b''.join(parts)
+    req = urllib.request.Request(
+        API.format(token=token, method='sendDocument'),
+        data=body,
+        headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            return bool(json.load(response).get('ok'))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning('Telegram sendDocument failed: %s', exc)
+        return False
+
+
 def _chat_unreachable(exc):
     text = (exc.description or str(exc)).lower()
     return exc.status == 403 or any(

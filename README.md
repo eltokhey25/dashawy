@@ -286,3 +286,24 @@ the environment variables below before the first deploy.
 
 Vercel rejects request bodies larger than about 4.5 MB, so the two identity
 documents in one technician upload must together stay under that size.
+
+### Backups
+
+Neon's free tier keeps only a short restore window, so the site makes its own
+daily backup. `vercel.json` schedules `GET /api/cron/backup` at 03:00 UTC;
+Vercel calls it with `Authorization: Bearer $CRON_SECRET` (set `CRON_SECRET` in
+the project's environment variables, any long random string). The endpoint
+dumps every `core` table, uploads included, as a gzipped Django fixture and
+sends it as a document to the admins who linked Telegram, or to the chat ids
+in the `backup_telegram_chat_id` setting (comma-separated) when that is set.
+
+A super admin can download the same file at any time from
+`GET /api/admin/backup`.
+
+To restore (into the current or an empty database):
+
+```bash
+DATABASE_URL='postgresql://...' python manage.py restore_backup dashawy-backup-YYYY-MM-DD_HHMM.json.gz
+```
+
+`scripts/backup.sh` is from the SQLite days and no longer applies.
