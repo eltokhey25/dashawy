@@ -11,7 +11,8 @@ from rest_framework.views import APIView
 from .exceptions import ApiError, forbidden
 from .google_auth import GoogleTokenError, verify_id_token
 from .models import Customer, User
-from .ratelimit import throttle
+from .ratelimit import client_ip, throttle
+from .services.notifications import notify_login
 from .views import _issue_token, _profile_for, _safe_user
 
 
@@ -92,6 +93,7 @@ class GoogleLoginView(APIView):
             customer = Customer.objects.filter(user_id=user.pk).first()
 
         profile_complete = bool(user.phone and customer)
+        notify_login(user, client_ip(request))
         token, refresh = _issue_token(user)
         safe = _safe_user(user, profile_complete=profile_complete)
 

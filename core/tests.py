@@ -717,15 +717,14 @@ class ProductionLogRegressionTests(APITestCase):
                 self.assertEqual(response.status_code, status.HTTP_200_OK)
                 self.assertIn(key, response.json())
 
-    def test_retired_otp_endpoint_returns_json_404_not_csrf_403(self):
-        # A device with a cached OTP page can still POST to the retired route.
-        # It must not be routed to the frontend view, where CSRF middleware
-        # would answer with "403 CSRF cookie not set" and pollute the logs.
+    def test_otp_endpoint_answers_json_not_csrf_403(self):
+        # The OTP route is an API endpoint (JWT, no cookies): a POST with no
+        # CSRF cookie must get a JSON answer, never "403 CSRF cookie not set".
         csrf_client = Client(enforce_csrf_checks=True)
         response = csrf_client.post(
             '/api/auth/request-otp', data='{}', content_type='application/json'
         )
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('application/json', response['Content-Type'])
         self.assertIn('error', response.json())
 

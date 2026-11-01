@@ -1,5 +1,4 @@
-"""Technician profile, the public technician pages, privacy requests and the
-Telegram link status.
+"""Technician profile, the public technician pages and privacy requests.
 
 Ported from the deleted Node routes the pages still call:
 
@@ -7,7 +6,7 @@ Ported from the deleted Node routes the pages still call:
   ``POST portfolio`` and ``DELETE portfolio/<id>``;
 * public: ``GET public/technicians`` and ``GET public/technicians/<id>``;
 * any signed-in user: ``POST data-subject/request``,
-  ``GET data-subject/my-requests`` and ``GET auth/telegram-link``.
+  and ``GET data-subject/my-requests``.
 
 Profile pictures and portfolio photos are public (served by the
 ``/uploads/technicians/profiles|portfolio/`` route); they go through the same
@@ -370,7 +369,7 @@ class PublicTechnicianDetailView(APIView):
 
 
 # ---------------------------------------------------------------------------
-# Privacy requests and Telegram status
+# Privacy requests
 # ---------------------------------------------------------------------------
 
 
@@ -406,18 +405,3 @@ class DataSubjectMyRequestsView(APIView):
             row['user_id'] = row.pop('user', row.get('user_id'))
             rows.append(row)
         return Response({'requests': rows})
-
-
-class TelegramLinkStatusView(APIView):
-    """GET /api/auth/telegram-link — whether this account has Telegram linked.
-
-    Linking itself is paused (see telegram-link.html); this only reports the
-    status the dashboards show.
-    """
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response(
-            {'linked': bool(request.user.telegram_chat_id), 'bot_username': None, 'enabled': False}
-        )

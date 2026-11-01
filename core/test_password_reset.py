@@ -196,30 +196,29 @@ class PasswordResetApiTests(APITestCase):
 
 
 class PasswordRecoveryUiTests(APITestCase):
-    """The retired recovery flows no longer show dead forms or widgets."""
+    """The Telegram recovery flow is wired into the pages again."""
 
     def tearDown(self):
         clear_site_config_cache()
 
-    @override_settings(BUSINESS_WHATSAPP='201000000000')
-    def test_login_forgot_password_opens_whatsapp_directly(self):
+    def test_login_forgot_password_opens_the_reset_page(self):
         response = self.client.get('/login.html')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertContains(
-            response,
-            'href="https://wa.me/201000000000?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C',
-        )
-        self.assertContains(response, 'target="_blank"')
-        self.assertNotContains(response, '/verify-otp.html')
-        self.assertNotContains(response, "getElementById('forgot-pwd-link')")
+        self.assertContains(response, 'href="/verify-otp" id="forgot-pwd-link"')
+        self.assertNotContains(response, 'wa.me/201000000000?text=')
 
-    def test_unavailable_pages_render_a_friendly_notice(self):
-        for path in ('/verify-otp.html', '/telegram-link.html'):
-            response = self.client.get(path)
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.assertContains(response, 'الخدمة غير متاحة حالياً')
+    def test_recovery_pages_render_their_forms(self):
+        reset = self.client.get('/verify-otp.html')
+        self.assertEqual(reset.status_code, status.HTTP_200_OK)
+        self.assertContains(reset, 'id="otp-form"')
+        self.assertContains(reset, '/api/auth/reset-password')
+        link = self.client.get('/telegram-link.html')
+        self.assertEqual(link.status_code, status.HTTP_200_OK)
+        self.assertContains(link, 'id="link-form"')
+        for response in (reset, link):
+            self.assertNotContains(response, 'الخدمة غير متاحة حالياً')
 
-    def test_dashboards_no_longer_load_telegram_widgets(self):
+    def test_dashboards_load_the_telegram_widget(self):
         for path in (
             '/customer/home.html',
             '/customer/dashboard.html',
@@ -227,5 +226,5 @@ class PasswordRecoveryUiTests(APITestCase):
         ):
             response = self.client.get(path)
             self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.assertNotContains(response, 'telegram-settings.js')
-            self.assertNotContains(response, 'id="telegram-settings"')
+            self.assertContains(response, 'telegram-settings.js')
+            self.assertContains(response, 'id="telegram-settings"')

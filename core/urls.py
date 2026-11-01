@@ -20,6 +20,12 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
+from .telegram_views import (
+    RequestOtpView,
+    ResetPasswordView,
+    TelegramLinkView,
+    telegram_webhook,
+)
 from .notification_views import PushSubscribeView, PushUnsubscribeView, VapidPublicKeyView
 from .profile_views import (
     DataSubjectMyRequestsView,
@@ -30,7 +36,6 @@ from .profile_views import (
     TechnicianPortfolioView,
     TechnicianProfileDetailsView,
     TechnicianProfileImageView,
-    TelegramLinkStatusView,
 )
 from .admin_manage_views import (
     AdminAccountDetailView,
@@ -386,7 +391,14 @@ urlpatterns = [
         DataSubjectMyRequestsView.as_view(),
         name='data-subject-my-requests',
     ),
-    re_path(r'^auth/telegram-link/?$', TelegramLinkStatusView.as_view(), name='telegram-link-status'),
+    re_path(r'^auth/telegram-link/?$', TelegramLinkView.as_view(), name='telegram-link'),
+    re_path(r'^auth/request-otp/?$', RequestOtpView.as_view(), name='auth-request-otp'),
+    re_path(r'^auth/reset-password/?$', ResetPasswordView.as_view(), name='auth-reset-password'),
+    re_path(
+        r'^telegram/webhook/(?P<secret>[0-9a-f]{40})/?$',
+        telegram_webhook,
+        name='telegram-webhook',
+    ),
     re_path(
         r'^notifications/vapid-public-key/?$',
         VapidPublicKeyView.as_view(),

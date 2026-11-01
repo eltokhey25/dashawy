@@ -62,7 +62,11 @@ from .services.broadcast import (
     decline_broadcast,
     incoming_for_technician,
 )
-from .services.notifications import notify_request_accepted, notify_request_cancelled
+from .services.notifications import (
+    notify_login,
+    notify_request_accepted,
+    notify_request_cancelled,
+)
 from .services.start_pin import (
     START_PIN_ATTEMPTS,
     START_PIN_LENGTH,
@@ -365,6 +369,7 @@ class LoginView(APIView):
         _clear_failed_logins(user)
         _assert_account_can_sign_in(user)
         _reset_axes(identifier)
+        notify_login(user, client_ip(request))
 
         token, refresh = _issue_token(user)
         return Response(

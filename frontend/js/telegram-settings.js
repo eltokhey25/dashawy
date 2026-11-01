@@ -16,8 +16,10 @@
   if (!window.Auth || !window.api || !Auth.isAuthed()) return;
 
   const user = Auth.getUser() || {};
-  const email = user.email || '';
-  const linkHref = '/telegram-link.html' + (email ? '?email=' + encodeURIComponent(email) : '');
+  // Accounts made from the order form may have no email: link by phone then.
+  const identifier = user.email || user.phone || '';
+  const linkHref =
+    '/telegram-link.html' + (identifier ? '?identifier=' + encodeURIComponent(identifier) : '');
 
   function el(tag, style, text) {
     const node = document.createElement(tag);
@@ -53,8 +55,8 @@
       'span',
       'flex:1 1 160px;min-width:0;font-size:0.82rem;font-weight:600;line-height:1.5;',
       linked
-        ? 'حسابك مرتبط بتليجرام — أكواد الدخول توصلك عليه.'
-        : 'اربط حسابك ليصلك كود الدخول على تليجرام.'
+        ? 'حسابك مرتبط بتليجرام — إشعارات طلباتك وكود استعادة كلمة السر بيوصلوا عليه.'
+        : 'اربط حسابك بتليجرام عشان توصلك إشعارات طلباتك وتقدر تسترجع كلمة السر لو نسيتها.'
     );
 
     banner.appendChild(icon);

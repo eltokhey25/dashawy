@@ -6,15 +6,9 @@ from the pages themselves (My requests and the technician dashboard poll).
 Nothing here raises, so a failed send never turns the action into an error.
 """
 
-import json
 import logging
-import os
-import urllib.request
 
 logger = logging.getLogger(__name__)
-
-TELEGRAM_API = 'https://api.telegram.org/bot{token}/sendMessage'
-
 
 def accepted_message(technician_name):
     name = technician_name or 'الفني'
@@ -26,27 +20,34 @@ def accepted_message(technician_name):
 
 
 def send_telegram(chat_id, text):
-    token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
-    if not token or not chat_id:
-        return False
-    body = json.dumps({'chat_id': chat_id, 'text': text}).encode('utf-8')
-    req = urllib.request.Request(
-        TELEGRAM_API.format(token=token),
-        data=body,
-        headers={'Content-Type': 'application/json'},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=5) as response:
-            return 200 <= response.status < 300
-    except Exception:  # noqa: BLE001 - a notification must never break the caller
-        logger.warning('Telegram notification failed', exc_info=True)
-        return False
+    """Kept as the seam the tests patch; delivery lives in services.telegram."""
+    from .telegram import send_message
+
+    return send_message(chat_id, text)
 
 
 def _push(user_id, payload):
+    """Deliver one notification to every channel the user has.
+
+    Browser push for subscribed devices, and the same text on Telegram when
+    the account is linked. ``url`` becomes a link only for site pages.
+    """
+    from ..models import User
     from . import push
 
-    return push.notify(user_id, payload)
+    result = push.notify(user_id, payload)
+    chat_id = (
+        User.objects.filter(pk=user_id).values_list('telegram_chat_id', flat=True).first()
+    )
+    if chat_id:
+        text = f"{payload.get('title', '')}\n{payload.get('body', '')}".strip()
+        url = payload.get('url')
+        if url and url.startswith('/'):
+            from ..site_config import get_site_config
+
+            text += f"\n{get_site_config()['site_url']}{url}"
+        send_telegram(chat_id, text)
+    return result
 
 
 def notify_request_accepted(request):
@@ -66,9 +67,7 @@ def notify_request_accepted(request):
             'tag': f'request-accepted-{request.pk}',
         },
     )
-    if not user.telegram_chat_id:
-        return False
-    return send_telegram(user.telegram_chat_id, accepted_message(name))
+    return True
 
 
 def notify_new_offer(technician_user_ids, request):
@@ -170,8 +169,6 @@ def notify_debt_change(technician_id, before, after):
             'requireInteraction': True,
         },
     )
-    if tech.user.telegram_chat_id:
-        send_telegram(tech.user.telegram_chat_id, f'{title}\n{body}')
     return True
 
 
@@ -184,5 +181,50 @@ def notify_request_cancelled(technician_user_id, request_id):
             'body': f'طلب #{request_id} اتلغى وإنت متاح دلوقتي لطلبات تانية.',
             'url': '/technician/dashboard.html',
             'tag': f'request-cancelled-{request_id}',
+        },
+    )
+
+
+def _cairo_time():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    return datetime.now(ZoneInfo('Africa/Cairo')).strftime('%Y-%m-%d %H:%M')
+
+
+def notify_login(user, ip=None):
+    """Tell the account owner someone signed in (password, Google or reset)."""
+    _push(
+        user.pk,
+        {
+            'title': '🔔 تم تسجيل الدخول لحسابك',
+            'body': f'الوقت: {_cairo_time()}' + (f' — من IP {ip}' if ip else '')
+            + '\nلو مش إنت، غيّر كلمة السر فوراً.',
+            'url': '/change-password',
+            'tag': 'login',
+        },
+    )
+
+
+def notify_password_changed(user, ip=None):
+    _push(
+        user.pk,
+        {
+            'title': '🔑 تم تغيير كلمة السر',
+            'body': f'اتغيرت كلمة سر حسابك في {_cairo_time()}.' + '\nلو مش إنت، كلّمنا فوراً.',
+            'url': '/login.html',
+            'tag': 'password-changed',
+        },
+    )
+
+
+def notify_account_created(user):
+    _push(
+        user.pk,
+        {
+            'title': '🎉 أهلاً بيك في دشاوي',
+            'body': 'تم إنشاء حسابك بنجاح. هتوصلك هنا إشعارات طلباتك.',
+            'url': '/customer/my-requests.html',
+            'tag': 'welcome',
         },
     )

@@ -1,71 +1,343 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" href="/dashawy-brand/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/dashawy-brand/favicon.ico" sizes="any" />
     <link rel="icon" href="/dashawy-brand/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/dashawy-brand/apple-touch-icon.png" />
     <meta name="theme-color" content="#4f46e5" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>الخدمة غير متاحة — دشاوي</title>
+    <title>استعادة كلمة السر — دشاوي</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body
     style="
-      background: linear-gradient(160deg, #f8fafc 0%, #eef2ff 100%);
       min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 60%);
       font-family: 'Cairo', sans-serif;
     "
   >
-    <main style="max-width: 520px; width: 100%; text-align: center">
-      <div
-        style="
-          display: inline-grid;
-          place-items: center;
-          width: 72px;
-          height: 72px;
-          border-radius: 20px;
-          background: linear-gradient(135deg, #4f46e5, #a855f7);
-          color: #fff;
-          font-size: 1.8rem;
-          box-shadow: 0 16px 40px -10px rgba(79, 70, 229, 0.5);
-          margin-bottom: 18px;
-        "
-      >
-        <i class="fa-solid fa-toolbox" aria-hidden="true"></i>
+    <main style="max-width: 480px; width: 100%">
+      <div style="text-align: center; margin-bottom: 24px">
+        <div
+          style="
+            display: inline-grid;
+            place-items: center;
+            width: 64px;
+            height: 64px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #4f46e5, #a855f7);
+            color: #fff;
+            font-size: 1.6rem;
+            box-shadow: 0 16px 40px -10px rgba(79, 70, 229, 0.5);
+            margin-bottom: 14px;
+          "
+        >
+          <i class="fa-solid fa-key" aria-hidden="true"></i>
+        </div>
+        <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px">
+          استعادة كلمة السر
+        </h1>
+        <p id="sent-message" style="color: #334155; font-size: 0.95rem; font-weight: 700; line-height: 1.7">
+          اكتب رقم الموبايل أو البريد الإلكتروني المسجّل في حسابك.
+        </p>
+        <p id="sent-hint" style="color: #64748b; font-size: 0.82rem; line-height: 1.7; margin-top: 4px">
+          هيوصلك كود من 6 أرقام على تليجرام المربوط بحسابك، صالح لمدة 10 دقايق.
+        </p>
       </div>
-      <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 10px">
-        الخدمة غير متاحة حالياً
-      </h1>
-      <p style="color: #64748b; font-size: 0.95rem; line-height: 1.8; margin-bottom: 24px">
-        استرجاع كلمة المرور بالكود متوقف مؤقتاً. لو محتاج ترجّع حسابك، كلّمنا على واتساب
-        وهنساعدك.
-      </p>
-      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap">
-        {% if business_whatsapp_url %}
-        <a class="btn btn-brand" href="{{ business_whatsapp_url }}" target="_blank" rel="noopener">
-          <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> كلمنا على واتساب
-        </a>
-        {% endif %}
-        <a class="btn btn-outline" href="/login.html">
-          <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> رجوع لتسجيل الدخول
-        </a>
+
+      <div class="card" style="padding: 26px">
+        <form id="otp-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="otp-identifier">رقم الموبايل أو البريد الإلكتروني</label>
+            <input
+              type="text"
+              id="otp-identifier"
+              class="input"
+              placeholder="01xxxxxxxxx أو you@example.com"
+              autocomplete="username"
+              dir="ltr"
+              required
+            />
+          </div>
+
+          <div class="form-group" id="otp-code-group" hidden>
+            <label class="form-label" for="otp-code">الكود اللي وصلك على تليجرام</label>
+            <input
+              type="text"
+              id="otp-code"
+              class="input"
+              placeholder="000000"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              dir="ltr"
+              disabled
+              style="text-align: center; letter-spacing: 0.5em; font-size: 1.4rem; font-weight: 700; padding: 14px 10px"
+            />
+          </div>
+
+          <div class="form-group" id="password-group" hidden>
+            <label class="form-label" for="new-password">كلمة السر الجديدة</label>
+            <input
+              type="password"
+              id="new-password"
+              class="input"
+              placeholder="8 حروف على الأقل، فيها حرف ورقم"
+              autocomplete="new-password"
+              dir="ltr"
+              disabled
+            />
+            <label class="order-show-password">
+              <input type="checkbox" id="show-password" /> إظهار كلمة السر
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-brand btn-block btn-lg" id="submit-btn">
+            <i class="fa-brands fa-telegram" aria-hidden="true"></i> ابعتلي الكود على تليجرام
+          </button>
+        </form>
+
+        <div
+          id="not-linked-box"
+          hidden
+          style="
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 12px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            font-size: 0.88rem;
+            line-height: 1.8;
+          "
+        >
+          <i class="fa-solid fa-link" aria-hidden="true"></i>
+          الحساب ده مش مربوط بتليجرام، فمنقدرش نبعتلك الكود.
+          <a id="telegram-link" href="/telegram-link.html" style="color: #c2410c; font-weight: 800; text-decoration: underline">
+            اربط حسابك بتليجرام من هنا
+          </a>
+          {% if business_whatsapp_url %}
+          أو
+          <a href="{{ business_whatsapp_url }}" target="_blank" rel="noopener" style="color: #c2410c; font-weight: 800; text-decoration: underline">
+            كلّمنا على الواتساب
+          </a>
+          {% endif %}
+          عشان نساعدك.
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 12px 18px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+          "
+        >
+          <button type="button" id="resend-btn" hidden class="link-btn">
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> إعادة إرسال الكود
+          </button>
+          <button type="button" id="change-id-btn" hidden class="link-btn">
+            <i class="fa-solid fa-pen" aria-hidden="true"></i> تغيير الرقم
+          </button>
+          <a href="/login.html" style="color: #94a3b8; font-size: 0.85rem; font-weight: 700; text-decoration: none">
+            <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> تسجيل الدخول
+          </a>
+        </div>
       </div>
     </main>
+
+    <style>
+      .link-btn {
+        background: none;
+        border: none;
+        color: #4f46e5;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+      }
+    </style>
+
+    <script src="/js/api.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/ui.js"></script>
+    <script>
+      // Two steps on one form: ask for the code, then submit the code with the
+      // new password. The server signs the person in on success.
+      const form = document.getElementById('otp-form');
+      const btn = document.getElementById('submit-btn');
+      const idEl = document.getElementById('otp-identifier');
+      const codeEl = document.getElementById('otp-code');
+      const codeGroup = document.getElementById('otp-code-group');
+      const passEl = document.getElementById('new-password');
+      const passGroup = document.getElementById('password-group');
+      const notLinkedBox = document.getElementById('not-linked-box');
+      const telegramLink = document.getElementById('telegram-link');
+      const sentMessage = document.getElementById('sent-message');
+      const sentHint = document.getElementById('sent-hint');
+      const resendBtn = document.getElementById('resend-btn');
+      const changeIdBtn = document.getElementById('change-id-btn');
+
+      let step = 'request';
+
+      const sessionUser = Auth.getUser();
+      const fromQuery = new URLSearchParams(window.location.search).get('identifier') || '';
+      idEl.value = fromQuery || (sessionUser && (sessionUser.email || sessionUser.phone)) || '';
+
+      function setStep(next) {
+        step = next;
+        const verifying = step === 'verify';
+        codeGroup.hidden = !verifying;
+        codeEl.disabled = !verifying;
+        passGroup.hidden = !verifying;
+        passEl.disabled = !verifying;
+        resendBtn.hidden = !verifying;
+        changeIdBtn.hidden = !verifying;
+        if (verifying) {
+          btn.innerHTML = '<i class="fa-solid fa-key" aria-hidden="true"></i> تغيير كلمة السر والدخول';
+          sentMessage.textContent = 'اتبعتلك كود على تليجرام.';
+          sentHint.textContent = 'اكتب الكود المكوّن من 6 أرقام، واختار كلمة السر الجديدة.';
+          codeEl.focus();
+        } else {
+          btn.innerHTML = '<i class="fa-brands fa-telegram" aria-hidden="true"></i> ابعتلي الكود على تليجرام';
+          sentMessage.textContent = 'اكتب رقم الموبايل أو البريد الإلكتروني المسجّل في حسابك.';
+          sentHint.textContent = 'هيوصلك كود من 6 أرقام على تليجرام المربوط بحسابك، صالح لمدة 10 دقايق.';
+        }
+      }
+
+      codeEl.addEventListener('input', () => {
+        codeEl.value = codeEl.value.replace(/\D/g, '').slice(0, 6);
+      });
+      document.getElementById('show-password').addEventListener('change', (e) => {
+        passEl.type = e.target.checked ? 'text' : 'password';
+      });
+
+      function resetAlerts() {
+        notLinkedBox.hidden = true;
+        clearFormErrors(form);
+      }
+
+      function isNotLinked(err) {
+        return err && err.code === 'telegram_not_linked';
+      }
+
+      function destinationAfterAuth(data) {
+        const user = data.user || {};
+        if (user.role === 'customer' && user.profile_complete === false) return Auth.completeProfilePath();
+        return Auth.homePath(user.role);
+      }
+
+      async function requestCode(trigger, loadingText) {
+        resetAlerts();
+        const identifier = idEl.value.trim();
+        if (!identifier) {
+          setFieldError(idEl, 'اكتب رقم الموبايل أو البريد الإلكتروني');
+          idEl.focus();
+          return null;
+        }
+        Ui.btnLoading(trigger, loadingText);
+        try {
+          return await api('/api/auth/request-otp', { method: 'POST', body: { identifier } });
+        } catch (err) {
+          if (isNotLinked(err)) {
+            telegramLink.href = '/telegram-link.html?identifier=' + encodeURIComponent(identifier);
+            notLinkedBox.hidden = false;
+          } else {
+            toast(err.message, 'error');
+          }
+          return null;
+        } finally {
+          Ui.btnReset(trigger);
+        }
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (step === 'request') {
+          const data = await requestCode(btn, 'جارٍ الإرسال…');
+          if (!data) return;
+          codeEl.value = '';
+          passEl.value = '';
+          idEl.setAttribute('readonly', 'readonly');
+          setStep('verify');
+          toast(data.message || 'اتبعتلك كود على تليجرام', 'success');
+          return;
+        }
+
+        resetAlerts();
+        const identifier = idEl.value.trim();
+        const otp = codeEl.value.trim();
+        const password = passEl.value;
+        if (!/^\d{6}$/.test(otp)) {
+          setFieldError(codeEl, 'اكتب الكود المكوّن من 6 أرقام');
+          codeEl.focus();
+          return;
+        }
+        if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+          setFieldError(passEl, 'كلمة السر 8 حروف على الأقل، فيها حرف إنجليزي ورقم');
+          passEl.focus();
+          return;
+        }
+
+        Ui.btnLoading(btn, 'جارٍ التغيير…');
+        try {
+          const data = await api('/api/auth/reset-password', {
+            method: 'POST',
+            body: { identifier, otp, new_password: password },
+          });
+          Auth.setSession(data);
+          toast('تم تغيير كلمة السر وتسجيل دخولك', 'success');
+          setTimeout(() => {
+            window.location.href = destinationAfterAuth(data);
+          }, 600);
+        } catch (err) {
+          toast(err.message, 'error');
+          if (/الكود/.test(err.message || '')) {
+            codeEl.value = '';
+            codeEl.focus();
+          }
+          Ui.btnReset(btn);
+        }
+      });
+
+      resendBtn.addEventListener('click', async () => {
+        const data = await requestCode(resendBtn, 'جارٍ الإرسال…');
+        if (!data) return;
+        codeEl.value = '';
+        toast(data.message || 'اتبعتلك كود جديد', 'success');
+        codeEl.focus();
+      });
+
+      changeIdBtn.addEventListener('click', () => {
+        resetAlerts();
+        codeEl.value = '';
+        passEl.value = '';
+        setStep('request');
+        idEl.removeAttribute('readonly');
+        idEl.focus();
+      });
+
+      setStep('request');
+      if (!idEl.value) idEl.focus();
+    </script>
+    <script src="/js/pwa-install.js"></script>
   </body>
 </html>
