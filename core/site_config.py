@@ -20,7 +20,7 @@ from django.core.cache import cache
 from core.site_url import normalize_site_url
 from core.validation import normalize_phone
 
-CACHE_KEY = 'dashawy:site-config:v2'
+CACHE_KEY = 'dashawy:site-config:v3'
 CACHE_SECONDS = 300
 
 # The Egypt-only district list used by the public/guest order form. Keys match
