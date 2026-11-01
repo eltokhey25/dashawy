@@ -139,6 +139,13 @@ def accept_broadcast(broadcast_id, technician):
 
     now = utc_now()
     with transaction.atomic():
+        # The technician row is claimed first and atomically: two accepts fired
+        # in parallel on different offers must not both see 'available'.
+        taken = Technician.objects.filter(pk=technician.pk, availability='available').update(
+            availability='busy'
+        )
+        if not taken:
+            raise BroadcastError('خلّص الطلب اللي معاك الأول', 400)
         claimed = Request.objects.filter(pk=request.pk, status='pending').update(
             technician_id=technician.pk,
             status='assigned',
@@ -150,6 +157,7 @@ def accept_broadcast(broadcast_id, technician):
             start_pin_locked_until=None,
         )
         if not claimed:
+            # The transaction rolls back the availability change above.
             raise BroadcastError('فني تاني قبل الطلب ده', 409)
         RequestBroadcast.objects.filter(pk=row.pk).update(
             status=ACCEPTED, responded_at=now
@@ -157,7 +165,6 @@ def accept_broadcast(broadcast_id, technician):
         RequestBroadcast.objects.filter(request_id=request.pk, status=SENT).exclude(
             pk=row.pk
         ).update(status=EXPIRED, responded_at=now)
-        Technician.objects.filter(pk=technician.pk).update(availability='busy')
 
     request.refresh_from_db()
     return request

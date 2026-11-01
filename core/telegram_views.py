@@ -1,7 +1,7 @@
 """Telegram linking, the forgot-password code and the webhook Telegram calls.
 
 * ``GET  /api/auth/telegram-link``          — link status for the signed-in user
-* ``POST /api/auth/telegram-link``          — {identifier}: a 15-minute deep link
+* ``POST /api/auth/telegram-link``          — a 15-minute deep link for the signed-in user
 * ``POST /api/auth/request-otp``            — {identifier}: 6-digit code by Telegram
 * ``POST /api/auth/reset-password``         — {identifier, otp, new_password}
 * ``POST /api/telegram/webhook/<secret>``   — called by Telegram, never by the site
@@ -41,10 +41,9 @@ from .views import (
 
 OTP_TTL_MINUTES = 10
 OTP_COOLDOWN_SECONDS = 60
-SENT_MESSAGE = 'لو الحساب موجود ومربوط بتليجرام، الكود اتبعت عليه.'
-NOT_LINKED_MESSAGE = (
-    'الحساب ده مش مربوط بتليجرام. اربطه الأول من صفحة «ربط تليجرام»، '
-    'أو كلّمنا على الواتساب عشان نساعدك.'
+SENT_MESSAGE = (
+    'لو الحساب موجود ومربوط بتليجرام، الكود اتبعت عليه. '
+    'لو حسابك مش مربوط بتليجرام، كلّمنا على الواتساب عشان نساعدك.'
 )
 
 
@@ -71,13 +70,16 @@ def _hash_otp(code):
 
 
 class TelegramLinkView(APIView):
-    """GET status for the signed-in user; POST a deep link for an identifier."""
+    """GET link status; POST a deep link — both for the signed-in account only.
 
-    permission_classes = [AllowAny]
+    Linking by a typed phone or email would let anyone attach their own
+    Telegram to someone else's account and then reset its password, so the
+    link token is always issued for ``request.user`` and nobody else.
+    """
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user or not request.user.is_authenticated:
-            raise ApiError('يلزم تسجيل الدخول', status.HTTP_401_UNAUTHORIZED)
         return Response(
             {
                 'linked': bool(request.user.telegram_chat_id),
@@ -89,15 +91,8 @@ class TelegramLinkView(APIView):
     def post(self, request):
         if not telegram.is_configured():
             raise ApiError('ربط تليجرام غير متاح حالياً', status.HTTP_503_SERVICE_UNAVAILABLE)
-        key = _identifier_key(_body(request).get('identifier') or _body(request).get('email'))
-        if not key:
-            raise bad_request('اكتب البريد الإلكتروني أو رقم الموبايل المسجّل')
-        throttle(request, 'telegram-link', limit=10, window_seconds=900, identifier=key)
-        throttle(request, 'telegram-link-ip', limit=30, window_seconds=900)
-
-        user = _find_user(key)
-        if user is None:
-            raise ApiError('لا يوجد حساب بالبيانات دي', status.HTTP_404_NOT_FOUND, code='account_not_found')
+        user = request.user
+        throttle(request, 'telegram-link', limit=10, window_seconds=900, identifier=f'user-{user.pk}')
         if user.telegram_chat_id:
             raise ApiError(
                 'الحساب ده مربوط بتليجرام بالفعل.', status.HTTP_409_CONFLICT, code='telegram_already_linked'
@@ -127,11 +122,10 @@ class RequestOtpView(APIView):
         throttle(request, 'otp-request', limit=5, window_seconds=900, identifier=key)
 
         user = _find_user(key)
-        if user is None:
-            # Same answer as a linked account, so nobody can probe for accounts.
+        if user is None or not user.telegram_chat_id:
+            # Same answer as a linked account, so nobody can probe for accounts
+            # or learn which ones have Telegram.
             return Response({'success': True, 'message': SENT_MESSAGE})
-        if not user.telegram_chat_id:
-            raise ApiError(NOT_LINKED_MESSAGE, status.HTTP_409_CONFLICT, code='telegram_not_linked')
 
         now = utc_now()
         recent = Otp.objects.filter(
@@ -164,7 +158,9 @@ class RequestOtpView(APIView):
             Otp.objects.filter(pk=row.pk).delete()
             user.refresh_from_db(fields=['telegram_chat_id'])
             if not user.telegram_chat_id:
-                raise ApiError(NOT_LINKED_MESSAGE, status.HTTP_409_CONFLICT, code='telegram_not_linked')
+                # The bot was blocked and the account got unlinked: same
+                # answer as above, for the same reason.
+                return Response({'success': True, 'message': SENT_MESSAGE})
             raise ApiError(
                 'تعذر إرسال الكود حالياً، حاول تاني بعد شوية.',
                 status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -28,6 +28,7 @@ from .services.payments import (
     debt_limit,
     ensure_wallet,
     mark_withdrawal_paid,
+    parse_amount,
     reject_withdrawal,
     resolve_dispute,
     settlement_view,
@@ -117,14 +118,14 @@ class AdminWalletPayoutView(APIView):
     def post(self, request, technician_id):
         data = _body(request)
         try:
-            amount = float(data.get('amount'))
-        except (TypeError, ValueError):
-            amount = 0
-        if amount <= 0:
-            raise bad_request('مبلغ غير صالح')
+            amount = parse_amount(data.get('amount'))
+        except PaymentError as exc:
+            raise bad_request(exc.message)
         if not Technician.objects.filter(pk=technician_id).exists():
             raise ApiError('الفني غير موجود', status.HTTP_404_NOT_FOUND)
         before = float(ensure_wallet(technician_id).total_debt or 0)
+        if amount > before:
+            raise bad_request(f'المبلغ أكبر من المستحق على الفني ({before:g} ج.م)')
         after = add_wallet_transaction(
             technician_id,
             type=WalletTransaction.TYPE_PAYOUT,

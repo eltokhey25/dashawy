@@ -34,11 +34,39 @@ def public_key():
     return _keys()[0] if is_enabled() else None
 
 
+# Browsers only ever hand out endpoints on their vendor's push service. Anything
+# else is a user-supplied URL the server would then POST to (SSRF, or a slow
+# host that stalls every broadcast).
+PUSH_HOSTS = (
+    'fcm.googleapis.com',
+    'android.googleapis.com',
+    'updates.push.services.mozilla.com',
+    'web.push.apple.com',
+    'push.apple.com',
+)
+PUSH_HOST_SUFFIXES = ('.notify.windows.com', '.push.services.mozilla.com')
+
+
+def endpoint_allowed(endpoint):
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(endpoint)
+    except (TypeError, ValueError):
+        return False
+    host = (parsed.hostname or '').lower()
+    return parsed.scheme == 'https' and (
+        host in PUSH_HOSTS or host.endswith(PUSH_HOST_SUFFIXES)
+    )
+
+
 def save_subscription(user_id, subscription, user_agent=None):
     endpoint = (subscription or {}).get('endpoint')
     keys = (subscription or {}).get('keys') or {}
     if not endpoint or not keys.get('p256dh') or not keys.get('auth'):
         raise ValueError('Invalid subscription')
+    if not endpoint_allowed(endpoint) or len(endpoint) > 2000:
+        raise ValueError('Unsupported push endpoint')
     PushSubscription.objects.update_or_create(
         endpoint=endpoint,
         defaults={

@@ -45,7 +45,7 @@ from .models import (
     User,
     utc_now,
 )
-from .permissions import IsAdmin, IsCustomer, IsTechnician
+from .permissions import AdminPermission, IsAdmin, IsCustomer, IsTechnician
 from .ratelimit import client_ip, throttle
 from .serializers import (
     CreateRequestSerializer,
@@ -109,6 +109,11 @@ ACCOUNT_BLOCKED = 'تم إيقاف حسابك. تواصل مع الإدارة.'
 # ---------------------------------------------------------------------------
 # Response shaping
 # ---------------------------------------------------------------------------
+
+
+def _holds_section(user, key):
+    """Whether an admin holds a section permission (super admins hold all)."""
+    return bool(user.is_super_admin) or key in _permissions(user)
 
 
 def _permissions(user):
@@ -1309,7 +1314,7 @@ def _admin_technician_payload(technician_id):
 class AdminStatsView(APIView):
     """GET /api/admin/stats — dashboard counters and chart data."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('stats')]
 
     def get(self, request):
         status_counts = {key: 0 for key in ADMIN_REQUEST_STATUSES}
@@ -1379,7 +1384,7 @@ class AdminStatsView(APIView):
 class AdminRequestListView(APIView):
     """GET /api/admin/requests — every request, optionally filtered."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('requests')]
 
     def get(self, request):
         requests = Request.objects.select_related(
@@ -1402,7 +1407,7 @@ class AdminRequestListView(APIView):
 class AdminTechnicianListView(APIView):
     """GET /api/admin/technicians — all technicians with account details."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
     def get(self, request):
         rows = _admin_technician_queryset().order_by('-created_at', '-id')
@@ -1419,7 +1424,7 @@ class AdminTechnicianListView(APIView):
 class AdminTechnicianVerifyView(APIView):
     """POST /api/admin/technicians/<id>/verify — toggle document verification."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
     def post(self, request, pk):
         technician = Technician.objects.filter(pk=pk).first()
@@ -1448,7 +1453,7 @@ class AdminTechnicianVerifyView(APIView):
 class AdminTechnicianDetailView(APIView):
     """GET /api/admin/technicians/<id> — profile plus recent requests."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
     def get(self, request, pk):
         row = _admin_technician_payload(pk)
@@ -1480,7 +1485,7 @@ class AdminTechnicianDetailView(APIView):
 class AdminTechnicianApproveView(APIView):
     """POST /api/admin/technicians/<id>/approve — activate a reviewed account."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
     def post(self, request, pk):
         technician = Technician.objects.filter(pk=pk).first()
@@ -1508,7 +1513,7 @@ class AdminTechnicianApproveView(APIView):
 class AdminTechnicianRejectView(APIView):
     """POST /api/admin/technicians/<id>/reject — refuse onboarding with a note."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
     def post(self, request, pk):
         technician = Technician.objects.filter(pk=pk).first()
@@ -1539,7 +1544,7 @@ class AdminTechnicianDocumentView(APIView):
     escape the uploads tree.
     """
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
     DOCUMENT_FIELDS = {
         'national_id': 'national_id_path',
@@ -1583,7 +1588,7 @@ class AdminTechnicianDocumentView(APIView):
 class AdminCustomerListView(APIView):
     """GET /api/admin/customers — all customers with account details."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('customers')]
 
     def get(self, request):
         fields = [field.name for field in Customer._meta.fields]
@@ -1641,6 +1646,11 @@ class AdminUserResetPasswordView(APIView):
         # password here (that is what /auth/change-password is for).
         if target.pk == request.user.pk:
             raise bad_request('استخدم صفحة تغيير كلمة المرور لحسابك')
+        # A section admin may only reset accounts in the sections they hold:
+        # customers need "customers", technicians need "technicians".
+        needed = {'customer': 'customers', 'technician': 'technicians'}.get(target.role)
+        if needed and not _holds_section(request.user, needed):
+            raise forbidden('ليس لديك صلاحية للوصول إلى هذا القسم')
         if (target.role == 'admin' or target.is_super_admin) and not request.user.is_super_admin:
             raise forbidden('إعادة تعيين كلمة مرور مسؤول متاحة للمسؤول الأعلى فقط')
 
@@ -1688,7 +1698,7 @@ class AdminUserResetPasswordView(APIView):
 class AdminRequestCancelView(APIView):
     """POST /api/admin/requests/<id>/cancel — force-cancel a request."""
 
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAuthenticated, AdminPermission('requests')]
 
     def post(self, request, pk):
         job = Request.objects.filter(pk=pk).first()

@@ -27,7 +27,7 @@ from .tests import PNG_BYTES
 
 PASSWORD = 'TesterPass123'
 SUBSCRIPTION = {
-    'endpoint': 'https://push.example.test/abc',
+    'endpoint': 'https://fcm.googleapis.com/fcm/send/abc',
     'keys': {'p256dh': 'BPUBKEY', 'auth': 'AUTHKEY'},
 }
 
@@ -197,8 +197,8 @@ class PushTests(ProfileBase):
         self.assertTrue(removed.json()['removed'])
 
     def test_new_order_and_accept_send_pushes(self):
-        PushSubscription.objects.create(user=self.tech_user, endpoint='https://push.example.test/tech', p256dh='k', auth='a')
-        PushSubscription.objects.create(user=self.customer_user, endpoint='https://push.example.test/cust', p256dh='k', auth='a')
+        PushSubscription.objects.create(user=self.tech_user, endpoint='https://fcm.googleapis.com/fcm/send/tech', p256dh='k', auth='a')
+        PushSubscription.objects.create(user=self.customer_user, endpoint='https://fcm.googleapis.com/fcm/send/cust', p256dh='k', auth='a')
 
         self.client.force_authenticate(user=self.customer_user)
         request_id = self.client.post(
@@ -207,21 +207,21 @@ class PushTests(ProfileBase):
             format='json',
         ).json()['request']['id']
         tech_push = self.sent.call_args_list[-1].kwargs
-        self.assertEqual(tech_push['subscription_info']['endpoint'], 'https://push.example.test/tech')
+        self.assertEqual(tech_push['subscription_info']['endpoint'], 'https://fcm.googleapis.com/fcm/send/tech')
         self.assertIn('طلب جديد', tech_push['data'])
 
         self.client.force_authenticate(user=self.tech_user)
         offer = self.client.get('/api/technician/incoming').json()['requests'][0]
         self.client.post(f"/api/technician/broadcasts/{offer['broadcast_id']}/accept")
         customer_push = self.sent.call_args_list[-1].kwargs
-        self.assertEqual(customer_push['subscription_info']['endpoint'], 'https://push.example.test/cust')
+        self.assertEqual(customer_push['subscription_info']['endpoint'], 'https://fcm.googleapis.com/fcm/send/cust')
         self.assertIn('فني البروفايل', customer_push['data'])
         self.assertTrue(Request.objects.filter(pk=request_id, status='assigned').exists())
 
     def test_gone_subscriptions_are_removed(self):
         from pywebpush import WebPushException
 
-        PushSubscription.objects.create(user=self.customer_user, endpoint='https://push.example.test/old', p256dh='k', auth='a')
+        PushSubscription.objects.create(user=self.customer_user, endpoint='https://fcm.googleapis.com/fcm/send/old', p256dh='k', auth='a')
         gone = type('Resp', (), {'status_code': 410})()
         self.sent.side_effect = WebPushException('gone', response=gone)
         from .services.push import send_to_user
@@ -246,3 +246,33 @@ class PrivacyAndTelegramTests(ProfileBase):
         self.customer_user.refresh_from_db()
         self.client.force_authenticate(user=self.customer_user)
         self.assertTrue(self.client.get('/api/auth/telegram-link').json()['linked'])
+
+
+class PushEndpointTests(ProfileBase):
+    def test_only_browser_push_services_are_accepted(self):
+        self.client.force_authenticate(user=self.customer_user)
+        for endpoint in (
+            'http://fcm.googleapis.com/fcm/send/abc',
+            'https://evil.example/collect',
+            'https://169.254.169.254/latest/meta-data',
+            'https://fcm.googleapis.com.evil.example/x',
+        ):
+            bad = self.client.post(
+                '/api/notifications/subscribe',
+                {'subscription': {'endpoint': endpoint, 'keys': {'p256dh': 'k', 'auth': 'a'}}},
+                format='json',
+            )
+            self.assertEqual(bad.status_code, 400, endpoint)
+        for endpoint in (
+            'https://fcm.googleapis.com/fcm/send/abc',
+            'https://updates.push.services.mozilla.com/wpush/v2/x',
+            'https://web.push.apple.com/QAbc',
+            'https://wns2-par02p.notify.windows.com/w/?token=x',
+        ):
+            ok = self.client.post(
+                '/api/notifications/subscribe',
+                {'subscription': {'endpoint': endpoint, 'keys': {'p256dh': 'k', 'auth': 'a'}}},
+                format='json',
+            )
+            self.assertEqual(ok.status_code, 200, endpoint)
+        self.assertEqual(PushSubscription.objects.count(), 4)

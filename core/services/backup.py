@@ -13,11 +13,12 @@ Restore: ``python manage.py restore_backup <file.json.gz>`` (see README).
 import gzip
 import io
 import logging
+import os
 from datetime import datetime, timezone
 
 from django.core.management import call_command
 
-from ..models import Setting, User
+from ..models import User
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,17 @@ def build_backup():
 def backup_recipients():
     """Telegram chat ids the backup goes to.
 
-    The ``backup_telegram_chat_id`` setting wins (comma-separated); otherwise
-    every admin who linked Telegram.
+    Only super admins who linked Telegram, or the chat ids in the
+    ``BACKUP_TELEGRAM_CHAT_ID`` environment variable (comma-separated). This is
+    deliberately not an admin-editable setting: the file holds every password
+    hash and identity document, so a section admin must not be able to point
+    it at themselves.
     """
-    configured = Setting.objects.filter(key='backup_telegram_chat_id').values_list(
-        'value', flat=True
-    ).first()
-    if configured and configured.strip():
+    configured = os.environ.get('BACKUP_TELEGRAM_CHAT_ID', '').strip()
+    if configured:
         return [part.strip() for part in configured.split(',') if part.strip()]
     return list(
-        User.objects.filter(role='admin', blocked=False)
+        User.objects.filter(role='admin', is_super_admin=True, blocked=False)
         .exclude(telegram_chat_id__isnull=True)
         .exclude(telegram_chat_id='')
         .values_list('telegram_chat_id', flat=True)

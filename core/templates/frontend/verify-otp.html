@@ -126,18 +126,16 @@
             line-height: 1.8;
           "
         >
-          <i class="fa-solid fa-link" aria-hidden="true"></i>
-          الحساب ده مش مربوط بتليجرام، فمنقدرش نبعتلك الكود.
-          <a id="telegram-link" href="/telegram-link.html" style="color: #c2410c; font-weight: 800; text-decoration: underline">
-            اربط حسابك بتليجرام من هنا
-          </a>
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          مش واصلك كود؟ يبقى حسابك مش مربوط بتليجرام.
           {% if business_whatsapp_url %}
-          أو
           <a href="{{ business_whatsapp_url }}" target="_blank" rel="noopener" style="color: #c2410c; font-weight: 800; text-decoration: underline">
             كلّمنا على الواتساب
           </a>
+          وهنساعدك ترجع لحسابك.
+          {% else %}
+          تواصل مع الإدارة وهنساعدك ترجع لحسابك.
           {% endif %}
-          عشان نساعدك.
         </div>
 
         <div
@@ -190,7 +188,6 @@
       const passEl = document.getElementById('new-password');
       const passGroup = document.getElementById('password-group');
       const notLinkedBox = document.getElementById('not-linked-box');
-      const telegramLink = document.getElementById('telegram-link');
       const sentMessage = document.getElementById('sent-message');
       const sentHint = document.getElementById('sent-hint');
       const resendBtn = document.getElementById('resend-btn');
@@ -235,10 +232,6 @@
         clearFormErrors(form);
       }
 
-      function isNotLinked(err) {
-        return err && err.code === 'telegram_not_linked';
-      }
-
       function destinationAfterAuth(data) {
         const user = data.user || {};
         if (user.role === 'customer' && user.profile_complete === false) return Auth.completeProfilePath();
@@ -257,12 +250,7 @@
         try {
           return await api('/api/auth/request-otp', { method: 'POST', body: { identifier } });
         } catch (err) {
-          if (isNotLinked(err)) {
-            telegramLink.href = '/telegram-link.html?identifier=' + encodeURIComponent(identifier);
-            notLinkedBox.hidden = false;
-          } else {
-            toast(err.message, 'error');
-          }
+          toast(err.message, 'error');
           return null;
         } finally {
           Ui.btnReset(trigger);
@@ -277,6 +265,9 @@
           codeEl.value = '';
           passEl.value = '';
           idEl.setAttribute('readonly', 'readonly');
+          // The server answers the same way for unknown and unlinked accounts,
+          // so the only honest hint is: no code means not linked.
+          notLinkedBox.hidden = false;
           setStep('verify');
           toast(data.message || 'اتبعتلك كود على تليجرام', 'success');
           return;

@@ -215,3 +215,20 @@ class OfferPrivacyTests(BroadcastFlowTests):
         self.client.force_authenticate(user=self.tech_a)
         accepted = self.client.post(f"/api/technician/broadcasts/{offer['broadcast_id']}/accept").json()
         self.assertIn('فوزي', accepted['request']['location_text'])
+
+
+class AtomicAcceptTests(BroadcastFlowTests):
+    def test_accept_claims_the_technician_row_atomically(self):
+        first = self.create_order()['request']['id']
+        second = self.create_order()['request']['id']
+        offer_a1 = self.offer_id(self.tech_a, first)
+        offer_a2 = self.offer_id(self.tech_a, second)
+        self.client.force_authenticate(user=self.tech_a)
+        self.assertEqual(self.client.post(f'/api/technician/broadcasts/{offer_a1}/accept').status_code, 200)
+        # The second accept is refused even when the cached availability was
+        # read before the first one landed (the UPDATE is the arbiter).
+        with patch('core.services.broadcast.over_debt_limit_ids', return_value=set()):
+            denied = self.client.post(f'/api/technician/broadcasts/{offer_a2}/accept')
+        self.assertEqual(denied.status_code, 400)
+        self.assertEqual(Request.objects.get(pk=second).status, 'pending')
+        self.assertEqual(Technician.objects.get(user=self.tech_a).availability, 'busy')

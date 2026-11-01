@@ -73,6 +73,21 @@ class AdminPermissionTests(AdminBase):
         self.assertEqual(self.client.get('/api/admin/wallets').status_code, 403)
         self.assertEqual(self.client.get('/api/admin/settings').status_code, 403)
         self.assertEqual(self.client.get('/api/admin/admins').status_code, 403)
+        # The older views too: an admin with only "reviews" must not reach
+        # customer data, technician documents, requests or password resets.
+        self.assertEqual(self.client.get('/api/admin/customers').status_code, 403)
+        self.assertEqual(self.client.get('/api/admin/technicians').status_code, 403)
+        self.assertEqual(
+            self.client.get(f'/api/admin/technicians/{self.technician.pk}/document/national_id').status_code, 403
+        )
+        self.assertEqual(self.client.get('/api/admin/requests').status_code, 403)
+        self.assertEqual(self.client.get('/api/admin/stats').status_code, 403)
+        self.assertEqual(
+            self.client.post(f'/api/admin/users/{self.customer_user.pk}/reset-password').status_code, 403
+        )
+        self.assertEqual(
+            self.client.put('/api/admin/settings', {'backup_telegram_chat_id': '1'}, format='json').status_code, 403
+        )
 
     def test_non_admins_are_refused(self):
         self.client.force_authenticate(user=self.tech_user)

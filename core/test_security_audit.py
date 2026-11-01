@@ -27,7 +27,7 @@ class AdminPasswordResetScopeTests(APITestCase):
     def setUp(self):
         cache.clear()
         self.super_admin = make_user('super@example.com', 'admin', is_super_admin=True)
-        self.admin = make_user('admin@example.com', 'admin')
+        self.admin = make_user('admin@example.com', 'admin', permissions='["customers"]')
         self.other_admin = make_user('admin2@example.com', 'admin')
         self.customer = make_user('cust@example.com', 'customer', phone='+201000000301')
         Customer.objects.create(user=self.customer, name='عميل', phone='+201000000301')

@@ -65,10 +65,19 @@ class BackupTests(APITestCase):
         self.assertEqual(Request.objects.count(), 1)
         self.assertEqual(StoredFile.objects.count(), 1)
 
-    def test_recipients_prefer_the_setting_over_linked_admins(self):
+    def test_recipients_are_super_admins_or_the_env_override(self):
         self.assertEqual(backup_recipients(), ['777'])
-        Setting.objects.create(key='backup_telegram_chat_id', value='111, 222')
-        self.assertEqual(backup_recipients(), ['111', '222'])
+        # A section admin who linked Telegram must not receive the dump.
+        User.objects.create(
+            email='backup-section-admin@example.com', password_hash='x',
+            role='admin', telegram_chat_id='888',
+        )
+        self.assertEqual(backup_recipients(), ['777'])
+        # And the admin-editable settings cannot redirect it either.
+        Setting.objects.create(key='backup_telegram_chat_id', value='999')
+        self.assertEqual(backup_recipients(), ['777'])
+        with patch.dict('os.environ', {'BACKUP_TELEGRAM_CHAT_ID': '111, 222'}):
+            self.assertEqual(backup_recipients(), ['111', '222'])
 
     @patch('core.services.telegram.send_document', return_value=True)
     def test_daily_backup_goes_to_telegram(self, send_document):

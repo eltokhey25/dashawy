@@ -60,8 +60,25 @@ class TelegramBase(APITestCase):
 
 
 class LinkingTests(TelegramBase):
-    def test_link_by_phone_through_the_webhook(self):
+    def test_link_is_for_the_signed_in_account_only(self):
+        # Naming an account by phone or email from outside must not work:
+        # that was an account takeover (link, then reset the password).
+        anonymous = self.client.post('/api/auth/telegram-link', {'identifier': '01000000901'}, format='json')
+        self.assertEqual(anonymous.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertFalse(TelegramLinkToken.objects.exists())
+
+        other = User.objects.create(
+            email='tg-other@example.com', phone='+201000000902', password_hash='x', role='customer'
+        )
+        self.client.force_authenticate(user=other)
         made = self.client.post('/api/auth/telegram-link', {'identifier': '01000000901'}, format='json')
+        self.assertEqual(made.status_code, 200)
+        # The identifier is ignored: the token belongs to the caller.
+        self.assertTrue(TelegramLinkToken.objects.filter(token=made.json()['token'], user=other).exists())
+        TelegramLinkToken.objects.all().delete()
+
+        self.client.force_authenticate(user=self.user)
+        made = self.client.post('/api/auth/telegram-link', {}, format='json')
         self.assertEqual(made.status_code, 200)
         body = made.json()
         self.assertEqual(body['deep_link'], f"https://t.me/dashawybot?start={body['token']}")
@@ -77,7 +94,7 @@ class LinkingTests(TelegramBase):
 
         self.client.force_authenticate(user=self.user)
         self.assertTrue(self.client.get('/api/auth/telegram-link').json()['linked'])
-        again = self.client.post('/api/auth/telegram-link', {'identifier': '01000000901'}, format='json')
+        again = self.client.post('/api/auth/telegram-link', {}, format='json')
         self.assertEqual(again.status_code, status.HTTP_409_CONFLICT)
 
     def test_bad_token_and_bare_start(self):
@@ -91,11 +108,10 @@ class LinkingTests(TelegramBase):
         self.assertEqual(self.webhook(update, header='wrong').status_code, 404)
         self.assertEqual(self.client.get(f'/api/telegram/webhook/{telegram.webhook_secret()}').status_code, 404)
 
-    def test_unknown_account_and_unconfigured_bot(self):
-        missing = self.client.post('/api/auth/telegram-link', {'identifier': '01099999999'}, format='json')
-        self.assertEqual(missing.status_code, 404)
+    def test_unconfigured_bot(self):
+        self.client.force_authenticate(user=self.user)
         with patch.dict('os.environ', {'TELEGRAM_BOT_TOKEN': ''}):
-            off = self.client.post('/api/auth/telegram-link', {'identifier': '01000000901'}, format='json')
+            off = self.client.post('/api/auth/telegram-link', {}, format='json')
         self.assertEqual(off.status_code, 503)
 
 
@@ -150,12 +166,12 @@ class PasswordResetTests(TelegramBase):
         self.assertTrue(any('تغيير كلمة السر' in t for t in texts))
         self.assertTrue(any('تسجيل الدخول' in t for t in texts))
 
-    def test_unlinked_account_is_told_and_unknown_accounts_are_not_revealed(self):
+    def test_unlinked_and_unknown_accounts_get_the_same_answer(self):
         not_linked = self.client.post('/api/auth/request-otp', {'identifier': '01000000901'}, format='json')
-        self.assertEqual(not_linked.status_code, 409)
-        self.assertEqual(not_linked.json()['code'], 'telegram_not_linked')
         unknown = self.client.post('/api/auth/request-otp', {'identifier': '01099999999'}, format='json')
+        self.assertEqual(not_linked.status_code, 200)
         self.assertEqual(unknown.status_code, 200)
+        self.assertEqual(not_linked.json(), unknown.json())
         self.assertEqual(Otp.objects.count(), 0)
         self.assertEqual(self.sent_texts(), [])
 
@@ -187,7 +203,8 @@ class PasswordResetTests(TelegramBase):
             'Forbidden: bot was blocked by the user', status=403, description='bot was blocked by the user'
         )
         response = self.client.post('/api/auth/request-otp', {'identifier': '01000000901'}, format='json')
-        self.assertEqual(response.json()['code'], 'telegram_not_linked')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Otp.objects.count(), 0)
         self.user.refresh_from_db()
         self.assertIsNone(self.user.telegram_chat_id)
 

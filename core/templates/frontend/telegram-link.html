@@ -81,26 +81,31 @@
           ربط تليجرام غير متاح حالياً. حاول تاني بعدين أو كلّمنا على الواتساب.
         </div>
 
-        <div id="link-panel">
+        <div
+          id="login-first"
+          hidden
+          style="
+            padding: 14px;
+            border-radius: 12px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e3a8a;
+            font-size: 0.9rem;
+            line-height: 1.8;
+          "
+        >
+          <i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>
+          الربط بيتم من جوه حسابك. سجّل دخولك الأول وبعدين ارجع للصفحة دي.
+          <a href="/login.html" class="btn btn-brand btn-block" style="margin-top: 12px">تسجيل الدخول</a>
+        </div>
+
+        <div id="link-panel" hidden>
           <p style="color: #475569; font-size: 0.88rem; line-height: 1.9; margin-bottom: 16px">
-            اكتب رقم الموبايل أو البريد الإلكتروني المسجّل في حسابك، وبعدها اضغط <b>Start</b> في
+            هيتربط حسابك <b id="account-label"></b> بتليجرام. اضغط الزرار، وبعدها اضغط <b>Start</b> في
             تليجرام. الرابط صالح لمدة 15 دقيقة ولمرة واحدة.
           </p>
 
           <form id="link-form" novalidate>
-            <div class="form-group">
-              <label class="form-label" for="link-identifier">رقم الموبايل أو البريد الإلكتروني</label>
-              <input
-                type="text"
-                id="link-identifier"
-                class="input"
-                placeholder="01xxxxxxxxx أو you@example.com"
-                autocomplete="username"
-                dir="ltr"
-                required
-              />
-            </div>
-
             <button type="submit" class="btn btn-brand btn-block btn-lg" id="create-btn">
               <i class="fa-solid fa-link" aria-hidden="true"></i> إنشاء رابط الربط
             </button>
@@ -175,11 +180,10 @@
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>
     <script>
-      // Public on purpose: a person who forgot their password and never
-      // linked Telegram reaches this page without a session. The identifier
-      // names the account; a session is only used to prefill it.
+      // Linking is only ever done for the signed-in account: letting a
+      // visitor name an account by phone or email would let anyone attach
+      // their own Telegram to it and then reset its password.
       const form = document.getElementById('link-form');
-      const idEl = document.getElementById('link-identifier');
       const createBtn = document.getElementById('create-btn');
       const result = document.getElementById('link-result');
       const deepLink = document.getElementById('deep-link');
@@ -191,13 +195,15 @@
       const waitingHint = document.getElementById('waiting-hint');
       const unavailable = document.getElementById('unavailable');
 
-      const sessionUser = Auth.getUser();
-      const fromQuery = new URLSearchParams(window.location.search).get('identifier') || '';
-      idEl.value = fromQuery || (sessionUser && (sessionUser.email || sessionUser.phone)) || '';
+      const sessionUser = Auth.isAuthed() ? Auth.getUser() : null;
       if (sessionUser) {
         document.getElementById('back-link').href = Auth.homePath(sessionUser.role);
+        document.getElementById('account-label').textContent =
+          sessionUser.email || sessionUser.phone || '';
+        document.getElementById('link-panel').hidden = false;
+      } else {
+        document.getElementById('login-first').hidden = false;
       }
-      if (!idEl.value) idEl.focus();
 
       let watcher = null;
 
@@ -228,20 +234,10 @@
         alreadyLinked.hidden = true;
         unavailable.hidden = true;
         result.hidden = true;
-        clearFormErrors(form);
-
-        const identifier = idEl.value.trim();
-        if (!identifier) {
-          setFieldError(idEl, 'اكتب رقم الموبايل أو البريد الإلكتروني');
-          return;
-        }
 
         Ui.btnLoading(createBtn, 'جارٍ إنشاء الرابط…');
         try {
-          const data = await api('/api/auth/telegram-link', {
-            method: 'POST',
-            body: { identifier },
-          });
+          const data = await api('/api/auth/telegram-link', { method: 'POST', body: {} });
           if (data.deep_link) {
             deepLink.href = data.deep_link;
             deepLink.hidden = false;
@@ -256,6 +252,7 @@
           watchForLink();
         } catch (err) {
           if (err.code === 'telegram_already_linked') alreadyLinked.hidden = false;
+          else if (err.status === 401) document.getElementById('login-first').hidden = false;
           else if (err.status === 503) unavailable.hidden = false;
           else toast(err.message, 'error');
         } finally {

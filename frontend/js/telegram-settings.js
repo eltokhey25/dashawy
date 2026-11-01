@@ -16,10 +16,7 @@
   if (!window.Auth || !window.api || !Auth.isAuthed()) return;
 
   const user = Auth.getUser() || {};
-  // Accounts made from the order form may have no email: link by phone then.
-  const identifier = user.email || user.phone || '';
-  const linkHref =
-    '/telegram-link.html' + (identifier ? '?identifier=' + encodeURIComponent(identifier) : '');
+  const linkHref = '/telegram-link.html';
 
   function el(tag, style, text) {
     const node = document.createElement(tag);

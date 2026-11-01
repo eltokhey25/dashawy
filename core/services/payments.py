@@ -35,12 +35,14 @@ def _round2(value):
 
 
 def parse_amount(raw):
-    """A positive amount up to ``MAX_AMOUNT``, or :class:`PaymentError`."""
+    """A finite positive amount up to ``MAX_AMOUNT``, or :class:`PaymentError`."""
+    import math
+
     try:
         amount = float(raw)
     except (TypeError, ValueError):
         raise PaymentError('المبلغ غير صالح')
-    if not (0 < amount <= MAX_AMOUNT):
+    if not math.isfinite(amount) or not (0 < amount <= MAX_AMOUNT):
         raise PaymentError('المبلغ غير صالح')
     return _round2(amount)
 
@@ -340,12 +342,7 @@ def request_withdrawal(technician_id, raw_amount):
     """Queue a payout for an admin; the balance moves only when it is paid."""
     from ..models import WithdrawalRequest
 
-    try:
-        amount = _round2(float(raw_amount))
-    except (TypeError, ValueError):
-        raise PaymentError('مبلغ غير صالح')
-    if amount <= 0:
-        raise PaymentError('مبلغ غير صالح')
+    amount = parse_amount(raw_amount)
     minimum = withdrawal_settings()['min']
     if amount < minimum:
         raise PaymentError(f'الحد الأدنى للسحب {minimum:g} ج.م')

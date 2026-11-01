@@ -218,3 +218,28 @@ class DebtWarningTests(ChatWalletBase):
         self.assertEqual(len(self.titles()), 1)
         self.client.force_authenticate(user=self.tech_user)
         self.assertEqual(self.client.get('/api/technician/wallet').json()['debtWarning'], 100)
+
+
+class AmountValidationTests(ChatWalletBase):
+    def test_nan_and_infinite_amounts_are_refused(self):
+        add_wallet_transaction(self.technician.pk, type='payment', amount=200)
+        self.client.force_authenticate(user=self.tech_user)
+        for bad in ('NaN', 'Infinity', '-Infinity', 'abc', 0, -5):
+            response = self.client.post('/api/technician/withdrawals', {'amount': bad}, format='json')
+            self.assertEqual(response.status_code, 400, bad)
+        self.assertEqual(WithdrawalRequest.objects.count(), 0)
+
+    def test_admin_payout_is_finite_and_capped_at_the_debt(self):
+        admin = User.objects.create(
+            email='payout-admin@example.com', password_hash='x', role='admin', is_super_admin=True
+        )
+        add_wallet_transaction(self.technician.pk, type='debt', amount=100)
+        self.client.force_authenticate(user=admin)
+        for bad in ('NaN', 'Infinity', 0, 150):
+            response = self.client.post(
+                f'/api/admin/wallets/{self.technician.pk}/payout', {'amount': bad}, format='json'
+            )
+            self.assertEqual(response.status_code, 400, bad)
+        ok = self.client.post(f'/api/admin/wallets/{self.technician.pk}/payout', {'amount': 100}, format='json')
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(TechnicianWallet.objects.get(pk=self.technician.pk).total_debt, 0)
