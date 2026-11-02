@@ -270,7 +270,13 @@ class CustomerPendingActionsView(APIView):
                     'specialty_label': label,
                     'status': job.status,
                     'amount_status': job.amount_status,
-                    'technician_reported_amount': job.technician_reported_amount,
+                    # Hidden until the customer has entered their own figure
+                    # (see CustomerRequestSerializer).
+                    'technician_reported_amount': (
+                        job.technician_reported_amount
+                        if job.customer_reported_amount is not None
+                        else None
+                    ),
                     'customer_reported_amount': job.customer_reported_amount,
                     'final_amount': job.final_amount,
                     'work_notes': job.work_notes,

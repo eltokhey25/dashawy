@@ -48,6 +48,7 @@ from .models import (
 from .permissions import AdminPermission, IsAdmin, IsCustomer, IsTechnician
 from .ratelimit import client_ip, throttle
 from .serializers import (
+    CustomerRequestSerializer,
     CreateRequestSerializer,
     RequestSerializer,
     TechnicianDocumentUploadSerializer,
@@ -664,7 +665,7 @@ class CustomerRequestListCreateView(APIView):
             .order_by('-created_at', '-id')
         )
         return Response(
-            {'requests': RequestSerializer(requests, many=True).data}
+            {'requests': CustomerRequestSerializer(requests, many=True).data}
         )
 
     def post(self, request):
@@ -757,7 +758,7 @@ class CustomerRequestDetailView(APIView):
         )
         if job is None:
             raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
-        return Response({'request': RequestSerializer(job).data})
+        return Response({'request': CustomerRequestSerializer(job).data})
 
 
 # ---------------------------------------------------------------------------
@@ -1400,7 +1401,7 @@ class AdminRequestListView(APIView):
             requests = requests.filter(specialty=specialty_filter)
 
         return Response(
-            {'requests': RequestSerializer(requests, many=True).data}
+            {'requests': CustomerRequestSerializer(requests, many=True).data}
         )
 
 

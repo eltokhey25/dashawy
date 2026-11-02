@@ -259,6 +259,29 @@ class RequestSerializer(serializers.ModelSerializer):
         return price_status(obj)
 
 
+class CustomerRequestSerializer(RequestSerializer):
+    """Customer-facing request: the technician's cash figure stays hidden
+    until the customer has entered their own.
+
+    Showing it first turns the two-sided confirmation into a one-sided one:
+    a technician who reports 20 for a 300 job gets the customer to "confirm"
+    20, and the commission is booked on 20. Once the customer has committed
+    their own figure the technician's is shown, so a dispute reads clearly.
+    """
+
+    HIDDEN_UNTIL_REPORTED = ('technician_reported_amount', 'technician_reported_at')
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.customer_reported_amount is None and instance.amount_status not in (
+            'matched',
+            'resolved',
+        ):
+            for field in self.HIDDEN_UNTIL_REPORTED:
+                data[field] = None
+        return data
+
+
 class TechnicianRequestSerializer(RequestSerializer):
     """Technician-facing request: never includes the doorstep start PIN."""
 

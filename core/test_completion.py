@@ -21,7 +21,9 @@ from .models import (
 PASSWORD = 'TesterPass123'
 
 
-class CompletionFlowTests(APITestCase):
+class CompletionBase(APITestCase):
+    """A customer, an approved technician and the order -> start -> report helpers."""
+
     def setUp(self):
         cache.clear()
         telegram = patch('core.services.notifications.send_telegram', return_value=True)
@@ -91,6 +93,8 @@ class CompletionFlowTests(APITestCase):
             format='json',
         )
 
+
+class CompletionFlowTests(CompletionBase):
     def test_complete_requires_notes_and_frees_the_technician(self):
         request_id = self.started_job()
         self.assertEqual(self.complete(request_id, notes='').status_code, 400)
@@ -262,3 +266,95 @@ class CompletionFlowTests(APITestCase):
             f'/api/customer/requests/{request_id}/report-payment', {'amount': 10}, format='json'
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class CashConfirmationIntegrityTests(CompletionBase):
+    """The customer's figure is their own, and a stalled confirmation still
+    books the commission."""
+
+    def list_as_customer(self, request_id):
+        self.as_customer()
+        rows = self.client.get('/api/customer/requests').json()['requests']
+        return next(r for r in rows if r['id'] == request_id)
+
+    def test_technician_figure_is_hidden_until_the_customer_reports(self):
+        request_id = self.started_job()
+        self.complete(request_id)
+        self.report('technician', request_id, 20)
+
+        row = self.list_as_customer(request_id)
+        self.assertEqual(row['amount_status'], 'pending')
+        self.assertIsNone(row['technician_reported_amount'])
+        self.assertIsNone(row['technician_reported_at'])
+        detail = self.client.get(f'/api/customer/requests/{request_id}').json()['request']
+        self.assertIsNone(detail['technician_reported_amount'])
+        pending = self.client.get('/api/customer/requests/pending-actions').json()['requests']
+        self.assertIsNone(pending[0]['technician_reported_amount'])
+
+        disputed = self.report('customer', request_id, 300)
+        self.assertEqual(disputed.json()['status'], 'disputed')
+        # Once committed, the customer sees both figures.
+        row = self.list_as_customer(request_id)
+        self.assertEqual(row['technician_reported_amount'], 20)
+        self.assertEqual(row['customer_reported_amount'], 300)
+
+    def test_stale_confirmations_settle_themselves(self):
+        from datetime import timedelta
+
+        from .models import utc_now
+        from .services.settlement import settle_stale_reports
+
+        silent_tech = self.started_job()
+        self.complete(silent_tech)
+        self.report('customer', silent_tech, 300)
+
+        # Nothing happens inside the grace period.
+        self.assertEqual(settle_stale_reports()['settled'], [])
+        self.assertEqual(Request.objects.get(pk=silent_tech).amount_status, 'pending')
+
+        later = utc_now() + timedelta(hours=49)
+        result = settle_stale_reports(now=later)
+        self.assertEqual(
+            result['settled'], [{'request_id': silent_tech, 'basis': 'customer', 'amount': 300}]
+        )
+        job = Request.objects.get(pk=silent_tech)
+        self.assertEqual(job.amount_status, 'resolved')
+        self.assertEqual(job.final_amount, 300)
+        self.assertEqual(job.commission_amount, 60)
+        self.assertIn('تسوية تلقائية', job.dispute_note)
+        self.assertEqual(TechnicianWallet.objects.get(technician=self.technician).total_debt, 60)
+        # Running again books nothing twice.
+        self.assertEqual(settle_stale_reports(now=later)['settled'], [])
+        self.assertEqual(
+            WalletTransaction.objects.filter(request_id=silent_tech, type='debt').count(), 1
+        )
+
+        # Nobody reported: the guide price is used; without one it waits for an admin.
+        nobody = self.started_job()
+        self.complete(nobody)
+        Request.objects.filter(pk=nobody).update(service_price=150)
+        result = settle_stale_reports(now=later)
+        self.assertEqual(result['settled'][0]['basis'], 'guide')
+        self.assertEqual(Request.objects.get(pk=nobody).final_amount, 150)
+
+        no_price = self.started_job()
+        self.complete(no_price)
+        Request.objects.filter(pk=no_price).update(service_price=0)
+        result = settle_stale_reports(now=later)
+        self.assertEqual(result['settled'], [])
+        self.assertEqual(result['skipped'], [no_price])
+
+        # A dispute is the admin's, not the cron's.
+        disputed = self.started_job()
+        self.complete(disputed)
+        self.report('technician', disputed, 100)
+        self.report('customer', disputed, 200)
+        self.assertEqual(settle_stale_reports(now=later)['settled'], [])
+        self.assertEqual(Request.objects.get(pk=disputed).amount_status, 'disputed')
+
+    def test_settle_cron_requires_the_secret(self):
+        with patch.dict('os.environ', {'CRON_SECRET': 'top-secret-value'}):
+            self.assertEqual(self.client.get('/api/cron/settle').status_code, 404)
+            ok = self.client.get('/api/cron/settle', HTTP_AUTHORIZATION='Bearer top-secret-value')
+            self.assertEqual(ok.status_code, 200)
+            self.assertEqual(ok.json()['grace_hours'], 48)

@@ -16,6 +16,11 @@ from .services.notifications import notify_login
 from .views import _issue_token, _profile_for, _safe_user
 
 
+# Google accounts have no local password. The value is not a valid bcrypt
+# hash, so password login fails closed.
+GOOGLE_NO_PASSWORD = '!google-oauth-no-password!'
+
+
 class GoogleConfigView(APIView):
     """GET /api/auth/google/config — public Client ID, or enabled: false."""
 
@@ -64,6 +69,17 @@ class GoogleLoginView(APIView):
                     raise forbidden('هذا البريد مرتبط بحساب فني أو إداري. سجّل الدخول بالطريقة العادية.')
                 if user.google_sub and user.google_sub != google_sub:
                     raise forbidden('هذا الحساب مرتبط بحساب جوجل تاني.')
+                if user.password_hash != GOOGLE_NO_PASSWORD:
+                    # Registration never verifies the email, so an address on a
+                    # password account proves nothing about who owns it. Linking
+                    # here would hand the Google owner someone else's account —
+                    # or, planted first, hand the Google owner's sign-in to an
+                    # attacker. The password owner signs in with the password.
+                    raise ApiError(
+                        'هذا البريد مسجّل بحساب بكلمة سر. سجّل الدخول بكلمة السر، '
+                        'ولو نسيتها استخدم "نسيت كلمة السر".',
+                        status.HTTP_409_CONFLICT,
+                    )
                 if user.blocked:
                     raise forbidden('تم إيقاف حسابك. تواصل مع الإدارة.')
                 User.objects.filter(pk=user.pk).update(google_sub=google_sub)
@@ -73,9 +89,7 @@ class GoogleLoginView(APIView):
                 user = User.objects.create(
                     email=email,
                     phone=None,
-                    # Google accounts have no local password. The value is not
-                    # a valid bcrypt hash, so password login fails closed.
-                    password_hash='!google-oauth-no-password!',
+                    password_hash=GOOGLE_NO_PASSWORD,
                     role='customer',
                     google_sub=google_sub,
                 )

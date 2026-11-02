@@ -20,7 +20,7 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
-from .backup_views import AdminBackupDownloadView, cron_backup
+from .backup_views import AdminBackupDownloadView, cron_backup, cron_settle
 from .telegram_views import (
     RequestOtpView,
     ResetPasswordView,
@@ -409,6 +409,7 @@ urlpatterns = [
     re_path(r'^notifications/unsubscribe/?$', PushUnsubscribeView.as_view(), name='push-unsubscribe'),
     # Backups: Vercel's daily cron, and a manual download for the super admin
     re_path(r'^cron/backup/?$', cron_backup, name='cron-backup'),
+    re_path(r'^cron/settle/?$', cron_settle, name='cron-settle'),
     re_path(r'^admin/backup/?$', AdminBackupDownloadView.as_view(), name='admin-backup'),
     # Admin management
     re_path(r'^admin/admins/?$', AdminAccountListView.as_view(), name='admin-admins'),

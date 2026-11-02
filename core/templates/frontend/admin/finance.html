@@ -1162,6 +1162,16 @@
               value: String(moneySettings.wallet_debt_limit || 300),
             },
           });
+          const graceInput = Ui.el('input', {
+            class: 'input',
+            attrs: {
+              type: 'number',
+              step: '1',
+              min: '1',
+              max: '720',
+              value: String(moneySettings.settlement_grace_hours || 48),
+            },
+          });
           const saveMoneyBtn = Ui.el(
             'button',
             { class: 'adm-btn primary', attrs: { id: 'save-money-btn' } },
@@ -1179,6 +1189,11 @@
               toast('حد المديونية غير صالح', 'error');
               return;
             }
+            const grace = Number(graceInput.value);
+            if (!Number.isInteger(grace) || grace < 1 || grace > 720) {
+              toast('مهلة التسوية غير صالحة (1 إلى 720 ساعة)', 'error');
+              return;
+            }
             Ui.btnLoading(saveMoneyBtn, 'جارٍ الحفظ…');
             try {
               await api('/api/admin/settings', {
@@ -1187,11 +1202,13 @@
                   settings: {
                     commission_percent: String(percent),
                     wallet_debt_limit: String(limit),
+                    settlement_grace_hours: String(grace),
                   },
                 },
               });
               moneySettings.commission_percent = percent;
               moneySettings.wallet_debt_limit = limit;
+              moneySettings.settlement_grace_hours = grace;
               toast('تم حفظ نسب المنصة', 'success');
             } catch (err) {
               toast(err.message, 'error');
@@ -1217,6 +1234,13 @@
               limitInput,
               Ui.el('div', { class: 'form-hint' }, [
                 'عند بلوغ هذا الدين يتوقف الفني عن استقبال الطلبات حتى السداد.',
+              ]),
+            ]),
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label' }, ['مهلة تسجيل المبلغ (ساعات)']),
+              graceInput,
+              Ui.el('div', { class: 'form-hint' }, [
+                'بعدها يُسوَّى الطلب المكتمل تلقائياً على مبلغ العميل، أو مبلغ الفني، أو السعر الاسترشادي، وتُحسب العمولة.',
               ]),
             ]),
           ]);

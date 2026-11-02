@@ -165,7 +165,7 @@ def _settle(request_id, final_amount, status, admin_user_id=None, note=None):
                     'dispute_resolved_by_id': admin_user_id,
                     'dispute_note': note,
                 }
-                if admin_user_id
+                if admin_user_id or note
                 else {}
             ),
         )
@@ -285,6 +285,11 @@ def _setting_number(key, default):
     except (TypeError, ValueError):
         return default
     return value if value > 0 else default
+
+
+def settlement_grace_hours():
+    """Hours after completion before a stalled confirmation settles itself."""
+    return _setting_number('settlement_grace_hours', 48.0)
 
 
 def debt_limit():

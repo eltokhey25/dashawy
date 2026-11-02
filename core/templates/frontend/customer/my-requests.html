@@ -133,16 +133,17 @@
 
       // The customer's half of the two-sided cash confirmation.
       //
-      // The technician says what they took; the customer says what they paid. Three
-      // states matter to the customer, and the banner is the only place the
-      // technician's figure is shown — the whole point is that they can compare it
-      // against what they remember handing over.
+      // The technician says what they took; the customer says what they paid. The
+      // customer is asked as soon as the job is completed, whether or not the
+      // technician has reported, and the API hides the technician's figure until
+      // the customer has entered their own: shown first, it would be the number an
+      // honest customer "confirms", and the commission would be booked on it.
       function amountConfirmBox(r) {
         const box = Ui.el('div', {
           class: 'pay-box pay-' + (r.amount_status === 'disputed' ? 'unpaid' : 'pending'),
         });
-        const waitingOnCustomer =
-          r.amount_status === 'pending' && r.customer_reported_amount == null;
+        const settled = r.amount_status === 'matched' || r.amount_status === 'resolved';
+        const waitingOnCustomer = !settled && r.customer_reported_amount == null;
 
         box.appendChild(
           Ui.el('div', { class: 'pay-head' }, [
@@ -154,13 +155,10 @@
 
         if (waitingOnCustomer) {
           // Amber rather than neutral: this is an action the customer still owes, and
-          // it is the only thing standing between the technician and their commission
-          // being booked.
+          // it is what books the technician's commission.
           box.appendChild(
             Ui.el('p', { class: 'pay-hint', attrs: { style: 'font-weight:600' } }, [
-              'الفني سجّل أنه استلم ' +
-                money(r.technician_reported_amount) +
-                ' — أكّد المبلغ الذي دفعته',
+              'دفعت للفني نقداً؟ سجّل المبلغ اللي دفعته بالظبط — ده اللي بيتحسب عليه الطلب.',
             ])
           );
           box.appendChild(
@@ -169,12 +167,9 @@
                 'button',
                 {
                   class: 'btn btn-accent btn-sm',
-                  attrs: {
-                    'data-report-paid': r.id,
-                    'data-tech-amount': String(r.technician_reported_amount),
-                  },
+                  attrs: { 'data-report-paid': r.id },
                 },
-                [Ui.ic('fa-solid fa-circle-check'), 'تأكيد المبلغ المدفوع']
+                [Ui.ic('fa-solid fa-circle-check'), 'تسجيل المبلغ المدفوع']
               ),
             ])
           );
@@ -182,17 +177,21 @@
         }
 
         // Already answered: show the outcome, and the agreed figure when there is one.
-        box.appendChild(
-          Ui.el('p', { class: 'pay-hint' }, [
-            r.amount_status === 'disputed'
-              ? 'سجّلتَ ' +
-                money(r.customer_reported_amount) +
-                ' والفني سجّل ' +
-                money(r.technician_reported_amount) +
-                ' — الطلب قيد المراجعة عند الإدارة.'
-              : 'أكّدتَ ' + money(r.customer_reported_amount) + ' — المبلغ اتأكد.',
-          ])
-        );
+        let outcome;
+        if (r.amount_status === 'disputed') {
+          outcome =
+            'سجّلتَ ' +
+            money(r.customer_reported_amount) +
+            ' والفني سجّل ' +
+            money(r.technician_reported_amount) +
+            ' — الطلب قيد المراجعة عند الإدارة.';
+        } else if (settled) {
+          outcome = 'أكّدتَ ' + money(r.customer_reported_amount) + ' — المبلغ اتأكد.';
+        } else {
+          outcome =
+            'سجّلتَ ' + money(r.customer_reported_amount) + ' — في انتظار تسجيل الفني.';
+        }
+        box.appendChild(Ui.el('p', { class: 'pay-hint' }, [outcome]));
         box.appendChild(
           Ui.el('div', { class: 'pay-hint' }, [Ui.amountStatusBadge(r.amount_status)])
         );
@@ -204,10 +203,9 @@
         return box;
       }
 
-      // Confirmation sheet. The technician's figure is shown above the input on
-      // purpose: asking for a number with nothing to compare against is how an
-      // honest customer ends up confirming whatever the platform says.
-      function openReportPaymentModal(requestId, techAmount) {
+      // Confirmation sheet. The customer enters their own figure with nothing
+      // from the technician to copy; the two are compared server-side.
+      function openReportPaymentModal(requestId) {
         const amountInput = Ui.el('input', {
           class: 'input',
           id: 'amount-paid-input',
@@ -233,9 +231,7 @@
             ]),
             amountInput,
             Ui.el('div', { class: 'form-hint' }, [
-              'الفني سجّل: ',
-              Ui.el('span', { id: 'tech-reported-amount' }, [money(techAmount)]),
-              ' ج.م',
+              'الفني بيسجّل المبلغ من ناحيته كمان، ولو الرقمين اتطابقوا الطلب بيتأكد تلقائياً.',
             ]),
           ]),
         ]);
@@ -462,12 +458,13 @@
         // the customer CONFIRMING what they handed over — they already paid the
         // technician in cash, so the old "ادفع الآن" sheet (which recorded a claim to
         // send money to the platform) is the wrong action and would dead-end.
-        if (r.status === 'completed' && r.amount_status) {
+        const legacyPaid =
+          !r.amount_status &&
+          (r.payment_status === 'confirmed' || r.payment_status === 'refunded');
+        if (r.status === 'completed' && !legacyPaid) {
           card.appendChild(amountConfirmBox(r));
         } else if (r.status === 'completed') {
-          // A completed request that never entered the confirmation flow: a pre-cash
-          // record, or one where no amount has been reported yet. Kept on the old
-          // sheet so it is not left with no path at all.
+          // A pre-cash record settled by an admin: nothing left to confirm.
           card.appendChild(
             Ui.el('div', { class: 'pay-box pay-' + (r.payment_status || 'unpaid') }, [
               Ui.el('div', { class: 'pay-head' }, [
@@ -710,7 +707,7 @@
       listEl.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-report-paid]');
         if (!btn) return;
-        openReportPaymentModal(Number(btn.dataset.reportPaid), Number(btn.dataset.techAmount));
+        openReportPaymentModal(Number(btn.dataset.reportPaid));
       });
 
       // Payment sheet: where to send the money and how to tell us afterwards.

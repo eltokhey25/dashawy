@@ -150,7 +150,9 @@
         '<i class="fa-regular fa-star"></i></button>';
     }
 
-    var amount = Number(request.technician_reported_amount || request.final_amount || 0);
+    // Only figures the customer committed or an admin settled: the API hides
+    // the technician's report until the customer has entered their own.
+    var amount = Number(request.final_amount || request.customer_reported_amount || 0);
 
     box.innerHTML = [
       '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;display:grid;place-items:center;font-size:1.6rem;margin:0 auto 16px;">',
