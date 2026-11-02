@@ -330,6 +330,66 @@ class AdminManageTests(AdminBase):
         self.assertEqual(self.client.delete(f'/api/admin/users/{self.super_admin.pk}/erase').status_code, 403)
 
 
+class AdminTechnicianFileTests(AdminBase):
+    """GET /api/admin/technicians/<id> — the full file the admin modal renders."""
+
+    def test_full_file_includes_stats_wallet_ratings_and_documents(self):
+        Technician.objects.filter(pk=self.technician.pk).update(
+            criminal_record_path='/uploads/technicians/user-1/criminal_record.pdf',
+            national_id_path=None,
+        )
+        job = self.completed_job(service_price=200, final_amount=200)
+        Request.objects.create(
+            customer=self.customer, technician=self.technician,
+            specialty='dish_install', description='y', status='cancelled',
+        )
+        Review.objects.create(
+            request=job, customer=self.customer, technician=self.technician,
+            rating=4, comment='شغل نضيف',
+        )
+        add_wallet_transaction(self.technician.pk, type=WalletTransaction.TYPE_PAYMENT, amount=160, request_id=job.pk)
+
+        self.as_super()
+        response = self.client.get(f'/api/admin/technicians/{self.technician.pk}')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+
+        tech = data['technician']
+        self.assertEqual(tech['name'], 'فني الأدمن')
+        self.assertEqual(tech['phone'], '+201000000702')
+        self.assertEqual(tech['email'], 'admin-test-tech@example.com')
+        self.assertEqual(tech['approval_status'], 'approved')
+        self.assertEqual(tech['availability'], 'available')
+
+        self.assertEqual(data['stats']['total'], 2)
+        self.assertEqual(data['stats']['completed'], 1)
+        self.assertEqual(data['stats']['cancelled'], 1)
+        self.assertEqual(data['stats']['in_progress'], 0)
+        self.assertEqual(data['rating'], {'average': 4.0, 'count': 1})
+        self.assertEqual(data['wallet']['total_earned'], 160)
+        self.assertEqual(data['documents'], {'criminal_record': True, 'national_id': False})
+        self.assertEqual(len(data['recentRequests']), 2)
+        self.assertEqual(data['recentReviews'][0]['comment'], 'شغل نضيف')
+
+    def test_file_without_wallet_or_reviews(self):
+        self.as_super()
+        data = self.client.get(f'/api/admin/technicians/{self.technician.pk}').json()
+        self.assertEqual(data['stats']['total'], 0)
+        self.assertEqual(data['rating'], {'average': None, 'count': 0})
+        self.assertIsNone(data['wallet'])
+        self.assertEqual(data['recentReviews'], [])
+
+    def test_file_is_admin_only(self):
+        url = f'/api/admin/technicians/{self.technician.pk}'
+        self.assertEqual(self.client.get(url).status_code, 401)
+        self.client.force_authenticate(user=self.tech_user)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.client.force_authenticate(user=self.limited_admin)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.as_super()
+        self.assertEqual(self.client.get('/api/admin/technicians/999999').status_code, 404)
+
+
 class GeneralTechnicianTests(AdminBase):
     def test_auto_assignment_ignores_the_request_specialty(self):
         from .services.assignment import assign_technician

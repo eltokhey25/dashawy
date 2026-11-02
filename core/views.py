@@ -23,7 +23,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F, Q
+from django.db.models import Avg, Count, F, Q
 from django.http import FileResponse, Http404
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -41,7 +41,10 @@ from .models import (
     Customer,
     Request,
     RequestBroadcast,
+    Review,
     Technician,
+    TechnicianProfile,
+    TechnicianWallet,
     User,
     utc_now,
 )
@@ -1502,7 +1505,13 @@ class AdminTechnicianVerifyView(APIView):
 
 
 class AdminTechnicianDetailView(APIView):
-    """GET /api/admin/technicians/<id> — profile plus recent requests."""
+    """GET /api/admin/technicians/<id> — everything the admin file view shows.
+
+    Account and technician columns, request counters, wallet, ratings, public
+    profile and recent orders/reviews. The identity documents themselves are
+    never inlined here; ``documents`` only says which ones exist, and the files
+    stream from :class:`AdminTechnicianDocumentView`.
+    """
 
     permission_classes = [IsAuthenticated, AdminPermission('technicians')]
 
@@ -1510,15 +1519,72 @@ class AdminTechnicianDetailView(APIView):
         row = _admin_technician_payload(pk)
         if row is None:
             raise ApiError('الفني غير موجود', status.HTTP_404_NOT_FOUND)
-        recent = (
-            Request.objects.filter(technician_id=pk)
-            .select_related('customer', 'technician')
-            .order_by('-created_at', '-id')[:5]
+
+        jobs = Request.objects.filter(technician_id=pk)
+        counts = {key: 0 for key in ADMIN_REQUEST_STATUSES}
+        for item in jobs.values('status').annotate(n=Count('id')):
+            counts[item['status']] = item['n']
+        stats = {
+            'total': sum(counts.values()),
+            'completed': counts.get('completed', 0),
+            'in_progress': counts.get('assigned', 0) + counts.get('in_progress', 0),
+            'cancelled': counts.get('cancelled', 0),
+            'by_status': counts,
+        }
+
+        reviews = Review.objects.filter(technician_id=pk)
+        agg = reviews.aggregate(avg=Avg('rating'), n=Count('id'))
+        rating = {
+            'average': round(agg['avg'], 1) if agg['avg'] is not None else None,
+            'count': agg['n'],
+        }
+
+        wallet = (
+            TechnicianWallet.objects.filter(technician_id=pk)
+            .values(
+                'balance', 'total_debt', 'total_earned', 'total_owed',
+                'total_paid_to_platform', 'total_withdrawn', 'last_updated',
+            )
+            .first()
         )
+        profile = (
+            TechnicianProfile.objects.filter(technician_id=pk)
+            .values('bio', 'years_experience')
+            .first()
+        )
+
+        recent = jobs.select_related('customer', 'technician').order_by(
+            '-created_at', '-id'
+        )[:10]
+        recent_reviews = [
+            {
+                'id': review['id'],
+                'request_id': review['request_id'],
+                'rating': review['rating'],
+                'comment': review['comment'],
+                'hidden': bool(review['hidden']),
+                'customer_name': review['customer__name'],
+                'created_at': review['created_at'],
+            }
+            for review in reviews.order_by('-created_at', '-id').values(
+                'id', 'request_id', 'rating', 'comment', 'hidden',
+                'customer__name', 'created_at',
+            )[:5]
+        ]
+
         return Response(
             {
                 'technician': row,
+                'stats': stats,
+                'rating': rating,
+                'wallet': _json_ready(wallet) if wallet else None,
+                'profile': profile,
+                'documents': {
+                    'criminal_record': bool(row.get('criminal_record_path')),
+                    'national_id': bool(row.get('national_id_path')),
+                },
                 'recentRequests': AdminRequestSerializer(recent, many=True).data,
+                'recentReviews': [_json_ready(item) for item in recent_reviews],
             }
         )
 

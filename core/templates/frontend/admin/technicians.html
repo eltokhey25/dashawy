@@ -19,6 +19,7 @@
     #pending-tab.has-pending { border-color: #ef4444; color: #b91c1c; }
     #pending-tab.has-pending i { color: #ef4444; }
     .badge-review { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    tr.row-link { cursor: pointer; }
   </style>
 </head>
 <body class="adm-body">
@@ -222,8 +223,8 @@
               Ui.el('button', { class: 'btn btn-icon btn-soft-danger', attrs: { 'data-del': t.id, title: 'حذف' } }, [Ui.ic('fa-solid fa-trash')])
             ]);
           }
-          tbody.appendChild(Ui.el('tr', {}, [
-            Ui.el('td', {}, [Ui.el('div', { class: 'tbl-user' }, [Ui.el('span', { class: 'avatar' }, [Ui.initials(t.name)]), Ui.el('div', {}, [Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(t.name)]), Ui.el('div', { class: 'tbl-sub' }, [Ui.escapeHtml(t.email)])])])]),
+          tbody.appendChild(Ui.el('tr', { class: 'row-link', attrs: { 'data-row': t.id, title: 'عرض ملف الفني' } }, [
+            Ui.el('td', {}, [Ui.el('div', { class: 'tbl-user' }, [Ui.el('span', { class: 'avatar' }, [Ui.initials(t.name)]), Ui.el('div', {}, [Ui.el('div', { class: 'tbl-main' }, [t.name]), Ui.el('div', { class: 'tbl-sub' }, [t.email || ''])])])]),
             Ui.el('td', {}, [Ui.el('span', { dir: 'ltr' }, [t.phone || t.account_phone || '—'])]),
             Ui.el('td', {}, [statusCell]),
             Ui.el('td', {}, [Ui.dateTime(t.created_at)]),
@@ -284,7 +285,7 @@
         page = 1;
         render();
       });
-      document.getElementById('refresh-btn').addEventListener('click', load);
+      document.getElementById('refresh-btn').addEventListener('click', () => { load(); loadPending(); });
 
       document.getElementById('tbody').addEventListener('click', async (e) => {
         const resetBtn = e.target.closest('[data-reset-pwd]');
@@ -296,8 +297,20 @@
           }
           return;
         }
+        const pendingBtn = e.target.closest('[data-doc],[data-approve],[data-reject]');
+        if (pendingBtn) {
+          if (pendingBtn.hasAttribute('data-doc')) showTechDetail(Number(pendingBtn.dataset.doc), pendingBtn);
+          else if (pendingBtn.hasAttribute('data-approve')) approveTech(Number(pendingBtn.dataset.approve));
+          else rejectTech(Number(pendingBtn.dataset.reject));
+          return;
+        }
         const btn = e.target.closest('[data-edit],[data-avail],[data-del],[data-view]');
-        if (!btn) return;
+        if (!btn) {
+          // Anywhere else on the row opens the technician's full file.
+          const tr = e.target.closest('tr[data-row]');
+          if (tr && !e.target.closest('a,button')) showTechDetail(Number(tr.dataset.row));
+          return;
+        }
         const id = Number(btn.dataset.edit || btn.dataset.avail || btn.dataset.del || btn.dataset.view);
         const tech = all.find((t) => t.id === id);
         if (btn.hasAttribute('data-del')) {
@@ -322,15 +335,7 @@
           return;
         }
         if (btn.hasAttribute('data-edit')) { openTechModal(tech); return; }
-        Ui.btnLoading(btn, '');
-        try {
-          const data = await api('/api/admin/technicians/' + id);
-          Ui.btnReset(btn);
-          openTechDetail(data);
-        } catch (err) {
-          Ui.btnReset(btn);
-          toast(err.message, 'error');
-        }
+        showTechDetail(id, btn);
       });
 
       // The server generates the temporary password; the admin sees it once and
@@ -409,114 +414,168 @@
         );
       }
 
+      // Full technician file: account, status, numbers, wallet, ratings, the
+      // identity documents (الفيش الجنائي + البطاقة) and recent activity.
+      async function showTechDetail(id, btn) {
+        if (btn) Ui.btnLoading(btn, '');
+        try {
+          const data = await api('/api/admin/technicians/' + id);
+          openTechDetail(data);
+        } catch (err) {
+          toast(err.message, 'error');
+        } finally {
+          if (btn) Ui.btnReset(btn);
+        }
+      }
+
+      async function approveTech(id) {
+        if (!confirm('قبول الفني وتفعيل حسابه؟')) return false;
+        try {
+          const r = await api('/api/admin/technicians/' + id + '/approve', { method: 'POST' });
+          toast(r.message, 'success');
+          load();
+          loadPending();
+          return true;
+        } catch (err) { toast(err.message, 'error'); return false; }
+      }
+
+      async function rejectTech(id) {
+        const note = prompt('سبب الرفض (اختياري):');
+        if (note === null) return false;
+        try {
+          const r = await api('/api/admin/technicians/' + id + '/reject', { method: 'POST', body: { note } });
+          toast(r.message, 'success');
+          load();
+          loadPending();
+          return true;
+        } catch (err) { toast(err.message, 'error'); return false; }
+      }
+
+      const money = (v) => Number(v || 0).toLocaleString('ar-EG', { maximumFractionDigits: 2 }) + ' ج.م';
+      const sectionTitle = (text) => Ui.el('h3', { attrs: { style: 'margin:20px 0 12px;font-size:0.95rem;font-weight:800;color:var(--ink)' } }, [text]);
+
       function openTechDetail(data) {
         const t = data.technician;
-        const s = data.stats;
+        const s = data.stats || { total: 0, completed: 0, in_progress: 0, cancelled: 0 };
+        const rating = data.rating || { average: null, count: 0 };
         const m = Ui.techMeta();
 
         const body = Ui.el('div', {});
 
         // --- Header: avatar + name + status badges ---
-        const head = Ui.el('div', { style: 'display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--line)' }, [
-          Ui.el('span', { class: 'avatar', style: 'width:56px;height:56px;font-size:1.1rem' }, [Ui.initials(t.name)]),
-          Ui.el('div', { style: 'flex:1' }, [
-            Ui.el('div', { style: 'font-weight:800;font-size:1.05rem;color:var(--ink)' }, [Ui.escapeHtml(t.name)]),
-            Ui.el('div', { class: 'tbl-sub' }, [Ui.escapeHtml(t.email || '')])
+        const approval = t.approval_status === 'pending'  ? Ui.el('span', { class: 'badge b-pending' },   ['قيد المراجعة'])
+                       : t.approval_status === 'rejected' ? Ui.el('span', { class: 'badge b-cancelled' }, ['مرفوض'])
+                       : Ui.el('span', { class: 'badge b-completed' }, ['معتمد']);
+        body.appendChild(Ui.el('div', { attrs: { style: 'display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--line)' } }, [
+          Ui.el('span', { class: 'avatar', attrs: { style: 'width:56px;height:56px;font-size:1.1rem' } }, [Ui.initials(t.name)]),
+          Ui.el('div', { attrs: { style: 'flex:1;min-width:140px' } }, [
+            Ui.el('div', { attrs: { style: 'font-weight:800;font-size:1.05rem;color:var(--ink)' } }, [t.name || '—']),
+            Ui.el('div', { class: 'tbl-sub' }, ['#' + t.id])
           ]),
           Ui.availBadge(t.availability || 'offline'),
-          t.approval_status === 'pending'  ? Ui.el('span', { class: 'badge b-pending' },   ['قيد المراجعة'])
-        : t.approval_status === 'rejected' ? Ui.el('span', { class: 'badge b-cancelled' }, ['مرفوض'])
-        : Ui.el('span', { class: 'badge b-completed' }, ['معتمد'])
-        ]);
-        body.appendChild(head);
+          approval
+        ]));
 
         // --- Info grid ---
-        const info = Ui.el('div', { class: 'detail-grid', style: 'margin-bottom:18px' });
+        const info = Ui.el('div', { class: 'detail-grid', attrs: { style: 'margin-bottom:18px' } });
         const row = (k, v) => info.appendChild(Ui.el('div', { class: 'detail-row' }, [
           Ui.el('span', { class: 'dk' }, [k]),
           Ui.el('span', { class: 'dv' }, [v])
         ]));
-        row('الهاتف', t.phone ? Ui.el('a', { attrs: { href: 'tel:' + t.phone, dir: 'ltr' } }, [t.phone]) : '—');
-        row('المنطقة', Ui.escapeHtml(t.location_text || '—'));
+        const tel = (p) => p ? Ui.el('a', { attrs: { href: 'tel:' + p, dir: 'ltr' } }, [p]) : '—';
+        row('الاسم', t.name || '—');
+        row('رقم الهاتف', tel(t.phone));
+        if (t.account_phone && t.account_phone !== t.phone) row('هاتف الحساب', tel(t.account_phone));
+        row('الإيميل', t.email ? Ui.el('a', { attrs: { href: 'mailto:' + t.email, dir: 'ltr' } }, [t.email]) : '—');
+        row('المنطقة', t.location_text || '—');
         row('التخصص', Ui.el('span', { class: 'badge', attrs: { style: 'background:' + m.bg + ';color:' + m.color } }, [Ui.ic(m.icon), m.label]));
+        row('حالة الاعتماد', approval.cloneNode(true));
+        row('التوفر', Ui.availBadge(t.availability || 'offline'));
+        row('توثيق المستندات', t.documents_verified
+          ? Ui.el('span', { class: 'badge b-completed' }, [Ui.ic('fa-solid fa-circle-check'), 'موثقة'])
+          : Ui.el('span', { class: 'badge b-pending' }, [Ui.ic('fa-solid fa-hourglass-half'), 'غير موثقة']));
+        row('مشاركة الموقع', t.location_sharing ? 'مفعّلة' : 'متوقفة');
+        if (data.profile && data.profile.years_experience) row('سنوات الخبرة', String(data.profile.years_experience));
         row('تاريخ التسجيل', Ui.dateTime(t.created_at || t.account_created_at));
         if (t.approved_at) row('تاريخ الاعتماد', Ui.dateTime(t.approved_at));
-        if (t.approval_note) row('ملاحظة الرفض', Ui.escapeHtml(t.approval_note));
+        if (t.approval_note) row('ملاحظة الرفض', t.approval_note);
         body.appendChild(info);
+        if (data.profile && data.profile.bio) {
+          body.appendChild(Ui.el('div', { attrs: { style: 'background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:0.85rem;line-height:1.8;color:var(--ink);white-space:pre-line' } }, [data.profile.bio]));
+        }
 
         // --- Statistics ---
-        body.appendChild(Ui.el('h3', { style: 'margin:18px 0 12px;font-size:0.95rem;font-weight:800;color:var(--ink)' }, ['الإحصائيات']));
-        const stats = Ui.el('div', { style: 'display:grid;grid-template-columns:repeat(4,1fr);gap:10px' });
-        const statBox = (v, l, color) => Ui.el('div', { style: 'background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center' }, [
-          Ui.el('b', { style: 'display:block;font-size:1.5rem;color:' + (color || 'var(--ink)') + ';font-weight:900;line-height:1.1' }, [String(v)]),
-          Ui.el('span', { style: 'font-size:0.75rem;color:var(--muted);font-weight:600' }, [l])
+        body.appendChild(sectionTitle('الإحصائيات'));
+        const stats = Ui.el('div', { attrs: { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px' } });
+        const statBox = (v, l, color) => Ui.el('div', { attrs: { style: 'background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center' } }, [
+          Ui.el('b', { attrs: { style: 'display:block;font-size:1.4rem;color:' + (color || 'var(--ink)') + ';font-weight:900;line-height:1.2' } }, [String(v)]),
+          Ui.el('span', { attrs: { style: 'font-size:0.75rem;color:var(--muted);font-weight:600' } }, [l])
         ]);
         stats.appendChild(statBox(s.total, 'إجمالي الطلبات'));
         stats.appendChild(statBox(s.completed, 'مكتملة', '#10b981'));
         stats.appendChild(statBox(s.in_progress, 'جارية', '#0ea5e9'));
         stats.appendChild(statBox(s.cancelled, 'ملغاة', '#ef4444'));
+        stats.appendChild(statBox(rating.average != null ? rating.average + ' ★' : '—', 'التقييم (' + rating.count + ')', '#f59e0b'));
         body.appendChild(stats);
 
-        // --- Documents ---
-        body.appendChild(Ui.el('h3', { style: 'margin:20px 0 12px;font-size:0.95rem;font-weight:800;color:var(--ink)' }, ['المستندات الرسمية']));
+        // --- Wallet ---
+        body.appendChild(sectionTitle('المحفظة والأرباح'));
+        if (data.wallet) {
+          const w = data.wallet;
+          const walletGrid = Ui.el('div', { attrs: { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px' } });
+          walletGrid.appendChild(statBox(money(w.total_earned), 'إجمالي الأرباح', '#10b981'));
+          walletGrid.appendChild(statBox(money(w.balance), 'الرصيد المتاح'));
+          walletGrid.appendChild(statBox(money(w.total_debt), 'مستحق للمنصة', Number(w.total_debt) > 0 ? '#ef4444' : null));
+          walletGrid.appendChild(statBox(money(w.total_withdrawn), 'تم سحبه'));
+          walletGrid.appendChild(statBox(money(w.total_paid_to_platform), 'مدفوع للمنصة'));
+          body.appendChild(walletGrid);
+        } else {
+          body.appendChild(Ui.el('div', { attrs: { style: 'color:var(--muted);font-size:0.85rem' } }, ['لا توجد محفظة لهذا الفني بعد']));
+        }
 
-        const docsWrap = Ui.el('div', { style: 'display:grid;grid-template-columns:1fr 1fr;gap:14px' });
+        // --- Documents (الفيش + البطاقة) ---
+        // Files stream only from the admin document endpoint; the type comes from
+        // the response, not the stored file name.
+        body.appendChild(sectionTitle('المستندات الرسمية'));
+        const docsWrap = Ui.el('div', { attrs: { style: 'display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px' } });
+        const docs = data.documents || { criminal_record: !!t.criminal_record_path, national_id: !!t.national_id_path };
 
-        const docCard = (title, path, iconClass, docType) => {
+        const docCard = (title, uploaded, iconClass, docType) => {
           const card = Ui.el('div', {
-            style: 'background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;min-height:180px;display:flex;flex-direction:column'
+            attrs: { 'data-doc-card': docType, style: 'background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;min-height:180px;display:flex;flex-direction:column' }
           }, [
-            Ui.el('div', { style: 'display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;color:var(--ink);font-size:0.87rem;margin-bottom:10px' }, [Ui.ic(iconClass), title])
+            Ui.el('div', { attrs: { style: 'display:flex;align-items:center;justify-content:center;gap:6px;font-weight:700;color:var(--ink);font-size:0.87rem;margin-bottom:10px' } }, [Ui.ic(iconClass), title])
           ]);
 
-          if (!path) {
-            card.appendChild(Ui.el('div', { style: 'color:var(--muted);font-size:0.82rem;padding:20px 0;flex:1;display:grid;place-items:center' }, ['لم يتم رفع هذا المستند']));
+          if (!uploaded) {
+            card.appendChild(Ui.el('div', { attrs: { style: 'color:var(--muted);font-size:0.82rem;padding:20px 0;flex:1;display:grid;place-items:center' } }, ['لم يتم رفع هذا المستند']));
             return card;
           }
 
-          const isPdf = path.toLowerCase().endsWith('.pdf');
-          if (isPdf) {
-            card.appendChild(Ui.el('button', {
-              class: 'btn btn-outline btn-sm',
-              on: { click: async () => {
-                try {
-                  const blob = await apiBlob('/api/admin/technicians/' + t.id + '/document/' + docType);
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, '_blank');
-                } catch (e) { toast(e.message, 'error'); }
-              }}
-            }, [Ui.ic('fa-solid fa-file-pdf'), 'فتح PDF']));
-            return card;
-          }
-
-          // Image: fetch as blob then set as src
-          const imgWrap = Ui.el('div', {
-            style: 'flex:1;display:grid;place-items:center;min-height:140px'
-          });
-          const loading = Ui.el('div', { style: 'color:var(--muted);font-size:0.8rem' }, ['جارٍ تحميل الصورة…']);
-          imgWrap.appendChild(loading);
-          card.appendChild(imgWrap);
-
-          const hint = Ui.el('div', { style: 'margin-top:8px;font-size:0.72rem;color:var(--muted);display:none' }, ['اضغط على الصورة لفتحها بحجم كامل']);
-          card.appendChild(hint);
+          const view = Ui.el('div', { attrs: { style: 'flex:1;display:grid;place-items:center;min-height:140px' } });
+          const loading = Ui.el('div', { attrs: { style: 'color:var(--muted);font-size:0.8rem' } }, ['جارٍ تحميل المستند…']);
+          view.appendChild(loading);
+          card.appendChild(view);
 
           (async () => {
             try {
               const blob = await apiBlob('/api/admin/technicians/' + t.id + '/document/' + docType);
               const url = URL.createObjectURL(blob);
+              const open = () => window.open(url, '_blank', 'noopener');
               loading.remove();
-              const img = Ui.el('img', {
-                attrs: {
-                  src: url,
-                  style: 'max-width:100%;max-height:200px;border-radius:10px;border:1px solid var(--line);cursor:pointer;background:#fff',
-                  alt: title
-                },
-                on: { click: () => window.open(url, '_blank') }
-              });
-              imgWrap.appendChild(img);
-              hint.style.display = '';
+              if (blob.type === 'application/pdf') {
+                view.appendChild(Ui.el('iframe', { attrs: { src: url, title, style: 'width:100%;height:240px;border:1px solid var(--line);border-radius:10px;background:#fff' } }));
+              } else {
+                view.appendChild(Ui.el('img', {
+                  attrs: { src: url, alt: title, style: 'max-width:100%;max-height:240px;border-radius:10px;border:1px solid var(--line);cursor:zoom-in;background:#fff' },
+                  on: { click: open }
+                }));
+              }
+              card.appendChild(Ui.el('button', { class: 'btn btn-outline btn-sm', attrs: { style: 'margin-top:10px;align-self:center' }, on: { click: open } }, [
+                Ui.ic(blob.type === 'application/pdf' ? 'fa-solid fa-file-pdf' : 'fa-solid fa-up-right-from-square'), 'فتح بحجم كامل'
+              ]));
             } catch (e) {
-              loading.textContent = 'تعذر تحميل الصورة';
+              loading.textContent = 'تعذر تحميل المستند';
               loading.style.color = 'var(--danger)';
             }
           })();
@@ -524,53 +583,59 @@
           return card;
         };
 
-        docsWrap.appendChild(docCard('الفيش الجنائي',     t.criminal_record_path, 'fa-solid fa-file-shield', 'criminal_record'));
-        docsWrap.appendChild(docCard('بطاقة الرقم القومي', t.national_id_path,     'fa-solid fa-id-card',     'national_id'));
+        docsWrap.appendChild(docCard('الفيش الجنائي',     docs.criminal_record, 'fa-solid fa-file-shield', 'criminal_record'));
+        docsWrap.appendChild(docCard('بطاقة الرقم القومي', docs.national_id,     'fa-solid fa-id-card',     'national_id'));
         body.appendChild(docsWrap);
 
         // --- Recent requests ---
+        body.appendChild(sectionTitle('آخر الطلبات'));
         if (data.recentRequests && data.recentRequests.length) {
-          body.appendChild(Ui.el('h3', { style: 'margin:20px 0 12px;font-size:0.95rem;font-weight:800;color:var(--ink)' }, ['آخر 5 طلبات']));
-          const list = Ui.el('div', { style: 'display:grid;gap:8px' });
+          const list = Ui.el('div', { attrs: { style: 'display:grid;gap:8px' } });
           data.recentRequests.forEach((r) => {
-            list.appendChild(Ui.el('div', { style: 'display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:0.83rem' }, [
-              Ui.el('span', { style: 'font-weight:700' }, ['#' + r.id]),
-              Ui.el('span', { style: 'flex:1;color:var(--muted)' }, [Ui.escapeHtml(r.customer_name || '')]),
+            list.appendChild(Ui.el('div', { attrs: { style: 'display:flex;align-items:center;flex-wrap:wrap;gap:10px;background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:0.83rem' } }, [
+              Ui.el('span', { attrs: { style: 'font-weight:700' } }, ['#' + r.id]),
+              Ui.el('span', { attrs: { style: 'flex:1;color:var(--muted)' } }, [r.customer_name || '']),
+              r.final_amount || r.service_price ? Ui.el('span', { attrs: { style: 'font-weight:700' } }, [money(r.final_amount || r.service_price)]) : '',
               Ui.statusBadge(r.status),
               Ui.el('span', { class: 'tbl-sub' }, [Ui.dateTime(r.created_at)])
+            ]));
+          });
+          body.appendChild(list);
+        } else {
+          body.appendChild(Ui.el('div', { attrs: { style: 'color:var(--muted);font-size:0.85rem' } }, ['لا توجد طلبات لهذا الفني بعد']));
+        }
+
+        // --- Recent reviews ---
+        if (data.recentReviews && data.recentReviews.length) {
+          body.appendChild(sectionTitle('آخر التقييمات'));
+          const list = Ui.el('div', { attrs: { style: 'display:grid;gap:8px' } });
+          data.recentReviews.forEach((rv) => {
+            list.appendChild(Ui.el('div', { attrs: { style: 'background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:0.83rem' } }, [
+              Ui.el('div', { attrs: { style: 'display:flex;align-items:center;gap:10px' } }, [
+                Ui.el('span', { attrs: { style: 'color:#f59e0b;font-weight:800', dir: 'ltr' } }, ['★'.repeat(rv.rating) + '☆'.repeat(5 - rv.rating)]),
+                Ui.el('span', { attrs: { style: 'flex:1;color:var(--muted)' } }, [rv.customer_name || '']),
+                rv.hidden ? Ui.el('span', { class: 'badge b-cancelled' }, ['مخفي']) : '',
+                Ui.el('span', { class: 'tbl-sub' }, [Ui.dateTime(rv.created_at)])
+              ]),
+              rv.comment ? Ui.el('div', { attrs: { style: 'margin-top:6px;color:var(--ink);line-height:1.7' } }, [rv.comment]) : ''
             ]));
           });
           body.appendChild(list);
         }
 
         // --- Footer actions ---
-        const footer = Ui.el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start;width:100%' });
+        const close = () => Ui.openModal(null, null, null, { onClose: null });
+        const footer = Ui.el('div', { attrs: { style: 'display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start;width:100%' } });
 
         if (t.approval_status === 'pending') {
           footer.appendChild(Ui.el('button', {
             class: 'btn btn-accent btn-sm',
-            on: { click: async () => {
-              if (!confirm('قبول الفني وتفعيل حسابه؟')) return;
-              try {
-                const r = await api('/api/admin/technicians/' + t.id + '/approve', { method: 'POST' });
-                toast(r.message, 'success');
-                Ui.openModal(null, null, null, { onClose: null });
-                load();
-              } catch (err) { toast(err.message, 'error'); }
-            }}
+            on: { click: async () => { if (await approveTech(t.id)) close(); } }
           }, [Ui.ic('fa-solid fa-check'), 'قبول الفني']));
 
           footer.appendChild(Ui.el('button', {
             class: 'btn btn-soft-danger btn-sm',
-            on: { click: async () => {
-              const note = prompt('سبب الرفض (اختياري):') || '';
-              try {
-                const r = await api('/api/admin/technicians/' + t.id + '/reject', { method: 'POST', body: { note } });
-                toast(r.message, 'success');
-                Ui.openModal(null, null, null, { onClose: null });
-                load();
-              } catch (err) { toast(err.message, 'error'); }
-            }}
+            on: { click: async () => { if (await rejectTech(t.id)) close(); } }
           }, [Ui.ic('fa-solid fa-xmark'), 'رفض الطلب']));
         }
 
@@ -581,16 +646,13 @@
             try {
               const r = await api('/api/admin/technicians/' + t.id, { method: 'DELETE' });
               toast(r.message, 'success');
-              Ui.openModal(null, null, null, { onClose: null });
+              close();
               load();
             } catch (err) { toast(err.message, 'error'); }
           }}
         }, [Ui.ic('fa-solid fa-trash'), 'حذف الفني']));
 
-        footer.appendChild(Ui.el('button', {
-          class: 'btn btn-soft',
-          on: { click: () => Ui.openModal(null, null, null, { onClose: null }) }
-        }, ['إغلاق']));
+        footer.appendChild(Ui.el('button', { class: 'btn btn-soft', on: { click: close } }, ['إغلاق']));
 
         Ui.openModal(
           { title: 'ملف الفني', icon: { cls: 'fa-solid fa-user-gear', bg: '#eef2ff', color: '#4f46e5' } },
@@ -671,6 +733,7 @@
 
       document.getElementById('add-btn').addEventListener('click', () => openTechModal(null));
       load();
+      loadPending();
     })();
   </script>
 </body>

@@ -685,6 +685,25 @@ class PrivateDocumentTests(APITestCase):
         self.assertTrue(allowed['Content-Type'].startswith('image/'))
         self.assertEqual(allowed['Cache-Control'], 'private, no-store')
 
+    def test_criminal_record_pdf_streams_inline_to_admin(self):
+        private_dir = Path(self.media_root) / 'technicians' / 'user-1'
+        (private_dir / 'criminal_record.pdf').write_bytes(
+            b'%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n'
+        )
+        Technician.objects.filter(pk=self.technician.pk).update(
+            criminal_record_path='/uploads/technicians/user-1/criminal_record.pdf'
+        )
+        url = f'/api/admin/technicians/{self.technician.pk}/document/criminal_record'
+        self.client.force_authenticate(user=self.customer_user)
+        self.assertEqual(self.client.get(url).status_code, status.HTTP_403_FORBIDDEN)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(response['Content-Disposition'].startswith('inline'))
+        self.assertEqual(response['Cache-Control'], 'private, no-store')
+
     def test_document_type_is_whitelisted(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.get(
