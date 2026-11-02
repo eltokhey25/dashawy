@@ -7,6 +7,7 @@ in the legacy ``users`` table, so this subclass keeps all of SimpleJWT's
 signature/expiry validation and only re-targets the user lookup.
 """
 
+from django.db import DatabaseError, transaction
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed, InvalidToken
 from rest_framework_simplejwt.settings import api_settings
@@ -14,6 +15,17 @@ from rest_framework_simplejwt.settings import api_settings
 from .exceptions import unauthorized
 from .models import RevokedAccessToken, User
 from .tokens import PASSWORD_FINGERPRINT_CLAIM, password_fingerprint
+
+
+def _is_revoked(jti):
+    """True when logout revoked this token. Until migration 0006 has created
+    the table, nothing can have been revoked, so a missing table reads as
+    "not revoked" instead of failing every signed-in request."""
+    try:
+        with transaction.atomic():
+            return RevokedAccessToken.objects.filter(jti=jti).exists()
+    except DatabaseError:
+        return False
 
 
 class DashawyJWTAuthentication(JWTAuthentication):
@@ -36,7 +48,7 @@ class DashawyJWTAuthentication(JWTAuthentication):
             raise unauthorized('تم إيقاف حسابك. تواصل مع الإدارة.')
 
         jti = validated_token.get(api_settings.JTI_CLAIM)
-        if jti and RevokedAccessToken.objects.filter(jti=str(jti)).exists():
+        if jti and _is_revoked(str(jti)):
             raise AuthenticationFailed(
                 'تم تسجيل الخروج من هذه الجلسة. سجّل الدخول من جديد.', code='token_revoked'
             )

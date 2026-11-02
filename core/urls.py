@@ -20,6 +20,7 @@ from .public_views import (
     PublicSpecialtiesView,
     PublicStatsView,
 )
+from .system_views import AdminMigrateView, AdminMigrationsView
 from .backup_views import AdminBackupDownloadView, cron_backup, cron_settle
 from .telegram_views import (
     RequestOtpView,
@@ -411,6 +412,8 @@ urlpatterns = [
     re_path(r'^cron/backup/?$', cron_backup, name='cron-backup'),
     re_path(r'^cron/settle/?$', cron_settle, name='cron-settle'),
     re_path(r'^admin/backup/?$', AdminBackupDownloadView.as_view(), name='admin-backup'),
+    re_path(r'^admin/system/migrations/?$', AdminMigrationsView.as_view(), name='admin-migrations'),
+    re_path(r'^admin/system/migrate/?$', AdminMigrateView.as_view(), name='admin-migrate'),
     # Admin management
     re_path(r'^admin/admins/?$', AdminAccountListView.as_view(), name='admin-admins'),
     re_path(
