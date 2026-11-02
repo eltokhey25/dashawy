@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .exceptions import ApiError, bad_request
-from .models import Request, ServicePricing, Setting, Specialty, Technician, utc_now
+from .models import Request, ServicePricing, Setting, Specialty, utc_now
 from .permissions import AdminPermission
 from .site_config import safe_https_url
 from .site_config import clear_site_config_cache
@@ -163,7 +163,6 @@ class AdminSpecialtyListView(APIView):
         rows = []
         for specialty in Specialty.objects.order_by('sort_order', 'id'):
             row = _specialty_json(specialty)
-            row['technicians_count'] = Technician.objects.filter(specialty=specialty.key).count()
             row['requests_count'] = Request.objects.filter(specialty=specialty.key).count()
             rows.append(row)
         return Response({'specialties': rows})
@@ -236,12 +235,8 @@ class AdminSpecialtyDetailView(APIView):
 
     def delete(self, request, pk):
         specialty = self._get(pk)
-        used = (
-            Technician.objects.filter(specialty=specialty.key).exists()
-            or Request.objects.filter(specialty=specialty.key).exists()
-        )
-        if used:
-            raise bad_request('لا يمكن حذف تخصص مستخدم من الفنيين أو الطلبات — عطّله بدلاً من ذلك')
+        if Request.objects.filter(specialty=specialty.key).exists():
+            raise bad_request('لا يمكن حذف تخصص مستخدم في الطلبات — عطّله بدلاً من ذلك')
         specialty.delete()
         clear_site_config_cache()
         return Response({'message': 'تم حذف التخصص'})

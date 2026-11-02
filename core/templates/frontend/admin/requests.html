@@ -725,9 +725,7 @@
         }
 
         function matchingTechnicians(r) {
-          return allTechnicians.filter(
-            (t) => t.specialty === r.specialty && t.availability === 'available'
-          );
+          return allTechnicians.filter((t) => t.availability === 'available');
         }
 
         function buildAssign(box, r) {
@@ -736,7 +734,7 @@
           const cands = matchingTechnicians(r);
           if (!cands.length) {
             box.appendChild(
-              Ui.el('div', { class: 'form-hint' }, ['لا يوجد فنيون متاحون في هذا التخصص حالياً.'])
+              Ui.el('div', { class: 'form-hint' }, ['لا يوجد فنيون متاحون حالياً.'])
             );
             return;
           }

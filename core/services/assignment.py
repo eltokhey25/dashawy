@@ -2,13 +2,9 @@
 
 Python port of ``backend/services/assignment.js``. The Express service was
 written when every technician on the platform handled every dish service, so it
-deliberately ignored the request's specialty. Phase 3 requires specialty
-matching, while the live technician pool still consists mostly of generalists
-(``dish_general``). The compromise implemented here is:
-
-* prefer technicians whose specialty exactly matches the request;
-* when there are none, fall back to ``dish_general`` generalists;
-* never assign a technician working another trade.
+ignored the request's specialty. That is the rule again: every technician is a
+general dish technician (``dish_general``), and the request's specialty only
+describes the job.
 
 The service reports outcomes instead of raising: "nobody is available" is a
 normal result for the caller, not an exceptional condition.
@@ -85,25 +81,13 @@ def declined_technician_ids(request):
 
 
 def _candidate_technicians(request, excluded_ids):
-    """Approved, available technicians eligible for this request.
-
-    Exact specialty matches win outright. Generalists are used only when no
-    exact match is available, so a dish installer is not sent to a receiver
-    job while a receiver technician is free.
-    """
-    available = (
+    """Approved, available technicians eligible for this request."""
+    return list(
         Technician.objects.filter(
             availability='available', approval_status='approved'
         )
         .exclude(pk__in=excluded_ids)
     )
-
-    exact = list(available.filter(specialty=request.specialty))
-    if exact:
-        return exact
-    if request.specialty != GENERALIST_SPECIALTY:
-        return list(available.filter(specialty=GENERALIST_SPECIALTY))
-    return []
 
 
 def _rank_key(technician, request):

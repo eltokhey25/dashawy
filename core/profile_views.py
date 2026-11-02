@@ -32,7 +32,6 @@ from .models import (
     utc_now,
 )
 from .permissions import IsTechnician
-from .serializers import enabled_specialty_keys
 from .upload_validators import resolve_stored_upload, save_private_upload, validate_order_image
 from .validation import is_non_empty_string, resolve_location
 from .views import _body, _json_ready, _technician_for
@@ -290,7 +289,11 @@ def _public_technician(tech, stats, profile=None):
 
 
 class PublicTechnicianListView(APIView):
-    """GET /api/public/technicians?area=&specialty= — approved technicians."""
+    """GET /api/public/technicians?area= — approved technicians.
+
+    Every technician handles every service, so a ``specialty`` parameter from
+    an older page is accepted and ignored.
+    """
 
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -303,17 +306,12 @@ class PublicTechnicianListView(APIView):
                 rows = rows.filter(location_text=resolve_location(area, ''))
             except KeyError:
                 raise bad_request('المنطقة غير صالحة')
-        specialty = request.query_params.get('specialty')
-        if specialty:
-            if specialty not in enabled_specialty_keys():
-                raise bad_request('نوع الخدمة غير صالح')
-            rows = rows.filter(specialty=specialty)
 
         from django.core.cache import cache
 
         # One row of stats per technician is several queries each; the
         # public list is the same for everyone, so build it once a minute.
-        key = f"public:technicians:v1:{area or ''}:{specialty or ''}"
+        key = f"public:technicians:v1:{area or ''}"
         technicians = cache.get(key)
         if technicians is None:
             technicians = []

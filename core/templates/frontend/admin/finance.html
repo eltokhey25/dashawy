@@ -737,7 +737,7 @@
           wallets.slice(start, start + PAGE_SIZE).forEach((w) => {
             const balance = Number(w.balance || 0);
             const debt = Number(w.total_debt || 0);
-            const m = Ui.meta(w.specialty);
+            const m = Ui.techMeta();
             tbody.appendChild(
               Ui.el('tr', {}, [
                 Ui.el('td', {}, [

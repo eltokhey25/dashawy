@@ -107,7 +107,17 @@
     return v.replace(/\D/g, '').length >= 6;
   }
 
+  // Technicians have no specialty: every one is a general dish technician.
+  const TECHNICIAN_META = {
+    label: 'فني دش',
+    icon: 'fa-solid fa-satellite-dish',
+    color: '#0369a1',
+    bg: '#e0f2fe',
+    desc: '',
+  };
+
   const Ui = {
+    techMeta: () => TECHNICIAN_META,
     meta: (key) =>
       SPECIALTY_META[key] || {
         label: key,

@@ -90,7 +90,7 @@
           <div class="adm-table-wrap">
             <table class="adm-table">
               <thead>
-                <tr><th>التخصص</th><th>المفتاح</th><th>الإظهار</th><th>الفنيون</th><th>الطلبات</th><th style="text-align:left">إجراء</th></tr>
+                <tr><th>التخصص</th><th>المفتاح</th><th>الإظهار</th><th>الطلبات</th><th style="text-align:left">إجراء</th></tr>
               </thead>
               <tbody id="tbody"></tbody>
             </table>
@@ -152,7 +152,6 @@
             ])]),
             Ui.el('td', {}, [Ui.el('code', { attrs: { dir: 'ltr' } }, [Ui.escapeHtml(s.key)])]),
             Ui.el('td', {}, [s.enabled ? Ui.el('span', { class: 'adm-badge green' }, [Ui.ic('fa-solid fa-eye'), 'ظاهر']) : Ui.el('span', { class: 'adm-badge red' }, [Ui.ic('fa-solid fa-eye-slash'), 'معطّل'])]),
-            Ui.el('td', {}, [Ui.el('span', { class: 'adm-badge blue' }, [s.technicians_count + ' فني'])]),
             Ui.el('td', {}, [Ui.el('span', { class: 'muted' }, [s.requests_count + ' طلب'])]),
             Ui.el('td', {}, [Ui.el('div', { style: 'display:flex;gap:6px;justify-content:flex-end' }, [
               Ui.el('button', { class: 'btn btn-icon btn-soft-brand', attrs: { 'data-edit': s.id, title: 'تعديل' } }, [Ui.ic('fa-solid fa-pen')]),
@@ -210,7 +209,7 @@
           const g2 = Ui.el('div', { class: 'form-group' });
           g2.appendChild(Ui.el('label', { class: 'form-label' }, ['المفتاح (حروف إنجليزية صغيرة)']));
           g2.appendChild(Ui.el('input', { class: 'input', attrs: { id: 's-key', required: 'true', dir: 'ltr', placeholder: 'glass_installer' } }));
-          g2.appendChild(Ui.el('div', { class: 'form-hint' }, ['مستعملة داخلياً لتحديد تخصص الفنيين - يُكتب باللاتينية السفلية.']));
+          g2.appendChild(Ui.el('div', { class: 'form-hint' }, ['مستعملة داخلياً لتحديد نوع الخدمة في الطلبات - يُكتب باللاتينية السفلية.']));
           f.appendChild(g2);
         }
 

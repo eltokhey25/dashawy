@@ -482,7 +482,7 @@
             return;
           }
           list.forEach((t) => {
-            const m = Ui.meta(t.specialty);
+            const m = Ui.techMeta();
             const row = Ui.el('div', {
               style:
                 'display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #f1f5f9',
@@ -598,9 +598,7 @@
         }
 
         function matchingTechnicians(r) {
-          return technicians.filter(
-            (t) => t.specialty === r.specialty && t.availability === 'available'
-          );
+          return technicians.filter((t) => t.availability === 'available');
         }
 
         async function buildAssign(box, r) {

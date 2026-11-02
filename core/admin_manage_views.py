@@ -28,7 +28,7 @@ from .models import (
     utc_now,
 )
 from .permissions import AdminPermission, IsSuperAdmin
-from .serializers import AdminRequestSerializer, enabled_specialty_keys
+from .serializers import AdminRequestSerializer
 from .services.assignment import GENERALIST_SPECIALTY, release_technician
 from .services.broadcast import broadcast_request, close_offers
 from .services.start_pin import generate_start_pin
@@ -245,11 +245,9 @@ def _technician_fields(data, partial):
         if not is_valid_phone(data.get('phone')):
             raise bad_request('رقم الهاتف غير صالح')
         updates['phone'] = normalize_phone(data['phone'])
-    if data.get('specialty') not in (None, ''):
-        if data['specialty'] not in set(enabled_specialty_keys()) | {GENERALIST_SPECIALTY}:
-            raise bad_request('التخصص غير صالح')
-        updates['specialty'] = data['specialty']
-    elif not partial:
+    # Every technician is a general dish technician; a specialty sent by an
+    # older client is ignored rather than stored.
+    if not partial:
         updates['specialty'] = GENERALIST_SPECIALTY
     if data.get('availability') not in (None, ''):
         if data['availability'] not in AVAILABILITY:

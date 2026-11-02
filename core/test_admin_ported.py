@@ -212,7 +212,12 @@ class AdminConfigTests(AdminBase):
         self.assertFalse(Specialty.objects.get(pk=spec_id).enabled)
         self.assertEqual(self.client.delete(f'/api/admin/specialties/{spec_id}').status_code, 200)
 
+        # A technician's specialty no longer pins a service; an order still does.
         used = Specialty.objects.get(key='dish_install')
+        self.assertEqual(self.client.delete(f'/api/admin/specialties/{used.pk}').status_code, 200)
+        Specialty.objects.create(key='dish_install', label='تركيب دش', sort_order=1)
+        used = Specialty.objects.get(key='dish_install')
+        self.completed_job()
         self.assertEqual(self.client.delete(f'/api/admin/specialties/{used.pk}').status_code, 400)
         bad = self.client.post('/api/admin/specialties', {'key': 'Bad Key', 'label': 'x'}, format='json')
         self.assertEqual(bad.status_code, 400)
@@ -323,3 +328,27 @@ class AdminManageTests(AdminBase):
         self.assertEqual(self.client.delete(f'/api/admin/users/{self.customer_user.pk}/erase').status_code, 200)
         self.assertFalse(User.objects.filter(pk=self.customer_user.pk).exists())
         self.assertEqual(self.client.delete(f'/api/admin/users/{self.super_admin.pk}/erase').status_code, 403)
+
+
+class GeneralTechnicianTests(AdminBase):
+    def test_auto_assignment_ignores_the_request_specialty(self):
+        from .services.assignment import assign_technician
+
+        job = Request.objects.create(
+            customer=self.customer, specialty='signal_tuning', description='x', status='pending'
+        )
+        result = assign_technician(job.pk)
+        self.assertTrue(result['assigned'])
+        self.assertEqual(result['technician_id'], self.technician.pk)
+
+    def test_admin_edit_does_not_store_a_specialty(self):
+        Technician.objects.filter(pk=self.technician.pk).update(specialty='dish_general')
+        self.as_super()
+        response = self.client.put(
+            f'/api/admin/technicians/{self.technician.pk}',
+            {'specialty': 'dish_install'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.specialty, 'dish_general')
