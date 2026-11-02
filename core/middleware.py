@@ -56,7 +56,9 @@ class SecurityHeadersMiddleware:
                 "https://cdnjs.cloudflare.com; "
                 "img-src 'self' data: blob: https:; "
                 "connect-src 'self' https://accounts.google.com; "
-                "frame-src https://accounts.google.com; "
+                # blob: is the admin's own preview of an identity document
+                # (fetched by our nonce'd script, never a third party).
+                "frame-src https://accounts.google.com blob:; "
                 "worker-src 'self' blob:; "
                 "manifest-src 'self'"
             )
