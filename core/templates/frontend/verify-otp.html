@@ -177,7 +177,7 @@
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>
-    <script>
+    <script nonce="{{ csp_nonce }}">
       // Two steps on one form: ask for the code, then submit the code with the
       // new password. The server signs the person in on success.
       const form = document.getElementById('otp-form');

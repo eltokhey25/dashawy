@@ -12,7 +12,7 @@ from rest_framework_simplejwt.exceptions import AuthenticationFailed, InvalidTok
 from rest_framework_simplejwt.settings import api_settings
 
 from .exceptions import unauthorized
-from .models import User
+from .models import RevokedAccessToken, User
 from .tokens import PASSWORD_FINGERPRINT_CLAIM, password_fingerprint
 
 
@@ -34,6 +34,12 @@ class DashawyJWTAuthentication(JWTAuthentication):
 
         if user.blocked:
             raise unauthorized('تم إيقاف حسابك. تواصل مع الإدارة.')
+
+        jti = validated_token.get(api_settings.JTI_CLAIM)
+        if jti and RevokedAccessToken.objects.filter(jti=str(jti)).exists():
+            raise AuthenticationFailed(
+                'تم تسجيل الخروج من هذه الجلسة. سجّل الدخول من جديد.', code='token_revoked'
+            )
 
         # A password reset (or a voluntary password change) rotates the hash;
         # tokens carrying the previous fingerprint must stop working even

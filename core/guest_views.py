@@ -374,22 +374,15 @@ class GuestRequestCancelView(APIView):
         if job.status not in ('pending', 'no_technician', 'assigned'):
             raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
 
-        now = utc_now()
-        with transaction.atomic():
-            technician_id = job.technician_id
-            updated = Request.objects.filter(
-                pk=job.pk, status__in=('pending', 'no_technician', 'assigned')
-            ).update(
-                status='cancelled',
-                cancel_reason='ألغى العميل الطلب من رابط المتابعة',
-                updated_at=now,
-            )
-            if not updated:
-                raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
-            release_technician(technician_id)
-            RequestBroadcast.objects.filter(
-                request_id=job.pk, status='sent'
-            ).update(status='expired', responded_at=now)
+        from .services.broadcast import cancel_request
+
+        done = cancel_request(
+            job.pk,
+            ('pending', 'no_technician', 'assigned'),
+            cancel_reason='ألغى العميل الطلب من رابط المتابعة',
+        )
+        if done is None:
+            raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
 
         job.refresh_from_db()
         payload = guest_payload(job)

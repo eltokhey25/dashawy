@@ -3,9 +3,15 @@
 Django already sets HSTS, X-Content-Type-Options and X-Frame-Options in
 production through ``SecurityMiddleware``; this adds the headers Django does not
 provide and a Content-Security-Policy that is deliberately compatible with the
-existing pages (Google Fonts, Font Awesome, Google Identity Services and the
-inline bootstrap scripts the frontend has always used).
+existing pages (Google Fonts, Font Awesome, Google Identity Services).
+
+Inline scripts run only when they carry this request's nonce
+(``nonce="{{ csp_nonce }}"``, see ``core.context_processors.csp``). There is
+no ``'unsafe-inline'`` for scripts, so markup injected into a page cannot run
+script even if an escaping bug ever let it through.
 """
+
+import secrets
 
 from django.conf import settings
 
@@ -15,6 +21,7 @@ class SecurityHeadersMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        request.csp_nonce = secrets.token_urlsafe(18)
         response = self.get_response(request)
 
         if 'X-Content-Type-Options' not in response:
@@ -39,8 +46,9 @@ class SecurityHeadersMiddleware:
                 "object-src 'none'; "
                 "frame-ancestors 'none'; "
                 "form-action 'self'; "
-                "script-src 'self' 'unsafe-inline' "
+                f"script-src 'self' 'nonce-{request.csp_nonce}' "
                 "https://accounts.google.com https://cdnjs.cloudflare.com; "
+                "script-src-attr 'none'; "
                 "style-src 'self' 'unsafe-inline' "
                 "https://fonts.googleapis.com https://cdnjs.cloudflare.com "
                 "https://accounts.google.com/gsi/style; "

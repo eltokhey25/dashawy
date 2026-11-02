@@ -998,3 +998,35 @@ class StoredFile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RevokedAccessToken(models.Model):
+    """An access token ended by logout before its expiry.
+
+    Access tokens are stateless and live for days, so without this list a
+    copied token keeps working after its owner signs out. Rows are removed by
+    the daily cron once the token would have expired anyway.
+    """
+
+    jti = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(default=utc_now)
+
+    class Meta:
+        db_table = 'revoked_access_tokens'
+
+
+class RateCounter(models.Model):
+    """One fixed-window rate-limit counter (``core.ratelimit.throttle``).
+
+    Kept in a table rather than the cache: the increment is a single guarded
+    UPDATE, so parallel requests cannot all read the same count and slip
+    past the limit, and counters are not evicted when the cache culls.
+    """
+
+    key = models.CharField(max_length=255, unique=True)
+    count = models.PositiveIntegerField(default=0)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        db_table = 'rate_counters'

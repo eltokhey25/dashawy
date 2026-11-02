@@ -25,8 +25,9 @@ logger = logging.getLogger(__name__)
 # Everything that holds data; Django's own bookkeeping tables are rebuilt by
 # migrate and are not worth carrying.
 FIXTURE_LABELS = ['core', 'auth.group', 'auth.user']
-# Telegram's document limit is 50 MB; refuse well before it.
-MAX_BYTES = 45 * 1024 * 1024
+# Telegram's document limit is 50 MB. A larger backup is sent as several
+# parts of at most PART_BYTES; restore_backup joins them again.
+PART_BYTES = 45 * 1024 * 1024
 
 
 def build_backup():
@@ -43,9 +44,20 @@ def build_backup():
     raw = buffer.getvalue().encode('utf-8')
     stamp = datetime.now(timezone.utc).strftime('%Y-%m-%d_%H%M')
     data = gzip.compress(raw, compresslevel=9)
-    if len(data) > MAX_BYTES:
-        raise ValueError(f'backup is {len(data)} bytes, over the {MAX_BYTES} limit')
     return f'dashawy-backup-{stamp}.json.gz', data
+
+
+def split_parts(filename, data, part_bytes=PART_BYTES):
+    """``[(name, bytes), ...]``: the file itself, or numbered byte slices of it.
+
+    Joining the slices in order (``cat a.part1-of-3 a.part2-of-3 ...``)
+    gives the original .json.gz back; ``restore_backup`` accepts the parts.
+    """
+    if len(data) <= part_bytes:
+        return [(filename, data)]
+    chunks = [data[i:i + part_bytes] for i in range(0, len(data), part_bytes)]
+    total = len(chunks)
+    return [(f'{filename}.part{n}-of-{total}', chunk) for n, chunk in enumerate(chunks, 1)]
 
 
 def backup_recipients():
@@ -83,20 +95,31 @@ def run_daily_backup():
         logger.warning('Backup built (%d bytes) but nobody is linked to receive it', len(data))
         return {'ok': False, 'reason': 'no_recipient', 'filename': filename, 'bytes': len(data)}
 
-    caption = (
-        f'📦 نسخة احتياطية يومية من قاعدة بيانات دشاوي\n'
-        f'{filename} · {len(data) / 1024:.0f} KB\n'
-        'احتفظ بالملف في مكان آمن.'
-    )
+    parts = split_parts(filename, data)
     sent = 0
     for chat_id in recipients:
-        if telegram.send_document(chat_id, filename, data, caption):
+        delivered = 0
+        for index, (part_name, chunk) in enumerate(parts, 1):
+            caption = (
+                f'📦 نسخة احتياطية يومية من قاعدة بيانات دشاوي\n'
+                f'{part_name} · {len(chunk) / 1024:.0f} KB\n'
+                + (
+                    f'الجزء {index} من {len(parts)}: احتفظ بكل الأجزاء مع بعض.\n'
+                    if len(parts) > 1
+                    else ''
+                )
+                + 'احتفظ بالملف في مكان آمن.'
+            )
+            if telegram.send_document(chat_id, part_name, chunk, caption):
+                delivered += 1
+        if delivered == len(parts):
             sent += 1
-    logger.info('Backup %s sent to %d/%d recipients', filename, sent, len(recipients))
+    logger.info('Backup %s (%d parts) sent to %d/%d recipients', filename, len(parts), sent, len(recipients))
     return {
         'ok': sent > 0,
         'filename': filename,
         'bytes': len(data),
+        'parts': len(parts),
         'sent': sent,
         'recipients': len(recipients),
     }

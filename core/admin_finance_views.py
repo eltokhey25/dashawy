@@ -20,7 +20,7 @@ from .models import (
     utc_now,
 )
 from .permissions import AdminPermission
-from .serializers import TechnicianRequestSerializer
+from .serializers import AdminRequestSerializer
 from .services.payments import (
     PaymentError,
     add_wallet_transaction,
@@ -29,6 +29,7 @@ from .services.payments import (
     ensure_wallet,
     mark_withdrawal_paid,
     parse_amount,
+    refund_request,
     reject_withdrawal,
     resolve_dispute,
     settlement_view,
@@ -233,7 +234,7 @@ class AdminPaymentsPendingView(APIView):
                 -(r.completed_at.timestamp() if r.completed_at else 0),
             ),
         )[:100]
-        payments = TechnicianRequestSerializer(rows, many=True).data
+        payments = AdminRequestSerializer(rows, many=True).data
         return Response({'payments': payments, 'count': len(payments)})
 
 
@@ -248,7 +249,7 @@ class AdminPaymentsDisputedView(APIView):
             .select_related('customer', 'technician')
             .order_by('-technician_reported_at')
         )
-        disputes = TechnicianRequestSerializer(rows, many=True).data
+        disputes = AdminRequestSerializer(rows, many=True).data
         return Response({'disputes': disputes, 'count': len(disputes)})
 
 
@@ -346,7 +347,13 @@ class AdminPaymentRefundView(APIView):
     permission_classes = FINANCE
 
     def post(self, request, pk):
-        if not Request.objects.filter(pk=pk).exists():
-            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
-        Request.objects.filter(pk=pk).update(payment_status='refunded', updated_at=utc_now())
-        return Response({'message': 'تم تسجيل الاسترداد'})
+        try:
+            result = refund_request(pk, request.user.pk)
+        except PaymentError as exc:
+            raise _payment_error(exc)
+        if result['already_refunded']:
+            return Response({'message': 'تم تسجيل الاسترداد مسبقاً', **result})
+        message = 'تم تسجيل الاسترداد'
+        if result['reversed']:
+            message += f" وإلغاء عمولة {result['reversed']:g} ج.م من محفظة الفني"
+        return Response({'message': message, **result})

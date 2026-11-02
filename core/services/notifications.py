@@ -6,9 +6,18 @@ from the pages themselves (My requests and the technician dashboard poll).
 Nothing here raises, so a failed send never turns the action into an error.
 """
 
+import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, wait
 
 logger = logging.getLogger(__name__)
+
+# A new order is offered to every approved technician, and the customer is
+# waiting on that same request. The sends run in parallel and the request
+# stops waiting after FANOUT_BUDGET_SECONDS; anything still in flight is
+# dropped (the offer itself is already saved and shows on the dashboard).
+FANOUT_WORKERS = 16
+FANOUT_BUDGET_SECONDS = 8
 
 def accepted_message(technician_name):
     name = technician_name or 'الفني'
@@ -26,6 +35,70 @@ def send_telegram(chat_id, text):
     return send_message(chat_id, text)
 
 
+def _telegram_text(payload):
+    text = f"{payload.get('title', '')}\n{payload.get('body', '')}".strip()
+    url = payload.get('url')
+    if url and url.startswith('/'):
+        from ..site_config import get_site_config
+
+        text += f"\n{get_site_config()['site_url']}{url}"
+    return text
+
+
+def fan_out(user_ids, payload, budget=FANOUT_BUDGET_SECONDS):
+    """Send one notification to many accounts at once.
+
+    Every database read and write happens here on the request thread; the
+    worker threads only talk to the push services and Telegram, so they need
+    no connection of their own. Returns counts for logging and tests.
+    """
+    from ..models import PushSubscription, User
+    from . import push, telegram
+
+    user_ids = list(dict.fromkeys(uid for uid in user_ids if uid))
+    if not user_ids:
+        return {'push': 0, 'telegram': 0, 'dropped': 0}
+
+    subscriptions = []
+    if push.is_enabled():
+        per_user = {}
+        for sub in PushSubscription.objects.filter(user_id__in=user_ids).order_by('id'):
+            if per_user.setdefault(sub.user_id, 0) < push.MAX_PER_MESSAGE:
+                per_user[sub.user_id] += 1
+                subscriptions.append(sub)
+    chats = []
+    if telegram.is_configured():
+        chats = list(
+            User.objects.filter(pk__in=user_ids, telegram_chat_id__isnull=False)
+            .exclude(telegram_chat_id='')
+            .values_list('telegram_chat_id', flat=True)
+        )
+
+    body = json.dumps(payload, ensure_ascii=False)
+    text = _telegram_text(payload)
+    pool = ThreadPoolExecutor(max_workers=FANOUT_WORKERS)
+    try:
+        push_jobs = {
+            pool.submit(push.deliver, s.endpoint, s.p256dh, s.auth, body): s.pk
+            for s in subscriptions
+        }
+        chat_jobs = {pool.submit(telegram.deliver_message, c, text): c for c in chats}
+        done, pending = wait(list(push_jobs) + list(chat_jobs), timeout=budget)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+    push.record_results(
+        {pk: future.result() for future, pk in push_jobs.items() if future in done}
+    )
+    telegram.unlink_chats(
+        [chat for future, chat in chat_jobs.items()
+         if future in done and future.result() == telegram.UNREACHABLE]
+    )
+    if pending:
+        logger.warning('Notification fan-out dropped %d sends after %ss', len(pending), budget)
+    return {'push': len(push_jobs), 'telegram': len(chat_jobs), 'dropped': len(pending)}
+
+
 def _push(user_id, payload):
     """Deliver one notification to every channel the user has.
 
@@ -40,13 +113,7 @@ def _push(user_id, payload):
         User.objects.filter(pk=user_id).values_list('telegram_chat_id', flat=True).first()
     )
     if chat_id:
-        text = f"{payload.get('title', '')}\n{payload.get('body', '')}".strip()
-        url = payload.get('url')
-        if url and url.startswith('/'):
-            from ..site_config import get_site_config
-
-            text += f"\n{get_site_config()['site_url']}{url}"
-        send_telegram(chat_id, text)
+        send_telegram(chat_id, _telegram_text(payload))
     return result
 
 
@@ -87,8 +154,7 @@ def notify_new_offer(technician_user_ids, request):
         'tag': 'new-request',
         'requireInteraction': True,
     }
-    for user_id in technician_user_ids:
-        _push(user_id, payload)
+    return fan_out(technician_user_ids, payload)
 
 
 def notify_job_completed(request):

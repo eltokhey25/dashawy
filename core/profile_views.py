@@ -269,9 +269,8 @@ def _public_technician(tech, stats, profile=None):
         'id': tech.pk,
         'name': tech.name,
         'specialty': tech.specialty,
+        # No coordinates: a technician's saved point is usually their home.
         'location_text': tech.location_text,
-        'latitude': tech.latitude,
-        'longitude': tech.longitude,
         'availability': tech.availability,
         'approved_at': _when(getattr(tech, 'approved_at', None)),
         'created_at': _when(tech.created_at),
@@ -310,13 +309,21 @@ class PublicTechnicianListView(APIView):
                 raise bad_request('نوع الخدمة غير صالح')
             rows = rows.filter(specialty=specialty)
 
-        technicians = []
-        for tech in rows:
-            profile = getattr(tech, 'profile', None)
-            technicians.append(_public_technician(tech, _stats(tech.pk, True), profile))
-        technicians.sort(
-            key=lambda t: (-(t['avg_rating'] or 0), -t['review_count'], t['name'] or '')
-        )
+        from django.core.cache import cache
+
+        # One row of stats per technician is several queries each; the
+        # public list is the same for everyone, so build it once a minute.
+        key = f"public:technicians:v1:{area or ''}:{specialty or ''}"
+        technicians = cache.get(key)
+        if technicians is None:
+            technicians = []
+            for tech in rows:
+                profile = getattr(tech, 'profile', None)
+                technicians.append(_public_technician(tech, _stats(tech.pk, True), profile))
+            technicians.sort(
+                key=lambda t: (-(t['avg_rating'] or 0), -t['review_count'], t['name'] or '')
+            )
+            cache.set(key, technicians, 60)
         return Response({'technicians': technicians})
 
 

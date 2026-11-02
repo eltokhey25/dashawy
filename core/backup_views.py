@@ -45,7 +45,19 @@ def cron_settle(request):
     """GET /api/cron/settle — settle cash confirmations nobody finished."""
     if not cron_authorized(request):
         return HttpResponse(status=404)
-    return JsonResponse(settle_stale_reports())
+    from .services.uploads import sweep_orphan_uploads
+
+    from .models import RateCounter, RevokedAccessToken, utc_now
+
+    result = settle_stale_reports()
+    result['orphan_uploads'] = sweep_orphan_uploads()
+    result['expired_revocations'] = RevokedAccessToken.objects.filter(
+        expires_at__lt=utc_now()
+    ).delete()[0]
+    result['expired_rate_counters'] = RateCounter.objects.filter(
+        expires_at__lt=utc_now()
+    ).delete()[0]
+    return JsonResponse(result)
 
 
 class AdminBackupDownloadView(APIView):

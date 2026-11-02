@@ -210,7 +210,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/ui.js"></script>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     const params = new URLSearchParams(window.location.search);
     const previewMode = params.get('preview') === '1';
 

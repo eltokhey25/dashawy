@@ -572,7 +572,9 @@ class RequestApiTests(APITestCase):
         body = response.json()
         self.assertEqual(body['broadcast']['sent_to'], 1)
         self.assertEqual(body['request']['status'], 'pending')
-        self.assertIsNone(body['request']['technician_id'])
+        # The job is no longer theirs: the reply carries no customer details.
+        self.assertEqual(set(body['request']), {'id', 'status'})
+        self.assertIsNone(Request.objects.get(pk=created['id']).technician_id)
 
         # The other technician has it on offer and can take it.
         self.assertEqual(self.accept_offer(second_user, created['id']).status_code, 200)
@@ -599,7 +601,9 @@ class RequestApiTests(APITestCase):
         body = response.json()
         self.assertEqual(body['broadcast']['sent_to'], 0)
         self.assertEqual(body['request']['status'], 'pending')
-        self.assertIsNone(body['request']['technician_id'])
+        # The job is no longer theirs: the reply carries no customer details.
+        self.assertEqual(set(body['request']), {'id', 'status'})
+        self.assertIsNone(Request.objects.get(pk=created['id']).technician_id)
 
         self.technician.refresh_from_db()
         self.assertEqual(self.technician.availability, 'available')

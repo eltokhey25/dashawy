@@ -95,23 +95,41 @@ def api_call(method, payload=None, timeout=10):
     return data.get('result')
 
 
-def send_message(chat_id, text):
-    """Plain-text message to a chat. Returns True on success, False otherwise."""
+SENT, UNREACHABLE, FAILED = 'sent', 'unreachable', 'failed'
+
+
+def deliver_message(chat_id, text):
+    """Send without touching the database (safe from a worker thread).
+
+    Returns ``SENT``, ``UNREACHABLE`` (blocked bot or deleted chat: the caller
+    should unlink it) or ``FAILED``.
+    """
     if not chat_id or not is_configured():
-        return False
+        return FAILED
     try:
         api_call(
             'sendMessage',
             {'chat_id': chat_id, 'text': text, 'disable_web_page_preview': True},
         )
-        return True
+        return SENT
     except TelegramError as exc:
-        if _chat_unreachable(exc):
-            # The person blocked the bot or deleted the chat: unlink so the
-            # site stops relying on a channel that cannot deliver.
-            User.objects.filter(telegram_chat_id=str(chat_id)).update(telegram_chat_id=None)
         logger.warning('Telegram send failed: %s', exc)
-        return False
+        return UNREACHABLE if _chat_unreachable(exc) else FAILED
+
+
+def unlink_chats(chat_ids):
+    """The person blocked the bot or deleted the chat: stop relying on it."""
+    chat_ids = [str(c) for c in chat_ids if c]
+    if chat_ids:
+        User.objects.filter(telegram_chat_id__in=chat_ids).update(telegram_chat_id=None)
+
+
+def send_message(chat_id, text):
+    """Plain-text message to a chat. Returns True on success, False otherwise."""
+    outcome = deliver_message(chat_id, text)
+    if outcome == UNREACHABLE:
+        unlink_chats([chat_id])
+    return outcome == SENT
 
 
 def send_document(chat_id, filename, data, caption=''):

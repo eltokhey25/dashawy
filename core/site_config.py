@@ -114,6 +114,20 @@ def _db_settings() -> dict:
         return {}
 
 
+def safe_https_url(value):
+    """``value`` when it is an absolute https URL with a host, else ''."""
+    from urllib.parse import urlsplit
+
+    text = str(value or '').strip()
+    try:
+        parts = urlsplit(text)
+    except ValueError:
+        return ''
+    if parts.scheme.lower() != 'https' or not parts.netloc or any(c in text for c in '<>"\' \n\r\t'):
+        return ''
+    return text
+
+
 def get_site_config(force: bool = False) -> dict:
     """Return the resolved public configuration (never contains secrets)."""
     if not force:
@@ -128,9 +142,9 @@ def get_site_config(force: bool = False) -> dict:
     whatsapp_raw = _env('BUSINESS_WHATSAPP') or stored.get('whatsapp') or phone
     whatsapp = _digits(whatsapp_raw)
 
-    facebook = _env('SOCIAL_FACEBOOK') or stored.get('facebook_url') or ''
-    instagram = _env('SOCIAL_INSTAGRAM') or stored.get('instagram_url') or ''
-    tiktok = _env('SOCIAL_TIKTOK') or ''
+    facebook = safe_https_url(_env('SOCIAL_FACEBOOK') or stored.get('facebook_url') or '')
+    instagram = safe_https_url(_env('SOCIAL_INSTAGRAM') or stored.get('instagram_url') or '')
+    tiktok = safe_https_url(_env('SOCIAL_TIKTOK') or '')
 
     commission_raw = _env('COMMISSION_RATE') or stored.get('commission_percent') or '20'
     try:

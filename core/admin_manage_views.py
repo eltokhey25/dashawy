@@ -28,11 +28,11 @@ from .models import (
     utc_now,
 )
 from .permissions import AdminPermission, IsSuperAdmin
-from .serializers import TechnicianRequestSerializer, enabled_specialty_keys
+from .serializers import AdminRequestSerializer, enabled_specialty_keys
 from .services.assignment import GENERALIST_SPECIALTY, release_technician
 from .services.broadcast import broadcast_request, close_offers
 from .services.start_pin import generate_start_pin
-from .services.uploads import delete_user_uploads
+from .services.uploads import delete_upload_later, delete_user_uploads
 from .validation import (
     is_non_empty_string,
     is_valid_email,
@@ -162,7 +162,7 @@ class AdminAccountDetailView(APIView):
         return Response({'message': 'تم تحديث الصلاحيات', 'permissions': permissions})
 
     def delete(self, request, pk):
-        if pk == request.user.pk:
+        if int(pk) == request.user.pk:
             raise bad_request('مش ممكن تحذف حسابك بنفسك')
         target = _admin_or_404(pk)
         if target.is_super_admin and User.objects.filter(
@@ -377,7 +377,7 @@ class AdminCustomerDetailView(APIView):
             {
                 'customer': row,
                 'stats': stats,
-                'recentRequests': TechnicianRequestSerializer(recent, many=True).data,
+                'recentRequests': AdminRequestSerializer(recent, many=True).data,
             }
         )
 
@@ -520,7 +520,7 @@ class AdminRequestQueuedView(APIView):
             .select_related('customer', 'technician')
             .order_by('created_at', 'id')
         )
-        data = TechnicianRequestSerializer(rows, many=True).data
+        data = AdminRequestSerializer(rows, many=True).data
         return Response({'requests': data, 'count': len(data)})
 
 
@@ -567,6 +567,7 @@ class AdminRequestDeleteView(APIView):
             if job.status in ('assigned', 'in_progress'):
                 release_technician(job.technician_id)
             close_offers(job.pk)
+            delete_upload_later(job.order_photo_path)
             job.delete()
         return Response({'message': 'تم حذف الطلب نهائياً'})
 

@@ -23,7 +23,7 @@
   </head>
   <body class="chat-body">
     <header class="chat-header">
-      <a href="javascript:history.back()" class="chat-back" aria-label="رجوع">
+      <a href="/" class="chat-back" data-history-back aria-label="رجوع">
         <i class="fa-solid fa-arrow-right"></i>
       </a>
       <div class="chat-peer">
@@ -65,7 +65,7 @@
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>
     <script src="/js/push.js"></script>
-    <script>
+    <script nonce="{{ csp_nonce }}">
       /* ----------------------------------------------
          Guards
       ---------------------------------------------- */

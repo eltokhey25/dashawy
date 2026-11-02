@@ -181,6 +181,21 @@
     },
 
     logout(redirect) {
+      // End the session on the server too, so a copied token stops working.
+      // keepalive lets the request finish while the page navigates away.
+      const token = this.getToken();
+      if (token) {
+        try {
+          fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: '{}',
+            keepalive: true,
+          }).catch(() => {});
+        } catch (e) {
+          /* signing out locally still works */
+        }
+      }
       this.clear();
       window.location.href = redirect || '/login.html';
     },
@@ -198,6 +213,22 @@
   };
 
   window.Auth = Auth;
+
+  // Markup carries no inline handlers (the CSP forbids them): sign-out
+  // buttons say data-logout="<redirect>", back links say data-history-back.
+  document.addEventListener('click', (event) => {
+    const logout = event.target.closest('[data-logout]');
+    if (logout) {
+      event.preventDefault();
+      Auth.logout(logout.getAttribute('data-logout') || undefined);
+      return;
+    }
+    const back = event.target.closest('[data-history-back]');
+    if (back && window.history.length > 1) {
+      event.preventDefault();
+      window.history.back();
+    }
+  });
 
   // Route any future 401 to session-expiry handling (auto logout).
   if (window.setTokenGuard) {

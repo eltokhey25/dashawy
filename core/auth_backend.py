@@ -34,6 +34,20 @@ def hash_password(password):
     ).decode('utf-8')
 
 
+_DUMMY_HASH = []
+
+
+def _burn_bcrypt(password):
+    if not _DUMMY_HASH:
+        _DUMMY_HASH.append(
+            bcrypt.hashpw(b'dashawy-timing-equaliser', bcrypt.gensalt(rounds=BCRYPT_ROUNDS))
+        )
+    try:
+        bcrypt.checkpw(password_bytes(password), _DUMMY_HASH[0])
+    except (ValueError, TypeError):
+        pass
+
+
 class BcryptAuthBackend(BaseBackend):
     """Authenticate a core.User against its legacy bcrypt password hash."""
 
@@ -49,7 +63,12 @@ class BcryptAuthBackend(BaseBackend):
             phone = normalize_phone(identifier)
             user = User.objects.filter(phone=phone).first() if phone else None
 
-        if user is None or not self.verify_password(user, password):
+        if user is None:
+            # Spend the same bcrypt work as a real check, so the response time
+            # does not tell an attacker whether the account exists.
+            _burn_bcrypt(password)
+            return None
+        if not self.verify_password(user, password):
             return None
         return user
 

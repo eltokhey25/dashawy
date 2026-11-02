@@ -128,7 +128,7 @@
   <script src="/js/auth.js"></script>
   <script src="/js/ui.js"></script>
   <script src="/js/google-auth.js"></script>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     // Logged-in users go straight to their dashboard — or, for a customer who
     // still owes us a phone number, straight to the form that asks for it.
     if (Auth.isAuthed()) {

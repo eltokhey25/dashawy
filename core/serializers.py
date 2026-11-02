@@ -259,6 +259,24 @@ class RequestSerializer(serializers.ModelSerializer):
         return price_status(obj)
 
 
+# Internal bookkeeping neither party needs: who was offered the job before,
+# which admin confirmed or resolved it, the PIN attempt counter.
+PARTY_HIDDEN_FIELDS = (
+    'declined_technicians',
+    'payment_confirmed_by',
+    'dispute_resolved_by',
+    'start_pin_attempts',
+    'start_pin_locked_until',
+)
+
+
+class AdminRequestSerializer(RequestSerializer):
+    """Admin screens: every column except the guest token hash and the PIN."""
+
+    class Meta(RequestSerializer.Meta):
+        exclude = tuple(RequestSerializer.Meta.exclude) + ('start_pin',)
+
+
 class CustomerRequestSerializer(RequestSerializer):
     """Customer-facing request: the technician's cash figure stays hidden
     until the customer has entered their own.
@@ -270,6 +288,9 @@ class CustomerRequestSerializer(RequestSerializer):
     """
 
     HIDDEN_UNTIL_REPORTED = ('technician_reported_amount', 'technician_reported_at')
+
+    class Meta(RequestSerializer.Meta):
+        exclude = tuple(RequestSerializer.Meta.exclude) + PARTY_HIDDEN_FIELDS
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -286,7 +307,10 @@ class TechnicianRequestSerializer(RequestSerializer):
     """Technician-facing request: never includes the doorstep start PIN."""
 
     class Meta(RequestSerializer.Meta):
-        exclude = tuple(RequestSerializer.Meta.exclude) + ('start_pin',)
+        exclude = tuple(RequestSerializer.Meta.exclude) + PARTY_HIDDEN_FIELDS + (
+            'start_pin',
+            'guest_phone',
+        )
 
 
 class TechnicianDocumentUploadSerializer(serializers.Serializer):

@@ -4,18 +4,19 @@ The project deliberately does not add a new dependency. ``django-axes`` already
 handles password lockouts; this helper covers the endpoints Axes does not see
 (registration, Google sign-in, guest orders, profile completion).
 
-The cache backend is Django's default (LocMem in this project). That is
-per-process, so on a multi-worker host the effective limit is per worker; it is
-still enough to stop a single script hammering one endpoint, and the persistent
-``GuestSubmissionLog`` adds a database-backed per-phone limit for guest orders.
+Counters live in the ``rate_counters`` table (``RateCounter``): shared by
+every serverless instance, and incremented by one guarded UPDATE so a burst
+of parallel requests cannot all pass on the same stale count.
 """
 
 from __future__ import annotations
 
 import ipaddress
 import time
+from datetime import timedelta
 
-from django.core.cache import cache
+from django.db import IntegrityError, transaction
+from django.db.models import F
 
 from .exceptions import ApiError
 
@@ -77,17 +78,36 @@ def throttle(request, scope: str, limit: int, window_seconds: int = 3600,
     """
     if limit <= 0:
         return
+    from .models import RateCounter, utc_now
+
     bucket = int(time.time() // max(window_seconds, 1))
     who = (identifier or client_ip(request)).strip()[:120]
-    key = f'rl:{scope}:{who}:{bucket}'
-    current = cache.get(key, 0)
-    if current >= limit:
-        raise ApiError(
-            'عدد المحاولات كبير جدًا. حاول تاني بعد شوية.',
-            429,
-        )
+    key = f'rl:{scope}:{who}:{bucket}'[:255]
+
+    def refuse():
+        raise ApiError('عدد المحاولات كبير جدًا. حاول تاني بعد شوية.', 429)
+
     if not count:
+        current = RateCounter.objects.filter(key=key).values_list('count', flat=True).first()
+        if (current or 0) >= limit:
+            refuse()
         return
-    # add() then set() is not atomic on every backend, but a couple of extra
-    # requests in a race are not security-relevant for these limits.
-    cache.set(key, current + 1, window_seconds + 5)
+
+    # Spend one unit only while under the limit, in one statement.
+    if RateCounter.objects.filter(key=key, count__lt=limit).update(count=F('count') + 1):
+        return
+    if RateCounter.objects.filter(key=key).exists():
+        refuse()
+    try:
+        with transaction.atomic():
+            RateCounter.objects.create(
+                key=key,
+                count=1,
+                expires_at=utc_now() + timedelta(seconds=window_seconds + 5),
+            )
+    except IntegrityError:
+        # A parallel request created the row first: take the guarded path.
+        if not RateCounter.objects.filter(key=key, count__lt=limit).update(
+            count=F('count') + 1
+        ):
+            refuse()

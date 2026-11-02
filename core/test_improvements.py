@@ -500,6 +500,7 @@ class PublicDataTests(APITestCase):
                 availability='available',
             )
 
+        cache.clear()  # the public counters are computed once a minute
         stats = self.client.get('/api/public/stats').json()
         self.assertTrue(stats['visible'])
         by_key = {item['key']: item for item in stats['items']}

@@ -17,11 +17,16 @@ from rest_framework.views import APIView
 from .exceptions import ApiError, bad_request
 from .models import Request, ServicePricing, Setting, Specialty, Technician, utc_now
 from .permissions import AdminPermission
+from .site_config import safe_https_url
 from .site_config import clear_site_config_cache
 from .validation import is_non_empty_string
 from .views import _body, _json_ready
 
 DEFAULT_SPECIALTY_ICON = 'fa-solid fa-wrench'
+# Rendered as links on every page, so only plain https URLs are accepted:
+# a ``javascript:`` value would run in every visitor's browser on click.
+URL_SETTINGS = frozenset({'facebook_url', 'instagram_url'})
+
 EDITABLE_SETTINGS = frozenset(
     {
         'site_name',
@@ -83,6 +88,8 @@ class AdminSettingsView(APIView):
             text = '' if value is None else str(value)
             if len(text) > 500:
                 raise bad_request('قيمة الإعداد غير صالحة')
+            if key in URL_SETTINGS and text.strip() and not safe_https_url(text):
+                raise bad_request('الرابط لازم يبدأ بـ https://')
             Setting.objects.update_or_create(key=key, defaults={'value': text.strip()})
         clear_site_config_cache()
         return Response({'message': 'تم حفظ الإعدادات', 'settings': _all_settings()})

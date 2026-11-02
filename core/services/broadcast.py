@@ -191,6 +191,31 @@ def close_offers(request_id):
     )
 
 
+def cancel_request(request_id, allowed_statuses, **fields):
+    """Cancel under a row lock; returns the technician id that held it.
+
+    Locking first serialises the cancel with a concurrent accept: either the
+    accept committed (and its technician is read here and released) or it
+    waits and then finds the request no longer pending. Without the lock a
+    cancel could read "no technician", lose the race, and leave the accepting
+    technician marked busy on a cancelled job. Returns ``None`` when the
+    request is not in one of ``allowed_statuses``.
+    """
+    from .assignment import release_technician
+
+    with transaction.atomic():
+        job = Request.objects.select_for_update().filter(pk=request_id).first()
+        if job is None or job.status not in allowed_statuses:
+            return None
+        technician_id = job.technician_id
+        Request.objects.filter(pk=job.pk).update(
+            status='cancelled', updated_at=utc_now(), **fields
+        )
+        release_technician(technician_id)
+        close_offers(job.pk)
+    return {'technician_id': technician_id}
+
+
 def _area_only(location_text):
     """'سموحة — شارع ..، عمارة ..' -> 'سموحة'."""
     return (location_text or '').split(' — ')[0].strip() or None

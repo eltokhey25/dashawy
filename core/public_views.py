@@ -36,6 +36,17 @@ def _public_cache(response, seconds=60):
     return response
 
 
+def _computed_once(key, build, seconds=60):
+    """Public counters scan whole tables; serve one result per minute."""
+    from django.core.cache import cache
+
+    cached = cache.get(key)
+    if cached is None:
+        cached = build()
+        cache.set(key, cached, seconds)
+    return cached
+
+
 class PublicConfigView(APIView):
     """GET /api/public/config — contact/social config for the frontend."""
 
@@ -176,6 +187,9 @@ class PublicStatsView(APIView):
     RESPONSE_THRESHOLD = 10
 
     def get(self, request):
+        return _public_cache(Response(_computed_once('public:stats:v1', self._build)))
+
+    def _build(self):
         completed = Request.objects.filter(status='completed').count()
         technicians = Technician.objects.filter(
             approval_status='approved', user__blocked=False
@@ -191,7 +205,7 @@ class PublicStatsView(APIView):
         durations = []
         for created_at, assigned_at in Request.objects.filter(
             assigned_at__isnull=False
-        ).values_list('created_at', 'assigned_at'):
+        ).order_by('-assigned_at').values_list('created_at', 'assigned_at')[:500]:
             if created_at and assigned_at:
                 minutes = (assigned_at - created_at).total_seconds() / 60
                 if minutes >= 0:
@@ -235,21 +249,17 @@ class PublicStatsView(APIView):
                 ),
             },
         ]
-        return _public_cache(
-            Response(
-                {
-                    'items': items,
-                    'visible': any(item['visible'] for item in items),
-                    'raw': {
-                        'completed': completed,
-                        'approved_technicians': technicians,
-                        'reviews': rating_count,
-                        'average_rating': average,
-                        'response_samples': len(durations),
-                    },
-                }
-            )
-        )
+        return {
+            'items': items,
+            'visible': any(item['visible'] for item in items),
+            'raw': {
+                'completed': completed,
+                'approved_technicians': technicians,
+                'reviews': rating_count,
+                'average_rating': average,
+                'response_samples': len(durations),
+            },
+        }
 
 
 class PublicReviewsView(APIView):

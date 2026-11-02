@@ -10,14 +10,14 @@
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
   <title>إعادة التوجيه…</title>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     // Preserve query string when redirecting
     const qs = window.location.search || '';
     window.location.replace('/login.html' + qs);
   </script>
 </head>
 <body>
-  <script>
+  <script nonce="{{ csp_nonce }}">
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

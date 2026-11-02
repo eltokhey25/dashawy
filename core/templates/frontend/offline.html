@@ -53,7 +53,10 @@
     <i class="fa-solid fa-wifi"></i>
     <h1>لا يوجد اتصال بالإنترنت</h1>
     <p>تأكد من اتصالك بالشبكة وحاول مرة أخرى.</p>
-    <button onclick="location.reload()">إعادة المحاولة</button>
+    <button type="button" id="retry">إعادة المحاولة</button>
   </div>
+  <script nonce="{{ csp_nonce }}">
+    document.getElementById('retry').addEventListener('click', () => location.reload());
+  </script>
 </body>
 </html>

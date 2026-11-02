@@ -178,8 +178,6 @@ def serve_public_upload(request, path):
     ``pending`` folders) and are deliberately not reachable here. They are
     streamed by the admin-only API endpoint instead.
     """
-    import mimetypes
-
     clean = str(path or '').replace('\\', '/').lstrip('/')
     allowed = (
         'technicians/profiles/',
@@ -193,12 +191,20 @@ def serve_public_upload(request, path):
     if not default_storage.exists(clean):
         raise Http404('File not found')
 
-    mime, _ = mimetypes.guess_type(clean)
-    if not (mime or '').startswith(('image/', 'video/')):
+    # The type comes from the file's own bytes, never its name: an extension
+    # such as .svg or .html would otherwise be served as active content.
+    from core.filetypes import HEADER_BYTES, detect_mime
+
+    handle = default_storage.open(clean, 'rb')
+    mime = detect_mime(handle.read(HEADER_BYTES))
+    handle.seek(0)
+    if mime not in ('image/jpeg', 'image/png', 'image/webp'):
+        handle.close()
         raise Http404('File not found')
-    response = FileResponse(default_storage.open(clean, 'rb'), content_type=mime)
+    response = FileResponse(handle, content_type=mime)
     response['Cache-Control'] = 'public, max-age=86400'
     response['X-Content-Type-Options'] = 'nosniff'
+    response['Content-Security-Policy'] = "default-src 'none'; sandbox"
     return response
 
 

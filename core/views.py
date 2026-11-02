@@ -48,6 +48,7 @@ from .models import (
 from .permissions import AdminPermission, IsAdmin, IsCustomer, IsTechnician
 from .ratelimit import client_ip, throttle
 from .serializers import (
+    AdminRequestSerializer,
     CustomerRequestSerializer,
     CreateRequestSerializer,
     RequestSerializer,
@@ -59,6 +60,7 @@ from .services.broadcast import (
     BroadcastError,
     accept_broadcast,
     broadcast_request,
+    cancel_request,
     close_offers,
     decline_broadcast,
     incoming_for_technician,
@@ -501,24 +503,38 @@ class RegisterView(APIView):
 
 
 class LogoutView(APIView):
-    """POST /api/auth/logout — blacklist the supplied refresh token."""
+    """POST /api/auth/logout — end this session on the server.
+
+    The access token that made the call is revoked until it would have
+    expired, so a copy of it stops working too. A refresh token in the body
+    is blacklisted as well.
+    """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from datetime import datetime, timezone as dt_timezone
+
+        from .models import RevokedAccessToken
+
+        access = getattr(request, 'auth', None)
+        jti = access.get(jwt_settings.JTI_CLAIM) if access is not None else None
+        if jti:
+            expires = datetime.fromtimestamp(int(access['exp']), dt_timezone.utc).replace(tzinfo=None)
+            RevokedAccessToken.objects.get_or_create(jti=str(jti), defaults={'expires_at': expires})
+
         data = _body(request)
         refresh = data.get('refresh') or data.get('refresh_token')
-        if not refresh or not isinstance(refresh, str):
-            raise bad_request('رمز التحديث مطلوب')
-
-        try:
-            token = DashawyRefreshToken(refresh)
-            token_user_id = token.get(jwt_settings.USER_ID_CLAIM)
-            if str(token_user_id) != str(request.user.pk):
+        if refresh:
+            if not isinstance(refresh, str):
                 raise bad_request('رمز التحديث غير صالح')
-            token.blacklist()
-        except TokenError:
-            raise bad_request('رمز التحديث غير صالح')
+            try:
+                token = DashawyRefreshToken(refresh)
+                if str(token.get(jwt_settings.USER_ID_CLAIM)) != str(request.user.pk):
+                    raise bad_request('رمز التحديث غير صالح')
+                token.blacklist()
+            except TokenError:
+                raise bad_request('رمز التحديث غير صالح')
 
         return Response({'message': 'تم تسجيل الخروج'})
 
@@ -721,7 +737,7 @@ class CustomerRequestListCreateView(APIView):
         return Response(
             {
                 'message': 'تم تلقي طلبك وسيتم التواصل معك',
-                'request': RequestSerializer(created).data,
+                'request': CustomerRequestSerializer(created).data,
                 'broadcast': {'sent_to': offers['count']},
                 'assigned': False,
             },
@@ -743,21 +759,13 @@ class CustomerRequestCancelView(APIView):
         if job.status not in cancellable:
             raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
 
-        now = utc_now()
-        with transaction.atomic():
-            updated = Request.objects.filter(pk=job.pk, status__in=cancellable).update(
-                status='cancelled',
-                cancel_reason='ألغى العميل الطلب',
-                updated_at=now,
-            )
-            if not updated:
-                raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
-            release_technician(job.technician_id)
-            close_offers(job.pk)
+        done = cancel_request(job.pk, cancellable, cancel_reason='ألغى العميل الطلب')
+        if done is None:
+            raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
 
-        if job.technician_id:
+        if done['technician_id']:
             tech_user_id = (
-                Technician.objects.filter(pk=job.technician_id)
+                Technician.objects.filter(pk=done['technician_id'])
                 .values_list('user_id', flat=True)
                 .first()
             )
@@ -765,7 +773,7 @@ class CustomerRequestCancelView(APIView):
                 notify_request_cancelled(tech_user_id, job.pk)
         job.refresh_from_db()
         return Response(
-            {'message': 'تم إلغاء الطلب', 'request': RequestSerializer(job).data}
+            {'message': 'تم إلغاء الطلب', 'request': CustomerRequestSerializer(job).data}
         )
 
 
@@ -1033,7 +1041,8 @@ class TechnicianRequestRejectView(APIView):
                     if offers['count']
                     else 'تم رفض الطلب، ولا يوجد فني متاح حالياً'
                 ),
-                'request': TechnicianRequestSerializer(job).data,
+                # The job is no longer theirs: no customer details in the reply.
+                'request': {'id': job.pk, 'status': job.status},
                 'broadcast': {'sent_to': offers['count']},
             }
         )
@@ -1178,7 +1187,7 @@ class GuestOrderLinkView(APIView):
         return Response(
             {
                 'message': 'تم ربط الطلب بحسابك',
-                'request': RequestSerializer(job).data,
+                'request': CustomerRequestSerializer(job).data,
             }
         )
 
@@ -1418,7 +1427,7 @@ class AdminStatsView(APIView):
                 'busyTechnicians': busy_technicians,
                 'avgResponseMinutes': avg_response_minutes,
                 'byDay': by_day,
-                'newestRequests': RequestSerializer(newest, many=True).data,
+                'newestRequests': AdminRequestSerializer(newest, many=True).data,
             }
         )
 
@@ -1442,7 +1451,7 @@ class AdminRequestListView(APIView):
             requests = requests.filter(specialty=specialty_filter)
 
         return Response(
-            {'requests': CustomerRequestSerializer(requests, many=True).data}
+            {'requests': AdminRequestSerializer(requests, many=True).data}
         )
 
 
@@ -1509,7 +1518,7 @@ class AdminTechnicianDetailView(APIView):
         return Response(
             {
                 'technician': row,
-                'recentRequests': RequestSerializer(recent, many=True).data,
+                'recentRequests': AdminRequestSerializer(recent, many=True).data,
             }
         )
 
@@ -1686,7 +1695,7 @@ class AdminUserResetPasswordView(APIView):
         # so only a super admin may do it. A regular admin is limited to
         # customer and technician accounts, and nobody resets their own
         # password here (that is what /auth/change-password is for).
-        if target.pk == request.user.pk:
+        if int(target.pk) == int(request.user.pk):
             raise bad_request('استخدم صفحة تغيير كلمة المرور لحسابك')
         # A section admin may only reset accounts in the sections they hold:
         # customers need "customers", technicians need "technicians".
@@ -1749,21 +1758,14 @@ class AdminRequestCancelView(APIView):
         if job.status in ('completed', 'cancelled'):
             raise bad_request('لا يمكن إلغاء طلب في حالته الحالية')
 
-        now = utc_now()
-        with transaction.atomic():
-            Request.objects.filter(pk=job.pk).update(
-                status='cancelled', updated_at=now
-            )
-            release_technician(job.technician_id)
-            # Outstanding offers must stop appearing in technicians' inboxes.
-            RequestBroadcast.objects.filter(
-                request_id=job.pk, status='sent'
-            ).update(status='expired', responded_at=now)
+        # Outstanding offers stop appearing in technicians' inboxes too.
+        if cancel_request(job.pk, ('pending', 'no_technician', 'assigned', 'in_progress')) is None:
+            raise bad_request('لا يمكن إلغاء طلب في حالته الحالية')
 
         job.refresh_from_db()
         return Response(
             {
                 'message': 'تم إلغاء الطلب',
-                'request': RequestSerializer(job).data,
+                'request': AdminRequestSerializer(job).data,
             }
         )

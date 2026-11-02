@@ -84,40 +84,57 @@ def remove_subscription(user_id, endpoint):
     return deleted
 
 
+OK, GONE, FAILED = 'ok', 'gone', 'failed'
+
+
+def deliver(endpoint, p256dh, auth, body):
+    """Send one encrypted message to one browser. No database access, so it
+    is safe from a worker thread. Returns ``OK``, ``GONE`` (the browser
+    dropped the subscription) or ``FAILED``."""
+    from pywebpush import WebPushException, webpush
+
+    _, private, subject = _keys()
+    try:
+        webpush(
+            subscription_info={'endpoint': endpoint, 'keys': {'p256dh': p256dh, 'auth': auth}},
+            data=body,
+            vapid_private_key=private,
+            vapid_claims={'sub': subject},
+            timeout=5,
+        )
+        return OK
+    except WebPushException as exc:
+        code = getattr(getattr(exc, 'response', None), 'status_code', None)
+        if code in (404, 410):
+            return GONE
+        logger.warning('Push delivery failed: %s', exc)
+    except Exception:  # noqa: BLE001 - never break the caller
+        logger.warning('Push delivery failed', exc_info=True)
+    return FAILED
+
+
+def record_results(results):
+    """Apply ``{subscription_pk: OK|GONE|FAILED}`` to the table."""
+    ok = [pk for pk, outcome in results.items() if outcome == OK]
+    gone = [pk for pk, outcome in results.items() if outcome == GONE]
+    if ok:
+        PushSubscription.objects.filter(pk__in=ok).update(last_used_at=utc_now())
+    if gone:
+        PushSubscription.objects.filter(pk__in=gone).delete()
+
+
 def send_to_user(user_id, payload):
     """Send ``payload`` (title/body/url/tag) to every browser of ``user_id``."""
     if not user_id or not is_enabled():
         return {'sent': 0, 'failed': 0}
-    from pywebpush import WebPushException, webpush
-
-    _, private, subject = _keys()
     body = json.dumps(payload, ensure_ascii=False)
-    sent = failed = 0
-    for sub in PushSubscription.objects.filter(user_id=user_id)[:MAX_PER_MESSAGE]:
-        try:
-            webpush(
-                subscription_info={
-                    'endpoint': sub.endpoint,
-                    'keys': {'p256dh': sub.p256dh, 'auth': sub.auth},
-                },
-                data=body,
-                vapid_private_key=private,
-                vapid_claims={'sub': subject},
-                timeout=5,
-            )
-            PushSubscription.objects.filter(pk=sub.pk).update(last_used_at=utc_now())
-            sent += 1
-        except WebPushException as exc:
-            failed += 1
-            code = getattr(getattr(exc, 'response', None), 'status_code', None)
-            if code in (404, 410):
-                PushSubscription.objects.filter(pk=sub.pk).delete()
-            else:
-                logger.warning('Push delivery failed for user %s: %s', user_id, exc)
-        except Exception:  # noqa: BLE001 - never break the caller
-            failed += 1
-            logger.warning('Push delivery failed for user %s', user_id, exc_info=True)
-    return {'sent': sent, 'failed': failed}
+    results = {
+        sub.pk: deliver(sub.endpoint, sub.p256dh, sub.auth, body)
+        for sub in PushSubscription.objects.filter(user_id=user_id)[:MAX_PER_MESSAGE]
+    }
+    record_results(results)
+    sent = sum(1 for outcome in results.values() if outcome == OK)
+    return {'sent': sent, 'failed': len(results) - sent}
 
 
 def notify(user_id, payload):

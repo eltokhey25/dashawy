@@ -26,7 +26,7 @@
     <p>جرّب تحديث الصفحة بعد شوية. لو المشكلة مستمرة، كلّمنا واذكر إنك كنت بتحاول تعمل إيه.</p>
     <div class="error-actions">
       <a class="btn btn-brand btn-lg" href="/"><i class="fa-solid fa-house" aria-hidden="true"></i> الرئيسية</a>
-      <button type="button" class="btn btn-outline btn-lg" onclick="window.location.reload()">
+      <button type="button" class="btn btn-outline btn-lg" id="reload-page">
         <i class="fa-solid fa-rotate" aria-hidden="true"></i> تحديث الصفحة
       </button>
     </div>
@@ -38,5 +38,8 @@
   </main>
 
   {% include "partials/contact_dock.html" %}
+  <script nonce="{{ csp_nonce }}">
+    document.getElementById('reload-page').addEventListener('click', () => window.location.reload());
+  </script>
 </body>
 </html>

@@ -71,6 +71,15 @@ def validate_document_upload(uploaded_file):
         raise ValidationError(
             'يُسمح فقط بملفات JPEG أو PNG أو PDF للمستندات'
         )
+    if detected == 'application/pdf':
+        from .filetypes import looks_like_complete_pdf
+
+        try:
+            complete = looks_like_complete_pdf(uploaded_file)
+        except (OSError, ValueError) as exc:
+            raise ValidationError('تعذر التحقق من نوع الملف') from exc
+        if not complete:
+            raise ValidationError('ملف PDF غير مكتمل أو تالف')
     return detected
 
 
@@ -119,6 +128,9 @@ def save_private_upload(uploaded_file, relative_dir, mime_type):
         raise ValidationError('مسار الملف غير صالح')
 
     name = f'{safe_dir.as_posix().strip("/")}/{random_filename(mime_type)}'
+    from .services.uploads import ensure_upload_quota
+
+    ensure_upload_quota(getattr(uploaded_file, 'size', 0) or 0)
     uploaded_file.seek(0)
     saved = default_storage.save(name, uploaded_file)
     return '/uploads/' + saved.replace('\\', '/')

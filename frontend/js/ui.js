@@ -525,6 +525,8 @@
               if (attr === 'data-social-whatsapp' && isPhoneNumber(finalUrl)) {
                 finalUrl = 'https://wa.me/' + finalUrl.replace(/\D/g, '');
               }
+              // Only https links: never javascript: or data: from a setting.
+              if (!/^https:\/\/[^\s"'<>]+$/i.test(finalUrl)) return;
               el.href = finalUrl;
               el.style.display = '';
             } else {
