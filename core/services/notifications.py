@@ -206,6 +206,21 @@ def notify_login(user, ip=None):
     )
 
 
+def notify_account_locked(user, minutes, ip=None):
+    """Repeated wrong passwords locked the account: the owner should know."""
+    _push(
+        user.pk,
+        {
+            'title': '⚠️ محاولات دخول فاشلة متكررة',
+            'body': f'حسابك اتقفل {minutes} دقيقة بعد محاولات دخول بكلمة سر غلط'
+            + (f' من IP {ip}' if ip else '')
+            + '.\nلو مش إنت، غيّر كلمة السر أول ما تدخل.',
+            'url': '/change-password',
+            'tag': 'account-locked',
+        },
+    )
+
+
 def notify_password_changed(user, ip=None):
     _push(
         user.pk,

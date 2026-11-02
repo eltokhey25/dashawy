@@ -45,6 +45,7 @@ from .models import (
 )
 from .ratelimit import client_ip
 from .serializers import GuestCreateRequestSerializer
+from .services.assignment import release_technician
 from .services.broadcast import broadcast_request
 from .services.pricing import price_status, quote_for
 from .upload_validators import (
@@ -385,10 +386,7 @@ class GuestRequestCancelView(APIView):
             )
             if not updated:
                 raise bad_request('مش ممكن تلغي الطلب في حالته الحالية')
-            if technician_id:
-                Technician.objects.filter(pk=technician_id).update(
-                    availability='available'
-                )
+            release_technician(technician_id)
             RequestBroadcast.objects.filter(
                 request_id=job.pk, status='sent'
             ).update(status='expired', responded_at=now)

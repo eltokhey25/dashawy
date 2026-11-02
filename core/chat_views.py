@@ -38,6 +38,8 @@ def _authorize(user, request_id):
     if job.customer and job.customer.user_id == user.pk:
         return job, 'customer'
     if job.technician and job.technician.user_id == user.pk:
+        if job.technician.approval_status != 'approved' or job.technician.availability == 'offline':
+            raise forbidden('هذا الحساب غير نشط. تواصل مع الإدارة.')
         return job, 'technician'
     raise forbidden('غير مصرح لك بالوصول لهذه المحادثة')
 

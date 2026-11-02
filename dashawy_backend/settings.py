@@ -247,13 +247,21 @@ AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
 
-# django-axes: five failures for a username or source IP trigger a 15-minute
-# cooloff. The LoginView explicitly resets the counters after a successful
-# password check because this project authenticates against core.User rather
-# than calling Django's login().
+# django-axes: five failures for one username FROM one source IP trigger a
+# 15-minute cooloff for that pair. Locking on the IP alone (the previous
+# setting) locked everyone behind a shared mobile-network address once any
+# one of them failed five times; locking the username alone let anyone keep
+# a victim's account locked. The LoginView's own per-IP failure budget
+# (``LOGIN_IP_FAILURE_LIMIT``) still caps password spraying from one source.
+# The LoginView explicitly resets the counters after a successful password
+# check because this project authenticates against core.User rather than
+# calling Django's login().
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = timedelta(minutes=15)
-AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']
+AXES_LOCKOUT_PARAMETERS = [['username', 'ip_address']]
+# Behind Vercel's proxy REMOTE_ADDR is the proxy; use the same resolution as
+# the rest of the API so the pair is keyed on the real client.
+AXES_CLIENT_IP_CALLABLE = 'core.ratelimit.client_ip'
 AXES_RESET_ON_SUCCESS = True
 AXES_ENABLED = True
 # Keep the API's flattened error shape on lockout instead of Axes' HTML page.

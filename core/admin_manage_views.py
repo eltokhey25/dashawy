@@ -32,6 +32,7 @@ from .serializers import TechnicianRequestSerializer, enabled_specialty_keys
 from .services.assignment import GENERALIST_SPECIALTY, release_technician
 from .services.broadcast import broadcast_request, close_offers
 from .services.start_pin import generate_start_pin
+from .services.uploads import delete_user_uploads
 from .validation import (
     is_non_empty_string,
     is_valid_email,
@@ -336,7 +337,9 @@ def delete_technician(request, pk):
     tech = Technician.objects.filter(pk=pk).first()
     if tech is None:
         raise _not_found('الفني غير موجود')
-    User.objects.filter(pk=tech.user_id).delete()
+    with transaction.atomic():
+        delete_user_uploads(tech.user_id)
+        User.objects.filter(pk=tech.user_id).delete()
     return Response({'message': 'تم حذف الفني'})
 
 
@@ -386,6 +389,7 @@ class AdminCustomerDetailView(APIView):
             for job in Request.objects.filter(customer_id=pk).exclude(technician_id=None):
                 if job.status in ('assigned', 'in_progress'):
                     release_technician(job.technician_id)
+            delete_user_uploads(customer.user_id)
             User.objects.filter(pk=customer.user_id).delete()
         return Response({'message': 'تم حذف العميل وجميع طلباته'})
 
@@ -721,6 +725,8 @@ class AdminUserEraseView(APIView):
         if user.role == 'admin':
             raise forbidden('لا يمكن مسح حساب مسؤول من هنا')
         with transaction.atomic():
+            # Files first: the rows that name them are about to cascade away.
+            delete_user_uploads(user.pk)
             if user.role == 'technician':
                 tech = Technician.objects.filter(user_id=pk).first()
                 if tech:

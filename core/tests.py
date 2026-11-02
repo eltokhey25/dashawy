@@ -4,6 +4,7 @@ import base64
 from pathlib import Path
 
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib.auth.models import User as DjangoUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, override_settings
@@ -140,17 +141,25 @@ class AuthApiTests(APITestCase):
         self.assertEqual(response.status_code, 429)
         self.assertEqual(response.json()['code'], 'account_locked')
 
-        # Axes also locks the source IP, so a valid account cannot be used to
-        # bypass the lockout from the same client.
+        # The lock is on the (account, IP) pair: another account behind the
+        # same address (Egyptian mobile networks share one IP between many
+        # subscribers) still signs in.
         other = self.create_customer(
             email='other-lock@example.com', phone='+201099994444'
         )
-        blocked = self.client.post(
+        allowed = self.client.post(
             '/api/auth/login',
             {'identifier': other.email, 'password': PASSWORD},
             format='json',
         )
-        self.assertEqual(blocked.status_code, 429)
+        self.assertEqual(allowed.status_code, 200)
+        # And the locked pair stays locked even with the right password.
+        still = self.client.post(
+            '/api/auth/login',
+            {'identifier': locked.email, 'password': PASSWORD},
+            format='json',
+        )
+        self.assertEqual(still.status_code, 429)
 
     def test_phone_login_normalises_local_number(self):
         self.create_customer(phone='+201099998888')
@@ -309,6 +318,9 @@ class RequestApiTests(APITestCase):
     """Phase 3: customer requests, auto-assignment and technician actions."""
 
     def setUp(self):
+        # The per-account order budget lives in the cache, which outlives the
+        # rolled-back database rows (and their reused ids) between tests.
+        cache.clear()
         Specialty.objects.create(key='dish_install', label='تركيب دش')
         Specialty.objects.create(key='dish_repair', label='صيانة دش')
 

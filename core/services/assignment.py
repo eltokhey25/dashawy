@@ -182,10 +182,16 @@ def assign_technician(request_id):
 
 
 def release_technician(technician_id):
-    """Return a technician to the available pool, if they still exist."""
+    """Return a busy technician to the available pool.
+
+    Only ``busy`` flips back: a technician an admin suspended (``offline``)
+    while they were on a job must not reappear in the pool when it ends.
+    """
     if technician_id is None:
         return
-    Technician.objects.filter(pk=technician_id).update(availability='available')
+    Technician.objects.filter(pk=technician_id, availability='busy').update(
+        availability='available'
+    )
 
 
 def mark_declined(request_id, technician_id):

@@ -64,6 +64,7 @@ from .services.broadcast import (
     incoming_for_technician,
 )
 from .services.notifications import (
+    notify_account_locked,
     notify_login,
     notify_request_accepted,
     notify_request_cancelled,
@@ -102,6 +103,9 @@ ACCOUNT_LOCK_MINUTES = 15
 # Failed sign-ins tolerated from one IP address per 15 minutes, across every
 # account. Generous enough for a shared office NAT, far too small for a spray.
 LOGIN_IP_FAILURE_LIMIT = 50
+# Open orders one customer may have at once, and orders per account per day.
+MAX_OPEN_ORDERS = 3
+MAX_ORDERS_PER_DAY = 10
 
 AUTH_ERROR = 'البريد الإلكتروني/الهاتف أو كلمة المرور غير صحيحة'
 ACCOUNT_BLOCKED = 'تم إيقاف حسابك. تواصل مع الإدارة.'
@@ -245,7 +249,7 @@ def _is_account_locked(user):
     return bool(user.login_locked_until and user.login_locked_until > utc_now())
 
 
-def _note_failed_login(user):
+def _note_failed_login(user, ip=None):
     attempts = (user.failed_login_attempts or 0) + 1
     locked_until = None
     if attempts >= MAX_ACCOUNT_FAILURES:
@@ -258,6 +262,8 @@ def _note_failed_login(user):
     )
     user.failed_login_attempts = attempts
     user.login_locked_until = locked_until
+    if locked_until:
+        notify_account_locked(user, ACCOUNT_LOCK_MINUTES, ip)
 
 
 def _clear_failed_logins(user):
@@ -360,7 +366,7 @@ class LoginView(APIView):
             or verified.pk != user.pk
         ):
             if user is not None:
-                _note_failed_login(user)
+                _note_failed_login(user, client_ip(request))
             throttle(
                 request, 'login-ip', limit=LOGIN_IP_FAILURE_LIMIT,
                 window_seconds=900, identifier=ip_scope,
@@ -649,6 +655,10 @@ def _technician_for(user):
     # account was approved must stop working the moment an admin rejects it.
     if technician.approval_status != 'approved':
         raise forbidden('حساب الفني غير معتمد حالياً. تواصل مع الإدارة.')
+    # An admin suspends a technician by setting them offline; login already
+    # refuses them, and a token minted earlier must not keep them working.
+    if technician.availability == 'offline':
+        raise forbidden('هذا الحساب غير نشط. تواصل مع الإدارة.')
     return technician
 
 
@@ -671,6 +681,21 @@ class CustomerRequestListCreateView(APIView):
     def post(self, request):
         customer = _customer_for(request.user)
         throttle(request, 'customer-order', limit=30, window_seconds=3600)
+        # Every order is offered to every technician, so the budget is per
+        # account and not only per IP: cancelling and re-ordering in a loop
+        # would otherwise flood every technician's inbox.
+        throttle(
+            request, 'customer-order-account', limit=MAX_ORDERS_PER_DAY,
+            window_seconds=86400, identifier=f'user:{request.user.pk}',
+        )
+        open_orders = Request.objects.filter(
+            customer_id=customer.pk, status__in=('pending', 'assigned', 'in_progress')
+        ).count()
+        if open_orders >= MAX_OPEN_ORDERS:
+            raise bad_request(
+                f'عندك {MAX_OPEN_ORDERS} طلبات شغالة بالفعل. '
+                'استنى لحد ما تخلص أو ألغِ واحد منهم قبل ما تطلب تاني.'
+            )
         serializer = CreateRequestSerializer(data=_body(request))
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -868,7 +893,33 @@ def _start_job_with_pin(request, pk):
         job.refresh_from_db(fields=['start_pin'])
 
     now = utc_now()
-    if job.start_pin_locked_until and job.start_pin_locked_until > now:
+    if job.start_pin_locked_until and job.start_pin_locked_until <= now:
+        # The lock has expired; start the technician with a clean counter.
+        Request.objects.filter(pk=job.pk, start_pin_locked_until__lte=now).update(
+            start_pin_attempts=0, start_pin_locked_until=None
+        )
+
+    # Spend one attempt BEFORE looking at the code, in a single guarded
+    # UPDATE. Checking first and counting afterwards let a burst of parallel
+    # guesses all pass the check before any of them was counted, so the
+    # five-attempt budget was no limit at all against 10,000 requests at once.
+    spent = (
+        Request.objects.filter(pk=job.pk, technician_id=technician.pk, status='assigned')
+        .filter(Q(start_pin_locked_until__isnull=True) | Q(start_pin_locked_until__lte=now))
+        .filter(start_pin_attempts__lt=START_PIN_ATTEMPTS)
+        .update(start_pin_attempts=F('start_pin_attempts') + 1)
+    )
+    if not spent:
+        job.refresh_from_db(fields=['start_pin_attempts', 'start_pin_locked_until', 'status'])
+        if job.status != 'assigned':
+            raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
+        if not job.start_pin_locked_until or job.start_pin_locked_until <= now:
+            # Attempts ran out without a lock being written yet (a parallel
+            # request is about to); write it here too.
+            Request.objects.filter(pk=job.pk, start_pin_locked_until__isnull=True).update(
+                start_pin_locked_until=start_pin_lock_until(now)
+            )
+            job.refresh_from_db(fields=['start_pin_locked_until'])
         minutes = max(
             1, math.ceil((job.start_pin_locked_until - now).total_seconds() / 60)
         )
@@ -876,22 +927,12 @@ def _start_job_with_pin(request, pk):
             f'المحاولات مقفلة. حاول تاني بعد {minutes} دقيقة',
             status.HTTP_429_TOO_MANY_REQUESTS,
         )
-    if job.start_pin_locked_until:
-        # The lock has expired; start the technician with a clean counter.
-        Request.objects.filter(pk=job.pk).update(
-            start_pin_attempts=0, start_pin_locked_until=None
-        )
-        job.start_pin_attempts = 0
-        job.start_pin_locked_until = None
 
     submitted = str(_body(request).get('pin') or '').strip()
     valid_shape = re.fullmatch(r'\d{%d}' % START_PIN_LENGTH, submitted) is not None
     if not valid_shape or not secrets.compare_digest(
         submitted, job.start_pin or ''
     ):
-        Request.objects.filter(pk=job.pk).update(
-            start_pin_attempts=F('start_pin_attempts') + 1
-        )
         job.refresh_from_db(fields=['start_pin_attempts'])
         if job.start_pin_attempts >= START_PIN_ATTEMPTS:
             Request.objects.filter(pk=job.pk).update(
@@ -1713,10 +1754,7 @@ class AdminRequestCancelView(APIView):
             Request.objects.filter(pk=job.pk).update(
                 status='cancelled', updated_at=now
             )
-            if job.technician_id:
-                Technician.objects.filter(pk=job.technician_id).update(
-                    availability='available'
-                )
+            release_technician(job.technician_id)
             # Outstanding offers must stop appearing in technicians' inboxes.
             RequestBroadcast.objects.filter(
                 request_id=job.pk, status='sent'
