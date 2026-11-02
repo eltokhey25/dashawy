@@ -200,12 +200,17 @@ def whatsapp_link(area: str = 'الإسكندرية') -> str:
     return 'https://wa.me/%s?text=%s' % (number, quote(text))
 
 
+from urllib.parse import urlsplit
+
+
 def template_context() -> dict:
     """Values injected into every rendered HTML page."""
     config = get_site_config()
     return {
         **config,
         'business_whatsapp_url': whatsapp_link(),
+        # Lowercase host, the last alternate site name Google falls back to.
+        'site_host': urlsplit(config['site_url']).netloc.lower(),
         'brand_og_image': config['site_url'] + '/dashawy-brand/og-1200x630.png',
         'brand_logo_horizontal': config['site_url'] + '/dashawy-brand/logo-horizontal.svg',
         'brand_logo_icon': config['site_url'] + '/dashawy-brand/icon-512.png',

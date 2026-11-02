@@ -423,3 +423,18 @@ class PagePolicyTests(Round3Base):
         response = self.client.delete(f'/api/admin/admins/{self.admin.pk}')
         self.assertEqual(response.status_code, 400)
         self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+
+class SiteNameTests(APITestCase):
+    def test_home_page_names_the_site_for_google(self):
+        import json as _json
+
+        html = self.client.get('/').content.decode('utf-8')
+        blocks = re.findall(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', html, re.S)
+        site = next(d for d in map(_json.loads, blocks) if d.get('@type') == 'WebSite')
+        self.assertEqual(site['name'], 'دشاوي')
+        self.assertEqual(site['alternateName'][0], 'Dashawy')
+        # The host is the last fallback, never the hosting platform's name.
+        self.assertEqual(site['alternateName'][-1], site['url'].split('/')[2].lower())
+        self.assertIn('<meta name="application-name" content="دشاوي">', html)
+        self.assertIn('<meta property="og:site_name" content="دشاوي">', html)
