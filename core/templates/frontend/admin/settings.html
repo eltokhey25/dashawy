@@ -82,6 +82,17 @@
           </div>
         </div>
 
+        <div class="adm-card" id="db-update-card" style="margin-bottom:18px;display:none;border:2px solid #f59e0b;">
+          <div class="adm-card-head">
+            <h3><i class="fa-solid fa-database"></i> تحديث قاعدة البيانات</h3>
+          </div>
+          <p id="db-update-text" style="margin:0 0 12px;line-height:1.8;"></p>
+          <button class="btn btn-brand" id="db-update-btn" type="button">
+            <i class="fa-solid fa-rotate"></i> طبّق التحديث دلوقتي
+          </button>
+          <pre id="db-update-detail" style="display:none;white-space:pre-wrap;direction:ltr;text-align:left;background:#f8fafc;border-radius:10px;padding:12px;margin-top:12px;font-size:0.8rem;max-height:260px;overflow:auto;"></pre>
+        </div>
+
         <div class="adm-card" style="margin-bottom:18px;">
           <div class="adm-card-head">
             <h3><i class="fa-solid fa-globe" style="color:var(--adm-primary);margin-inline-end:6px"></i> بيانات المنصة</h3>
@@ -234,6 +245,38 @@
       const mq = window.matchMedia('(max-width:1024px)');
       mq.addEventListener('change', (e) => { sbtn.style.display = e.matches ? '' : 'none'; });
       sbtn.style.display = mq.matches ? '' : 'none';
+
+      // Migrations the deployed code ships but the database has not applied.
+      // Vercel never runs migrate, so the super admin applies them from here.
+      if (me && me.is_super_admin) {
+        const card = document.getElementById('db-update-card');
+        const text = document.getElementById('db-update-text');
+        const btn = document.getElementById('db-update-btn');
+        const detail = document.getElementById('db-update-detail');
+        const showPending = (pending) => {
+          if (!pending || !pending.length) { card.style.display = 'none'; return; }
+          card.style.display = '';
+          text.textContent = 'فيه ' + pending.length + ' تحديث جديد لقاعدة البيانات لازم يتطبّق عشان كل مميزات الموقع تشتغل: ' + pending.join('، ');
+        };
+        try {
+          showPending((await api('/api/admin/system/migrations')).pending);
+        } catch (e) { /* not fatal for the settings page */ }
+        btn.addEventListener('click', async () => {
+          if (!confirm('تطبيق تحديث قاعدة البيانات دلوقتي؟')) return;
+          Ui.btnLoading(btn, 'جاري التحديث...');
+          detail.style.display = 'none';
+          try {
+            const res = await api('/api/admin/system/migrate', { method: 'POST' });
+            toast(res.message, 'success');
+            showPending(res.pending);
+          } catch (e) {
+            toast(e.message, 'error');
+            const body = e.data || e.body || {};
+            if (body.detail) { detail.textContent = body.detail; detail.style.display = ''; }
+          }
+          Ui.btnReset(btn);
+        });
+      }
 
       // Every editable setting on this page, as input-id -> settings key. Kept as a
       // single list so load() and the save handler can never drift apart.

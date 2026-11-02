@@ -15,7 +15,8 @@ import ipaddress
 import time
 from datetime import timedelta
 
-from django.db import IntegrityError, transaction
+from django.core.cache import cache
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import F
 
 from .exceptions import ApiError
@@ -78,14 +79,36 @@ def throttle(request, scope: str, limit: int, window_seconds: int = 3600,
     """
     if limit <= 0:
         return
-    from .models import RateCounter, utc_now
-
     bucket = int(time.time() // max(window_seconds, 1))
     who = (identifier or client_ip(request)).strip()[:120]
     key = f'rl:{scope}:{who}:{bucket}'[:255]
+    try:
+        # A savepoint, so a missing table cannot poison an outer transaction.
+        with transaction.atomic():
+            _count_in_table(key, limit, window_seconds, count)
+    except DatabaseError:
+        # The rate_counters table is created by migration 0007. Until it
+        # exists (a deploy that ran ahead of ``migrate``), keep limiting
+        # through the cache instead of failing every sign-in with a 500.
+        _count_in_cache(key, limit, window_seconds, count)
 
-    def refuse():
-        raise ApiError('عدد المحاولات كبير جدًا. حاول تاني بعد شوية.', 429)
+
+def _refuse():
+    raise ApiError('عدد المحاولات كبير جدًا. حاول تاني بعد شوية.', 429)
+
+
+def _count_in_cache(key, limit, window_seconds, count):
+    current = cache.get(key, 0)
+    if current >= limit:
+        _refuse()
+    if count:
+        cache.set(key, current + 1, window_seconds + 5)
+
+
+def _count_in_table(key, limit, window_seconds, count):
+    from .models import RateCounter, utc_now
+
+    refuse = _refuse
 
     if not count:
         current = RateCounter.objects.filter(key=key).values_list('count', flat=True).first()
