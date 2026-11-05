@@ -266,9 +266,9 @@
             (sum, r) => sum + Number(r.commission_amount || 0),
             0
           );
-          const debt = wallets
-            .filter((w) => Number(w.balance || 0) < 0)
-            .reduce((sum, w) => sum + Math.abs(Number(w.balance || 0)), 0);
+          // The API clamps balance at zero and reports what is owed to the
+          // platform in total_debt (same figure the wallets page shows).
+          const debt = wallets.reduce((sum, w) => sum + Number(w.total_debt || 0), 0);
           const credit = wallets
             .filter((w) => Number(w.balance || 0) > 0)
             .reduce((sum, w) => sum + Number(w.balance || 0), 0);
@@ -579,7 +579,7 @@
             [
               Ui.el(
                 'button',
-                { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } },
                 ['إلغاء']
               ),
               confirmBtn,
@@ -635,7 +635,7 @@
             [
               Ui.el(
                 'button',
-                { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } },
                 ['إلغاء']
               ),
               confirmBtn,
@@ -693,7 +693,7 @@
           Ui.openModal('تفاصيل الطلب #' + r.id, rows, [
             Ui.el(
               'button',
-              { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+              { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } },
               ['إغلاق']
             ),
           ]);
@@ -872,7 +872,7 @@
             [
               Ui.el(
                 'button',
-                { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } },
                 ['إغلاق']
               ),
             ]
@@ -1024,7 +1024,7 @@
             [
               Ui.el(
                 'button',
-                { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+                { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } },
                 ['إلغاء']
               ),
               confirmBtn,

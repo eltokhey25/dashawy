@@ -68,6 +68,8 @@ class CreateRequestSerializer(serializers.Serializer):
     area_key = serializers.CharField(required=False, allow_blank=True, max_length=64)
     latitude = OptionalFloatField(required=False, allow_null=True)
     longitude = OptionalFloatField(required=False, allow_null=True)
+    # "اطلب منه": the technician picked from the directory gets the offer first.
+    technician_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
 
     def validate_specialty(self, value):
         key = value.strip()
@@ -223,13 +225,17 @@ class RequestSerializer(serializers.ModelSerializer):
     )
     technician_profile_url = serializers.SerializerMethodField()
     price_status = serializers.SerializerMethodField()
+    preferred_technician_name = serializers.CharField(
+        source='preferred_technician.name', read_only=True, allow_null=True
+    )
+    photo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Request
         # ``customer`` / ``technician`` would serialise the bare FK value under
         # the wrong key; the legacy rows expose ``*_id`` instead. The guest
         # tracking token hash must never leave the server.
-        exclude = ('customer', 'technician', 'guest_token_hash')
+        exclude = ('customer', 'technician', 'preferred_technician', 'guest_token_hash')
 
     def get_customer_name(self, obj):
         return obj.display_customer_name
@@ -257,6 +263,13 @@ class RequestSerializer(serializers.ModelSerializer):
 
     def get_price_status(self, obj):
         return price_status(obj)
+
+    def get_photo_url(self, obj):
+        # The file itself is private: the endpoint checks that the caller is
+        # the customer, the technician on the job, or an admin.
+        if not obj.order_photo_path:
+            return None
+        return '/api/requests/' + str(obj.pk) + '/photo'
 
 
 # Internal bookkeeping neither party needs: who was offered the job before,

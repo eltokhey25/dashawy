@@ -196,7 +196,7 @@
             );
             lockComposer('');
           } else {
-            lockComposer('تعذر تحميل المحادثة');
+            lockComposer((e && e.status === 400 && e.message) || 'تعذر تحميل المحادثة');
           }
         }
       }
@@ -301,7 +301,11 @@
           if (now - lastErrorAt > 30000) {
             lastErrorAt = now;
             const loading = document.getElementById('chat-loading');
-            if (loading) loading.textContent = 'تعذر تحميل المحادثة.';
+            // A 400 is the server explaining (e.g. no technician on the order
+            // yet); a dead server has no message worth repeating.
+            if (loading)
+              loading.textContent =
+                (err && err.status === 400 && err.message) || 'تعذر تحميل المحادثة.';
           }
         }
       }

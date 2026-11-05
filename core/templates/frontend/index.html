@@ -510,8 +510,10 @@
             <span>دشاوي</span>
           </a>
           <p class="footer-tagline">
+            {% if site_tagline %}{{ site_tagline }}{% else %}
             خدمة متخصصة في تركيب وصيانة أطباق الدش والرسيفرات في الإسكندرية.
             توصلك بأقرب فني دش في أسرع وقت.
+            {% endif %}
           </p>
           <div class="footer-socials">
             {% if social_facebook %}<a href="{{ social_facebook }}" data-social-facebook aria-label="فيسبوك" target="_blank" rel="noopener"><i class="fa-brands fa-facebook-f" aria-hidden="true"></i></a>{% endif %}

@@ -267,6 +267,7 @@
         await loadProfile();
       } catch (err) {
         toast(err.message, 'error');
+      } finally {
         Ui.btnReset(btn);
       }
     });

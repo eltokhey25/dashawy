@@ -15,6 +15,8 @@ The legacy auto-assign service (``assignment.assign_technician``) is kept but
 no longer runs when a request is created.
 """
 
+from datetime import timedelta
+
 from django.db import transaction
 
 from ..models import Request, RequestBroadcast, Technician, utc_now
@@ -29,6 +31,10 @@ EXPIRED = 'expired'
 
 # Statuses a request can be offered out from. 'no_technician' is re-opened.
 BROADCASTABLE_STATUSES = ('pending', 'no_technician')
+
+# A customer who picked one technician ("اطلب منه") gets that technician's
+# answer first. After this long without one the order goes to everyone.
+PREFERRED_OFFER_MINUTES = 10
 
 
 class BroadcastError(Exception):
@@ -79,7 +85,26 @@ def broadcast_request(request_id):
             )
             request.status = 'pending'
 
-        for technician in eligible_technicians(request):
+        pool = eligible_technicians(request)
+        if request.preferred_technician_id:
+            chosen = [
+                t for t in pool if t.pk == request.preferred_technician_id
+            ]
+            if chosen and not RequestBroadcast.objects.filter(
+                request_id=request.pk,
+                technician_id=request.preferred_technician_id,
+                status=DECLINED,
+            ).exists():
+                pool = chosen
+            else:
+                # Not available, over the debt limit, or already passed on
+                # it: the choice cannot be honoured, so everyone is asked.
+                Request.objects.filter(pk=request.pk).update(
+                    preferred_technician=None, updated_at=now
+                )
+                request.preferred_technician_id = None
+
+        for technician in pool:
             row = RequestBroadcast.objects.filter(
                 request_id=request.pk, technician_id=technician.pk
             ).first()
@@ -182,6 +207,54 @@ def decline_broadcast(broadcast_id, technician):
     )
     if not updated:
         raise BroadcastError('الطلب ده اتعامل معاه خلاص', 409)
+    # The customer's chosen technician passed: the order now goes to everyone.
+    if Request.objects.filter(
+        pk=row.request_id, status='pending', preferred_technician_id=technician.pk
+    ).exists():
+        broadcast_request(row.request_id)
+
+
+def widen_stale_preferred_offers(now=None):
+    """Offer to everyone the targeted orders whose technician never answered.
+
+    Runs from the technician dashboard poll, so no scheduler is needed: an
+    order addressed to one technician for longer than PREFERRED_OFFER_MINUTES
+    is re-broadcast and the preference is dropped.
+    """
+    now = now or utc_now()
+    cutoff = now - timedelta(minutes=PREFERRED_OFFER_MINUTES)
+    fresh_offers = RequestBroadcast.objects.filter(
+        status=SENT, sent_at__gt=cutoff
+    ).values('request_id')
+    stale = list(
+        Request.objects.filter(
+            status='pending', preferred_technician__isnull=False
+        )
+        .exclude(pk__in=fresh_offers)
+        .values_list('pk', flat=True)
+    )
+    for request_id in stale:
+        Request.objects.filter(pk=request_id).update(
+            preferred_technician=None, updated_at=now
+        )
+        broadcast_request(request_id)
+    return stale
+
+
+def offer_open_requests_to(technician):
+    """Show a newly approved technician the orders still waiting for one.
+
+    Broadcasts happen when an order is created, so a technician approved
+    afterwards would never see it. Returns the ids of the requests offered.
+    """
+    offered = []
+    for request_id in Request.objects.filter(
+        status__in=BROADCASTABLE_STATUSES, preferred_technician__isnull=True
+    ).values_list('pk', flat=True):
+        result = broadcast_request(request_id)
+        if technician.pk in result['technician_ids']:
+            offered.append(request_id)
+    return offered
 
 
 def close_offers(request_id):
@@ -223,6 +296,7 @@ def _area_only(location_text):
 
 def incoming_for_technician(technician):
     """Live offers for one technician, newest first."""
+    widen_stale_preferred_offers()
     rows = (
         RequestBroadcast.objects.filter(
             technician_id=technician.pk, status=SENT, request__status='pending'
@@ -253,6 +327,11 @@ def incoming_for_technician(technician):
                 'service_price': job.service_price,
                 'customer_name': job.display_customer_name,
                 'customer_area': _area_only(job.location_text),
+                'photo_url': (
+                    f'/api/requests/{job.pk}/photo' if job.order_photo_path else None
+                ),
+                # The customer asked for this technician by name.
+                'preferred': job.preferred_technician_id == technician.pk,
             }
         )
     return offers

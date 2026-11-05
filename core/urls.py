@@ -9,6 +9,7 @@ from .guest_views import (
     GuestRequestCreateView,
     GuestRequestDetailView,
     GuestRequestPhotoView,
+    RequestPhotoView,
 )
 from .google_views import GoogleConfigView, GoogleLoginView
 from .public_views import (
@@ -228,6 +229,13 @@ urlpatterns = [
         r'^customer/guest-orders/link/?$',
         GuestOrderLinkView.as_view(),
         name='customer-guest-link',
+    ),
+
+    # The photo attached to an order, for the parties to it.
+    re_path(
+        r'^requests/(?P<pk>\d+)/photo/?$',
+        RequestPhotoView.as_view(),
+        name='request-photo',
     ),
 
     # Guest orders (no account)

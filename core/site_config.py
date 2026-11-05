@@ -94,6 +94,7 @@ def _db_settings() -> dict:
             for row in Setting.objects.filter(
                 key__in=(
                     'site_name',
+                    'site_tagline',
                     'support_phone',
                     'contact_phone',
                     'support_email',
@@ -169,6 +170,7 @@ def get_site_config(force: bool = False) -> dict:
     config = {
         'site_url': site_url,
         'site_name': stored.get('site_name') or 'دشاوي',
+        'site_tagline': str(stored.get('site_tagline') or '').strip(),
         'business_phone': phone,
         'business_phone_digits': _digits(phone),
         'business_phone_e164': normalize_phone(phone),

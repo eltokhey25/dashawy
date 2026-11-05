@@ -16,8 +16,10 @@ logger = logging.getLogger(__name__)
 # waiting on that same request. The sends run in parallel and the request
 # stops waiting after FANOUT_BUDGET_SECONDS; anything still in flight is
 # dropped (the offer itself is already saved and shows on the dashboard).
+# One dead push subscription (5 s timeout) must not hold the order form for
+# long, so the budget is just over the push timeout.
 FANOUT_WORKERS = 16
-FANOUT_BUDGET_SECONDS = 8
+FANOUT_BUDGET_SECONDS = 5
 
 def accepted_message(technician_name):
     name = technician_name or 'الفني'

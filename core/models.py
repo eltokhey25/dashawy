@@ -444,6 +444,19 @@ class Request(models.Model):
     guest_linked_at = models.DateTimeField(null=True, blank=True)
     order_photo_path = models.CharField(max_length=500, null=True, blank=True)
 
+    # The technician the customer picked from the directory ("اطلب منه").
+    # The order is offered to them alone first; if they decline or do not
+    # answer in time it goes to everyone and this is cleared.
+    preferred_technician = models.ForeignKey(
+        Technician,
+        on_delete=models.SET_NULL,
+        db_column='preferred_technician_id',
+        related_name='+',
+        null=True,
+        blank=True,
+        db_index=False,
+    )
+
     class Meta:
         db_table = 'requests'
         indexes = [

@@ -591,7 +591,7 @@
             body,
             Ui.el(
               'button',
-              { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } },
+              { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } },
               ['إغلاق']
             )
           );
@@ -736,12 +736,18 @@
                 completedByTech[x.technician_id] = (completedByTech[x.technician_id] || 0) + 1;
               }
             });
-            const top = (t.technicians || []).slice(0, 4).map((x) => ({
-              id: x.id,
-              name: x.name,
-              specialty: x.specialty,
-              completed: completedByTech[x.id] || 0,
-            }));
+            // Accounts still under review have no jobs and no place on a
+            // performance list; ranked by completed jobs, most first.
+            const top = (t.technicians || [])
+              .filter((x) => !x.approval_status || x.approval_status === 'approved')
+              .map((x) => ({
+                id: x.id,
+                name: x.name,
+                specialty: x.specialty,
+                completed: completedByTech[x.id] || 0,
+              }))
+              .sort((a, b) => b.completed - a.completed)
+              .slice(0, 4);
 
             renderWith(s, top, reqs, w);
           } catch (e) {

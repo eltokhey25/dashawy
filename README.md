@@ -56,7 +56,7 @@ assets from `frontend/`:
 | --- | --- |
 | `/` | Public homepage |
 | `/order.html` | Guest order form (no account required) |
-| `/track.html?token=…` | Private guest-order tracking and cancellation |
+| `/track.html?token=…` | Legacy tracking links only; orders from the form now live on the customer's account (`/customer/my-requests.html`) |
 | `/auth.html` | Customer/technician sign-in and registration |
 | `/customer/dashboard.html` | Customer dashboard |
 | `/technician/dashboard.html` | Technician dashboard |
@@ -98,10 +98,11 @@ All API routes live under `/api/`. Authentication uses a Bearer JWT returned as
 | `GET` | `/api/specialties` | Public | Service types with prices from the database |
 | `GET` | `/api/alexandria-areas` | Public | Covered neighbourhoods |
 | `POST` | `/api/consent` | Bearer | Record terms/privacy consent with a policy version |
-| `POST` | `/api/guest/requests` | Public | Create an account-free order; returns a tracking token once |
+| `POST` | `/api/guest/requests` | Public | Create an order from the public form; creates (or uses) the customer account and signs it in |
 | `GET` | `/api/guest/requests/<token>` | Token | Status of a guest order |
 | `POST` | `/api/guest/requests/<token>/cancel` | Token | Cancel before work starts |
-| `GET` | `/api/guest/requests/<token>/photo` | Token | The guest's own uploaded photo |
+| `GET` | `/api/guest/requests/<token>/photo` | Token | The guest's own uploaded photo (legacy tokens) |
+| `GET` | `/api/requests/<id>/photo` | Bearer | The order photo, for its customer, its technician or an admin |
 | `POST` | `/api/customer/guest-orders/link` | Customer | Link a guest order with token + matching phone |
 
 ### Customer

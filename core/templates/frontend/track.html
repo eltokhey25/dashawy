@@ -44,9 +44,10 @@
 
       <section id="track-error" class="track-state track-state--error" hidden>
         <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
-        <h1>رابط المتابعة غير صالح</h1>
-        <p id="track-error-text">الرابط ناقص أو منتهي. لو عندك الطلب الأصلي، استخدم الرابط اللي ظهرلك بعد الإرسال.</p>
-        <a class="btn btn-brand" href="/order.html">ابعت طلب جديد</a>
+        <h1>تابع طلبك من حسابك</h1>
+        <p id="track-error-text">الطلبات بقت بتتتابع من «طلباتي»: سجّل دخولك برقم موبايلك وكلمة السر اللي كتبتها وقت الطلب.</p>
+        <a class="btn btn-brand" href="/login.html">تسجيل الدخول</a>
+        <a class="btn btn-soft" href="/order.html">ابعت طلب جديد</a>
       </section>
 
       <section id="track-content" hidden>
@@ -293,8 +294,15 @@
         $('track-new').hidden = !isNew;
       }
 
+      // Orders placed from the form now live on the customer's account and
+      // are followed from "طلباتي"; a tracking token only exists for orders
+      // made before that change. A signed-in customer goes straight there.
       async function load() {
         if (!token || token.length < 20) {
+          if (Auth.isAuthed() && Auth.role() === 'customer') {
+            window.location.replace('/customer/my-requests.html');
+            return;
+          }
           showError();
           return;
         }
@@ -302,9 +310,11 @@
           const data = await api('/api/guest/requests/' + encodeURIComponent(token));
           render(data.request);
         } catch (err) {
-          showError(err.status === 404
-            ? 'الرابط مش موجود أو الطلب اتلغى. تأكد إن الرابط كامل، أو ابعت طلب جديد.'
-            : (err.message || undefined));
+          if (err.status === 404 && Auth.isAuthed() && Auth.role() === 'customer') {
+            window.location.replace('/customer/my-requests.html');
+            return;
+          }
+          showError(err.status === 404 ? undefined : (err.message || undefined));
         }
       }
 

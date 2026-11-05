@@ -27,7 +27,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -388,6 +388,61 @@ class GuestRequestCancelView(APIView):
         payload = guest_payload(job)
         payload['tracking_url'] = '/track.html?token=' + token
         return Response({'message': 'تم إلغاء الطلب', 'request': payload})
+
+
+def _photo_response(job):
+    """Stream the order photo, or 404 when there is none (or it is unsafe)."""
+    if not job.order_photo_path:
+        raise Http404('لا توجد صورة لهذا الطلب')
+    name = resolve_stored_upload(job.order_photo_path)
+    opened = open_stored_upload(name) if name else None
+    if opened is None:
+        raise Http404('لا توجد صورة لهذا الطلب')
+    handle, mime = opened
+    # Same allow-list as the upload check: an SVG (image/svg+xml) rendered
+    # inline from this origin would be a stored-XSS vector, so anything but
+    # a raster image is refused even if it somehow reached storage.
+    if mime not in ALLOWED_ORDER_IMAGE_MIME_TYPES:
+        handle.close()
+        raise Http404('لا توجد صورة لهذا الطلب')
+    response = FileResponse(handle, content_type=mime)
+    response['Cache-Control'] = 'private, max-age=300'
+    response['Content-Disposition'] = 'inline'
+    response['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+class RequestPhotoView(APIView):
+    """GET /api/requests/<id>/photo — the photo attached to an order.
+
+    Visible to the customer who placed it, the technician it is assigned to
+    or currently offered to, and admins. Pages fetch it with the JWT (an
+    ``<img src>`` carries no header) and show the blob.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        job = Request.objects.filter(pk=pk).first()
+        if job is None:
+            raise Http404('الطلب غير موجود')
+        user = request.user
+        allowed = user.role == 'admin'
+        if user.role == 'customer':
+            allowed = Customer.objects.filter(
+                user_id=user.pk, pk=job.customer_id
+            ).exists()
+        elif user.role == 'technician':
+            tech = Technician.objects.filter(user_id=user.pk).first()
+            allowed = tech is not None and (
+                job.technician_id == tech.pk
+                or RequestBroadcast.objects.filter(
+                    request_id=job.pk, technician_id=tech.pk, status='sent'
+                ).exists()
+            )
+        if not allowed:
+            raise forbidden('غير مصرح لك بعرض صورة هذا الطلب')
+        return _photo_response(job)
 
 
 class GuestRequestPhotoView(APIView):

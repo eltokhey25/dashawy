@@ -109,6 +109,15 @@
   <script src="/js/ui.js"></script>
   <script src="/js/admin.js"></script>
   <script nonce="{{ csp_nonce }}">
+      // Mirrors the server policy (core/validation.py): 8+ characters with a
+      // letter and a digit, so the form never promises less than the API.
+      function passwordProblem(pwd) {
+        if (!pwd) return 'كلمة المرور مطلوبة';
+        if (pwd.length < 8) return 'كلمة المرور يجب ألا تقل عن 8 أحرف';
+        if (!/[a-zA-Z]/.test(pwd)) return 'كلمة المرور يجب أن تحتوي على حرف واحد على الأقل';
+        if (!/\d/.test(pwd)) return 'كلمة المرور يجب أن تحتوي على رقم واحد على الأقل';
+        return null;
+      }
     (async () => {
       if (!(await Admin.init())) throw new Error('redirect');
 
@@ -341,7 +350,7 @@
           ]));
           body.appendChild(Ui.el('div', { class: 'form-group' }, [
             Ui.el('label', { class: 'form-label' }, ['كلمة المرور']),
-            Ui.el('input', { class: 'input', id: 'adm-pwd', attrs: { type: 'text', dir: 'ltr', placeholder: '6 أحرف على الأقل' } }),
+            Ui.el('input', { class: 'input', id: 'adm-pwd', attrs: { type: 'password', dir: 'ltr', autocomplete: 'new-password', placeholder: '8 أحرف على الأقل، فيها حرف ورقم' } }),
             Ui.el('div', { class: 'form-hint' }, ['اكتبها وسلّمها للمسؤول مباشرة — لن يُطلب منه تغييرها.'])
           ]));
 
@@ -393,7 +402,8 @@
               const password = document.getElementById('adm-pwd').value;
               const isSuper = document.getElementById('adm-super').checked;
               if (!email || !password) { toast('الإيميل والباسورد مطلوبان', 'error'); return; }
-              if (password.length < 6) { toast('الباسورد 6 أحرف على الأقل', 'error'); return; }
+              const pwdProblem = passwordProblem(password);
+              if (pwdProblem) { toast(pwdProblem, 'error'); return; }
               payload.email = email;
               payload.password = password;
               payload.is_super_admin = isSuper;
@@ -448,7 +458,7 @@
           ]),
           Ui.el('div', { class: 'form-group' }, [
             Ui.el('label', { class: 'form-label' }, ['كلمة المرور الجديدة']),
-            Ui.el('input', { class: 'input', id: 'rp-pwd', attrs: { type: 'text', dir: 'ltr', placeholder: '6 أحرف على الأقل' } })
+            Ui.el('input', { class: 'input', id: 'rp-pwd', attrs: { type: 'password', dir: 'ltr', autocomplete: 'new-password', placeholder: '8 أحرف على الأقل، فيها حرف ورقم' } })
           ])
         ]);
 
@@ -456,7 +466,8 @@
           class: 'btn btn-brand',
           on: { click: async () => {
             const pwd = document.getElementById('rp-pwd').value;
-            if (pwd.length < 6) { toast('كلمة المرور 6 أحرف على الأقل', 'error'); return; }
+            const pwdProblem = passwordProblem(pwd);
+            if (pwdProblem) { toast(pwdProblem, 'error'); return; }
             Ui.btnLoading(saveBtn, 'جارٍ الحفظ…');
             try {
               const d = await api('/api/admin/admins/' + id + '/reset-password', { method: 'POST', body: { new_password: pwd } });

@@ -45,8 +45,8 @@
     <div class="legacy-banner">
       <i class="fa-solid fa-circle-info"></i>
       <div>
-        <b>صفحة قديمة</b>
-        <span>استخدم <a href="/request">صفحة الطلب الجديدة</a> — أسرع وأسهل.</span>
+        <b>الصفحة دي لطلب فني بعينه</b>
+        <span>لو مش فارق معاك مين الفني، <a href="/request">صفحة الطلب السريع</a> بتبعت طلبك لكل الفنيين المتاحين.</span>
       </div>
     </div>
 
@@ -195,7 +195,7 @@
             <span class="dk"><i class="fa-solid fa-shield-halved" style="color:var(--success-500);"></i></span>
             <span class="dv">
               <b>فنيون موثوقون</b><br>
-              <span class="muted" style="font-size:0.83rem;">حسابات الفنيين تنشئها الإدارة فقط بعد التحقق.</span>
+              <span class="muted" style="font-size:0.83rem;">كل فني بيتراجع ويُعتمد من الإدارة بعد التحقق من أوراقه قبل ما يستلم أي طلب.</span>
             </span>
           </div>
         </div>
@@ -421,9 +421,15 @@
 
     function announceResult(data) {
       const assignment = data.assignment || {};
-      const message = assignment.assigned
+      const preferred = data.preferred_technician;
+      let message = assignment.assigned
         ? assignment.message || ASSIGNED_MESSAGE
         : WAITING_MESSAGE;
+      if (preferred) {
+        message = preferred.offered
+          ? 'وصل طلبك لـ' + preferred.name + '. لو ما ردّش خلال 10 دقايق هنبعته لباقي الفنيين.'
+          : preferred.name + ' مش متاح دلوقتي، فبعتنا طلبك لكل الفنيين المتاحين.';
+      }
 
       toast(message, 'success');
       // Left disabled rather than reset: the request exists, the form is done, and

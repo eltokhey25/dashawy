@@ -219,7 +219,7 @@
                 attrs: { 'data-reset-pwd': t.user_id, title: 'إعادة تعيين كلمة المرور' }
               }, [Ui.ic('fa-solid fa-key')]),
               Ui.el('button', { class: 'btn btn-icon btn-soft-brand', attrs: { 'data-edit': t.id, title: 'تعديل' } }, [Ui.ic('fa-solid fa-pen')]),
-              Ui.el('button', { class: 'btn btn-icon btn-soft', attrs: { 'data-avail': t.id, title: 'تبديل التوفر' } }, [Ui.ic('fa-solid fa-power-off')]),
+              Ui.el('button', { class: 'btn btn-icon btn-soft', attrs: { 'data-avail': t.id, title: 'تبديل متاح / مشغول' } }, [Ui.ic('fa-solid fa-power-off')]),
               Ui.el('button', { class: 'btn btn-icon btn-soft-danger', attrs: { 'data-del': t.id, title: 'حذف' } }, [Ui.ic('fa-solid fa-trash')])
             ]);
           }
@@ -326,8 +326,10 @@
         if (btn.hasAttribute('data-avail')) {
           Ui.btnLoading(btn, '');
           try {
+            // Quick toggle flips available/busy only; "offline" blocks the
+            // technician's sign-in, so it lives in the edit form.
             const cur = dataAvail(tech);
-            const next = cur === 'available' ? 'busy' : cur === 'busy' ? 'offline' : 'available';
+            const next = cur === 'available' ? 'busy' : 'available';
             const data = await api('/api/admin/technicians/' + id, { method: 'PUT', body: { availability: next } });
             toast(data.message, 'success');
             load();
@@ -668,6 +670,16 @@
         appendField(f, 'الإيميل', '<input class="input" id="t-email" type="email" required placeholder="fani@example.com">');
         appendField(f, 'المنطقة في الإسكندرية',
           '<select class="input" id="t-area"><option value="">اختر منطقتك…</option></select>');
+        if (editing) {
+          // "offline" stops the technician signing in, so it is a deliberate
+          // choice here rather than a step of the quick toggle in the list.
+          appendField(f, 'حالة التوفر',
+            '<select class="input" id="t-avail">' +
+            '<option value="available">متاح</option>' +
+            '<option value="busy">مشغول</option>' +
+            '<option value="offline">غير نشط (لا يستطيع الدخول)</option>' +
+            '</select>');
+        }
 
         Ui.openModal(
           editing ? 'تعديل الفني' : 'إضافة فني جديد',
@@ -675,6 +687,14 @@
           modelFooter(editing, tech),
           { onClose: closeModal, onOpen: null }
         );
+
+        // The inputs exist in the document only once the modal is mounted.
+        if (editing) {
+          document.getElementById('t-name').value = tech.name || '';
+          document.getElementById('t-phone').value = tech.phone || '';
+          document.getElementById('t-email').value = tech.email || '';
+          document.getElementById('t-avail').value = dataAvail(tech);
+        }
 
         (async function loadAreas() {
           const sel = document.getElementById('t-area');
@@ -684,7 +704,9 @@
               sel.appendChild(Ui.el('option', { text: a.label, attrs: { value: a.key } }));
             });
             if (editing && tech.location_text) {
-              const match = (data.areas || []).find((a) => a.label === tech.location_text);
+              // location_text is "<area> — <street…>"; only the area is a key.
+              const area = String(tech.location_text).split('—')[0].trim();
+              const match = (data.areas || []).find((a) => a.label === area);
               if (match) sel.value = match.key;
             }
           } catch (e) { console.error(e); }
@@ -704,6 +726,7 @@
           if (!ok) return;
           const body = { name, phone, email };
           if (area_key) body.area_key = area_key;
+          if (editing) body.availability = document.getElementById('t-avail').value;
           const btn = document.getElementById('save-btn');
           Ui.btnLoading(btn, 'جارٍ الحفظ…');
           try {
@@ -724,7 +747,7 @@
 
       function modelFooter(editing, tech) {
         return Ui.el('div', { style: 'display:flex;gap:8px;justify-content:flex-start' }, [
-          Ui.el('button', { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } }, ['إلغاء']),
+          Ui.el('button', { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } }, ['إلغاء']),
           Ui.el('button', { class: 'btn btn-brand', attrs: { type: 'submit', id: 'save-btn', form: 'tech-form' } }, [editing ? 'حفظ التعديلات' : 'إضافة الفني'])
         ]);
       }

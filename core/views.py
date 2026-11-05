@@ -67,6 +67,7 @@ from .services.broadcast import (
     close_offers,
     decline_broadcast,
     incoming_for_technician,
+    offer_open_requests_to,
 )
 from .services.notifications import (
     notify_account_locked,
@@ -720,6 +721,16 @@ class CustomerRequestListCreateView(APIView):
         data = serializer.validated_data
         quote = quote_for(data['specialty'])
 
+        # "اطلب منه": a technician chosen from the directory is asked first.
+        # Anyone not approved (or gone) is simply not a valid choice.
+        preferred = None
+        if data.get('technician_id'):
+            preferred = Technician.objects.filter(
+                pk=data['technician_id'], approval_status='approved'
+            ).first()
+            if preferred is None:
+                raise bad_request('الفني المختار غير متاح حالياً، اختر فني تاني أو اطلب من غير اختيار')
+
         created = Request.objects.create(
             customer_id=customer.pk,
             specialty=data['specialty'],
@@ -729,13 +740,19 @@ class CustomerRequestListCreateView(APIView):
             latitude=data.get('latitude'),
             longitude=data.get('longitude'),
             status='pending',
+            preferred_technician=preferred,
             **quote,
         )
 
         # The request is offered to the technicians; the customer hears back
-        # when one of them accepts (see TechnicianBroadcastAcceptView).
+        # when one of them accepts (see TechnicianBroadcastAcceptView). With a
+        # preferred technician the offer goes to them alone first, and to
+        # everyone if they decline or do not answer in time.
         offers = broadcast_request(created.pk)
         created.refresh_from_db()
+        offered_to_preferred = bool(
+            preferred and created.preferred_technician_id == preferred.pk
+        )
 
         return Response(
             {
@@ -743,6 +760,11 @@ class CustomerRequestListCreateView(APIView):
                 'request': CustomerRequestSerializer(created).data,
                 'broadcast': {'sent_to': offers['count']},
                 'assigned': False,
+                'preferred_technician': (
+                    {'id': preferred.pk, 'name': preferred.name, 'offered': offered_to_preferred}
+                    if preferred
+                    else None
+                ),
             },
             status=status.HTTP_201_CREATED,
         )
@@ -1619,10 +1641,14 @@ class AdminTechnicianApproveView(APIView):
             documents_verified=True,
         )
         technician.refresh_from_db()
+        # Orders placed before the approval were offered to the technicians
+        # of that moment; the new account gets them in its incoming tab too.
+        offered = offer_open_requests_to(technician)
         return Response(
             {
                 'message': 'تم اعتماد الفني وتفعيل حسابه',
                 'technician': _admin_technician_payload(pk),
+                'offered_requests': offered,
             }
         )
 

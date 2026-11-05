@@ -96,6 +96,7 @@
     <script src="/js/api.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>
+    <script src="/js/request-photo.js"></script>
     <script nonce="{{ csp_nonce }}">
       if (!Auth.requireRole('technician')) throw new Error('redirect');
       Ui.renderNavUser(document.getElementById('nav-user'));
@@ -338,6 +339,7 @@
         );
 
         if (r.description) card.appendChild(para('incoming-desc', r.description));
+        if (r.photo_url && window.RequestPhoto) card.appendChild(RequestPhoto.inline(r.photo_url));
 
         card.appendChild(
           Ui.el('div', { class: 'incoming-actions' }, [
@@ -404,6 +406,7 @@
         }
 
         if (r.description) card.appendChild(para('req-desc', r.description));
+        if (r.photo_url && window.RequestPhoto) card.appendChild(RequestPhoto.inline(r.photo_url));
 
         // Chat, while the job is live. A finished job keeps its transcript reachable,
         // so the button stays (as "سجل المحادثة") rather than vanishing.
@@ -500,6 +503,7 @@
             ])
           );
         }
+        if (r.photo_url && window.RequestPhoto) card.appendChild(RequestPhoto.inline(r.photo_url));
 
         // The amount state machine, shown only once it has started. A request with no
         // amount_status has not entered the confirmation flow at all, so saying

@@ -229,18 +229,19 @@
           f.appendChild(g4);
         }
 
+        const actions = Ui.el('div', { class: 'adm-actions' }, [
+          Ui.el('button', { class: 'btn btn-soft', attrs: { type: 'button' }, on: { click: () => closeModal() } }, ['إلغاء']),
+          Ui.el('button', { class: 'btn btn-brand', attrs: { type: 'submit', id: 'save-btn', form: 'spec-form' } }, [editing ? 'حفظ التعديلات' : 'إضافة التخصص'])
+        ]);
+
+        Ui.openModal(editing ? 'تعديل التخصص' : 'إضافة تخصص جديد', f, actions, { onClose: closeModal });
+
+        // The inputs exist in the document only once the modal is mounted.
         if (editing) {
           document.getElementById('s-label').value = s.label;
           document.getElementById('s-icon').value = s.icon || '';
           document.getElementById('s-enabled').value = String(s.enabled ? 1 : 0);
         }
-
-        const actions = Ui.el('div', { class: 'adm-actions' }, [
-          Ui.el('button', { class: 'btn btn-soft', attrs: { type: 'button', onclick: 'closeModal()' } }, ['إلغاء']),
-          Ui.el('button', { class: 'btn btn-brand', attrs: { type: 'submit', id: 'save-btn', form: 'spec-form' } }, [editing ? 'حفظ التعديلات' : 'إضافة التخصص'])
-        ]);
-
-        Ui.openModal(editing ? 'تعديل التخصص' : 'إضافة تخصص جديد', f, actions, { onClose: closeModal });
 
         document.getElementById('spec-form').addEventListener('submit', async (ev) => {
           ev.preventDefault();

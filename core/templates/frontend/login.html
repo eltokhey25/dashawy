@@ -214,9 +214,12 @@
         // api.js deliberately lets a 401 from this endpoint through instead of
         // treating it as an expired session (which would clear storage and
         // redirect), so a rejected password is shown here, on the form.
+        // The server says why: wrong password, an account still under
+        // review, a rejected sign-up, or a disabled account. Only a 401 with
+        // no text falls back to the generic wording.
         const message =
           err.status === 401
-            ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+            ? err.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
             : err.message;
         showLoginError(message);
         Ui.btnReset(btn);

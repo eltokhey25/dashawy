@@ -153,6 +153,22 @@
     // Only figures the customer committed or an admin settled: the API hides
     // the technician's report until the customer has entered their own.
     var amount = Number(request.final_amount || request.customer_reported_amount || 0);
+    // Nothing recorded yet: ask for the cash figure here, in the same dialog,
+    // instead of sending the customer to find the request in their history.
+    var askAmount = !(amount > 0) && request.customer_reported_amount == null;
+    var amountRow = askAmount
+      ? '<div style="padding:6px 0;">' +
+        '<label for="force-amount" style="display:block;color:#64748b;font-size:0.85rem;margin-bottom:6px;">المبلغ اللي دفعته للفني (ج.م)</label>' +
+        '<input id="force-amount" type="number" inputmode="numeric" min="1" step="1" placeholder="مثال: 150"' +
+        ' style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:10px;font-family:inherit;font-size:1rem;box-sizing:border-box;">' +
+        '<div style="color:#94a3b8;font-size:0.75rem;margin-top:6px;">اختياري — لو سيبته فاضي تقدر تسجّله بعدين من «طلباتي».</div>' +
+        '</div>'
+      : '<div style="display:flex;justify-content:space-between;padding:6px 0;">' +
+        '<span style="color:#64748b;font-size:0.85rem;">المبلغ المدفوع</span>' +
+        '<b style="color:#047857;font-size:1rem;">' +
+        (amount > 0 ? escapeHtml(amount) + ' ج.م' : 'غير محدد') +
+        '</b>' +
+        '</div>';
 
     box.innerHTML = [
       '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;display:grid;place-items:center;font-size:1.6rem;margin:0 auto 16px;">',
@@ -172,12 +188,7 @@
         escapeHtml(request.specialty_label || request.specialty) +
         '</b>',
       '</div>',
-      '<div style="display:flex;justify-content:space-between;padding:6px 0;">',
-      '<span style="color:#64748b;font-size:0.85rem;">المبلغ المدفوع</span>',
-      '<b style="color:#047857;font-size:1rem;">' +
-        (amount > 0 ? escapeHtml(amount) + ' ج.م' : 'غير محدد') +
-        '</b>',
-      '</div>',
+      amountRow,
       '</div>',
       '<div id="force-stars" style="display:flex;justify-content:center;gap:6px;margin-bottom:6px;">',
       stars,
@@ -275,10 +286,29 @@
         return;
       }
 
+      // An amount typed here is recorded first; a rejected figure stops the
+      // submit so it can be corrected, an empty field is simply skipped.
+      var amountInput = box.querySelector('#force-amount');
+      var typedAmount = amountInput ? Number(amountInput.value) : 0;
+      if (amountInput && amountInput.value !== '' && !(typedAmount > 0)) {
+        say('اكتب مبلغ صحيح أو سيب الخانة فاضية', 'error');
+        amountInput.focus();
+        return;
+      }
+
       submitBtn.disabled = true;
       submitBtn.textContent = 'جاري الإرسال…';
 
       try {
+        if (typedAmount > 0) {
+          await api('/api/customer/requests/' + request.id + '/report-payment', {
+            method: 'POST',
+            body: { amount: typedAmount },
+          });
+          // Recorded; a retry after a failed review must not send it twice.
+          amountInput.value = '';
+          amountInput.disabled = true;
+        }
         var comment = box.querySelector('#force-comment').value.trim();
         var res = await api('/api/customer/requests/' + request.id + '/review', {
           method: 'POST',
