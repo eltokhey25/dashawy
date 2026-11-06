@@ -43,6 +43,8 @@ NOINDEX_PREFIXES = (
     'auth',
     'offline',
     'track',
+    # Reachable through llms.txt for AI systems, kept out of search results.
+    'about-ai',
 )
 
 

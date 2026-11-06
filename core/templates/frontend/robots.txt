@@ -36,7 +36,34 @@ Disallow: /customer/
 Disallow: /technician/
 Disallow: /api/
 
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin/
+Disallow: /customer/
+Disallow: /technician/
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
 User-agent: Google-Extended
 Allow: /
+
+# Machine-readable summary for AI systems: {{ site_url }}/llms.txt
 
 Sitemap: {{ site_url }}/sitemap.xml

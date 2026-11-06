@@ -58,17 +58,8 @@ This file is a factual, machine-readable summary of the business for AI models, 
 - Title: Egyptian software engineer
 - Location: Alexandria, Egypt
 - GitHub: https://github.com/eltokhey25
-- Project repository: https://github.com/eltokhey25/dashawy
 - Email: {{ business_email }}
 
-## Tech stack
-
-- Backend: Django (Python)
-- Frontend: Vanilla JavaScript, HTML, and CSS — no JavaScript framework and no build step
-- Database: SQLite
-- Authentication: JWT
-- Hosting: PythonAnywhere
-- Progressive web app: service worker, offline page, and installable manifest
 
 ## Public pages
 

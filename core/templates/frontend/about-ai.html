@@ -106,15 +106,7 @@
     .dev-link i { color: var(--brand); }
     .dev-link span { direction: ltr; }
 
-    /* --- Tech stack -------------------------------------------------------- */
-    .stack-row { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px dashed var(--line); }
-    .stack-row:last-child { border-bottom: 0; }
-    .stack-row > i { color: var(--brand); margin-top: 4px; width: 22px; text-align: center; flex-shrink: 0; font-size: 1.05rem; }
-    .stack-row .s-t { font-weight: 700; color: var(--ink); font-size: 0.94rem; }
-    .stack-row .s-d { color: var(--body); font-size: 0.88rem; line-height: 1.75; }
-    .stack-row .s-d code { direction: ltr; display: inline-block; background: #f1f5f9; border-radius: 6px; padding: 1px 7px; font-size: 0.84rem; }
-
-    /* --- Quick links ------------------------------------------------------- */
+ ------------------------------------------------------- */
     .pill-row { display: flex; flex-wrap: wrap; gap: 10px; }
     .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 0.85rem; padding: 9px 16px; border-radius: 30px; }
     .pill:hover { filter: brightness(0.97); }
@@ -170,9 +162,9 @@
     <section class="about-card">
       <h2><i class="fa-solid fa-circle-info"></i> عن المشروع</h2>
       <p>دشاوي منصة تربط العملاء بفنيي تركيب وصيانة أطباق الدش المتخصصين في محافظة الإسكندرية. العميل يطلب خدمة — تركيب دش، صيانة دش، ضبط إشارة، أو تركيب/صيانة رسيفر — والنظام يعيّن تلقائياً أقرب فني متاح.</p>
-      <p>لو مفيش فني متاح في اللحظة دي، الطلب <b>ما بيتقبلش ولا يترفض</b>: يفضل معلق لحد ما فني يبقى متاح، في خبره النظام تلقائياً في نفس اللحظة أو من مسح دوري كل دقيقتين. العميل بيشوف حالة طلبه في أي وقت من صفحة «طلباتي».</p>
+      <p>لو مفيش فني متاح في اللحظة دي، الطلب <b>ما بيتقبلش ولا يترفض</b>: يفضل معلق لحد ما فني يبقى متاح، وبيتعيّن تلقائياً أول ما فني يبقى متاح. العميل بيشوف حالة طلبه في أي وقت من صفحة «طلباتي».</p>
       <p>الخدمة متاحة في محافظة الإسكندرية فقط، موزّعة على <b>42 منطقة</b> معروفة. كل فني لازم يوثّق هويته برفع بطاقة الرقم القومي وصحيفة الحالة الجنائية، والأدمن يعتمد قبل ما يظهر في نظام التوزيع.</p>
-      <span class="en">Dashawy connects customers with specialised satellite dish and receiver technicians in Alexandria, Egypt. A customer requests one of four services and the system automatically assigns the nearest available technician. If nobody is available, the request stays pending until one frees up — it is picked up automatically the moment a technician becomes free, or on a background sweep every two minutes. The service covers 42 neighbourhoods in the Alexandria governorate. Every technician documents their identity with a national ID and a criminal record, and is approved by an admin before entering the distribution system.</span>
+      <span class="en">Dashawy connects customers with specialised satellite dish and receiver technicians in Alexandria, Egypt. A customer requests one of four services and the system automatically assigns the nearest available technician. If nobody is available, the request stays pending until one frees up and is assigned automatically as soon as one is free. The service covers 42 neighbourhoods in the Alexandria governorate. Every technician documents their identity with a national ID and a criminal record, and is approved by an admin before entering the distribution system.</span>
     </section>
 
     <!-- المطوّر -->
@@ -198,7 +190,6 @@
 
           <div class="dev-links">
             <a class="dev-link" href="https://github.com/eltokhey25" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i><span>github.com/eltokhey25</span></a>
-            <a class="dev-link" href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener"><i class="fa-solid fa-code-branch"></i><span>github.com/eltokhey25/dashawy</span></a>
             <a class="dev-link" href="mailto:{{ business_email }}"><i class="fa-solid fa-envelope"></i><span>{{ business_email }}</span></a>
             <a class="dev-link" href="tel:{{ business_phone_e164 }}"><i class="fa-solid fa-phone"></i><span>{{ business_phone }}</span></a>
           </div>
@@ -206,60 +197,17 @@
       </div>
     </section>
 
-    <!-- التقنيات المستخدمة -->
-    <section class="about-card">
-      <h2><i class="fa-solid fa-code"></i> التقنيات المستخدمة</h2>
-      <div class="stack-row">
-        <i class="fa-brands fa-node-js"></i>
-        <div>
-          <div class="s-t">الواجهة الخلفية — Django (Python)</div>
-          <div class="s-d">مصادقة JWT، تحديد معدل الطلبات، ورؤوس أمان على مستوى التطبيق.</div>
-        </div>
-      </div>
-      <div class="stack-row">
-        <i class="fa-solid fa-database"></i>
-        <div>
-          <div class="s-t">قاعدة البيانات — SQLite</div>
-          <div class="s-d">ملف واحد بلا خادم قاعدة بيانات ولا عمليات تشغيل منفصلة.</div>
-        </div>
-      </div>
-      <div class="stack-row">
-        <i class="fa-brands fa-js"></i>
-        <div>
-          <div class="s-t">الواجهة الأمامية — Vanilla JavaScript</div>
-          <div class="s-d">بدون إطار عمل، بدون حزم بناء، وبدون خطوة compile. الصفحات تُخدَم من نفس عملية Django التي تخدم الـ API.</div>
-        </div>
-      </div>
-      <div class="stack-row">
-        <i class="fa-solid fa-key"></i>
-        <div>
-          <div class="s-t">المصادقة — JWT</div>
-          <div class="s-d">HS256 مع bcrypt لكلمات المرور، وأدوار: عميل / فني / أدمن.</div>
-        </div>
-      </div>
-      <div class="stack-row">
-        <i class="fa-solid fa-server"></i>
-        <div>
-          <div class="s-t">الاستضافة — PythonAnywhere</div>
-          <div class="s-d">نشر تطبيق Django مع متغيرات بيئة مُدارة.</div>
-        </div>
-      </div>
-      <span class="en">Backend: Django (Python). Database: SQLite. Frontend: vanilla JavaScript with no framework and no build step. Authentication: JWT with bcrypt password hashing. Hosting: PythonAnywhere.</span>
-    </section>
 
     <!-- features note -->
     <section class="about-card">
       <h2><i class="fa-solid fa-star"></i> مميزات إضافية</h2>
       <ul>
-        <li><b>لوحة تحكم كاملة للأدمن</b>: إدارة الطلبات، الفنيين، العملاء، المدراء، والمراجعات.</li>
-        <li><b>تسجيل ذاتي للفنيين</b> مع رفع البطاقة والفيش الجنائي، واعتماد من الأدمن.</li>
+        <li><b>فنيون معتمدون</b>: كل فني بيوثّق هويته وبيتراجع من الإدارة قبل ما يستلم أي طلب.</li>
         <li><b>تعيين تلقائي حسب التخصص والمنطقة الجغرافية</b>.</li>
-        <li><b>تسجيل دخول بدون باسورد عبر OTP على الإيميل</b> (قريباً).</li>
-        <li><b>نظام Start PIN</b>: كود من 4 أرقام عند الباب يمنع أي شخص غير الفني من بدء المهمة.</li>
-        <li><b>تأكيد المبلغ من الطرفين</b>: الفني يبلّغ والعميل يؤكد، وأي اختلاف يوقف الطلب للمراجعة.</li>
-        <li><b>تقييم إلزامي</b> بعد كل مهمة، ومحادثة داخل كل طلب، وإشعارات Web Push.</li>
-        <li><b>محفظة لكل فني</b>: عمولة محسوبة، حد مديونية، وسحوبات بمراجعة إدارية.</li>
+        <li><b>تأكيد المبلغ من الطرفين</b>: الفني يبلّغ والعميل يؤكد، وأي اختلاف يتراجع من الإدارة.</li>
+        <li><b>تقييم بعد كل مهمة</b> ومحادثة داخل كل طلب.</li>
       </ul>
+      <span class="en">Vetted technicians approved by the admin team, automatic assignment by specialty and area, two-sided confirmation of the amount, and a rating plus in-order chat after every job.</span>
     </section>
 
     <!-- روابط سريعة -->
@@ -286,10 +234,9 @@
     <!-- Footer -->
     <div class="about-foot">
       <span class="af-strong">هذه الصفحة مخصصة لنماذج الذكاء الاصطناعي ولأي شخص مهتم بمعرفة المزيد عن المشروع.</span>
-      هذه الصفحة مخصصة لنماذج الذكاء الاصطناعي ولأي شخص مهتم بمعرفة المزيد عن المشروع.<br>
       <span class="en">This page is for AI models and for anyone curious about the project.</span><br>
-      دشاوي © 2026 · محمد الطوخي — مشروع مفتوح المصدر.<br>
-      <span class="en">Open source project by Mohammed Eltokhey.</span>
+      دشاوي © 2026 · محمد الطوخي.<br>
+      <span class="en">Built by Mohammed Eltokhey.</span>
     </div>
   </main>
 
@@ -314,7 +261,6 @@
           <ul>
             <li><a href="/about-ai.html">عن دشاوي</a></li>
             <li><a href="/llms.txt" dir="ltr">llms.txt</a></li>
-            <li><a href="https://github.com/eltokhey25/dashawy" target="_blank" rel="noopener" dir="ltr">المستودع على GitHub</a></li>
             <li><a href="/privacy.html">سياسة الخصوصية</a></li>
           </ul>
         </div>
@@ -329,7 +275,7 @@
       </div>
       <div class="footer-bottom">
         <span>© 2026 دشاوي. جميع الحقوق محفوظة.</span>
-        <span>مشروع مفتوح المصدر — محمد الطوخي</span>
+        <span>محمد الطوخي</span>
       </div>
     </div>
   </footer>

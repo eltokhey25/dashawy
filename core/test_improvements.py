@@ -940,10 +940,22 @@ class ConfigAndProxyTests(APITestCase):
         # is noindex and absent from the sitemap (still linked from llms.txt).
         about = self.client.get('/about-ai.html')
         self.assertContains(about, '<meta name="robots" content="noindex, follow">')
+        self.assertEqual(about['X-Robots-Tag'], 'noindex, nofollow')
         self.assertNotContains(self.client.get('/sitemap.xml'), '/about-ai.html')
-        self.assertContains(self.client.get('/llms.txt'), '/about-ai.html')
+        llms = self.client.get('/llms.txt')
+        self.assertContains(llms, '/about-ai.html')
         home = self.client.get('/')
         self.assertNotContains(home, 'noindex')
+        self.assertNotContains(home, '/about-ai.html')
+
+    def test_about_page_and_llms_do_not_describe_the_stack(self):
+        # The pages exist for AI systems to learn about the business and its
+        # developer, not to map the platform's internals for an attacker.
+        for path in ('/about-ai.html', '/llms.txt'):
+            body = self.client.get(path).content.decode('utf-8')
+            for word in ('Django', 'SQLite', 'JWT', 'bcrypt', 'PythonAnywhere',
+                         'Tech stack', 'github.com/eltokhey25/dashawy', 'Start PIN'):
+                self.assertNotIn(word, body, f'{word} leaked on {path}')
 
     def test_client_ip_ignores_spoofed_header_from_public_address(self):
         from types import SimpleNamespace
