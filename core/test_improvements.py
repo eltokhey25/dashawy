@@ -935,6 +935,16 @@ class ConfigAndProxyTests(APITestCase):
         self.assertContains(response, 'https://example.test/about-ai.html')
         self.assertNotContains(response, 'dashawy.pythonanywhere.com')
 
+    def test_about_page_stays_out_of_search_results(self):
+        # A search for دشاوي must land on the home page, so the about page
+        # is noindex and absent from the sitemap (still linked from llms.txt).
+        about = self.client.get('/about-ai.html')
+        self.assertContains(about, '<meta name="robots" content="noindex, follow">')
+        self.assertNotContains(self.client.get('/sitemap.xml'), '/about-ai.html')
+        self.assertContains(self.client.get('/llms.txt'), '/about-ai.html')
+        home = self.client.get('/')
+        self.assertNotContains(home, 'noindex')
+
     def test_client_ip_ignores_spoofed_header_from_public_address(self):
         from types import SimpleNamespace
 
