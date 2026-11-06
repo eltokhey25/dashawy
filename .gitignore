@@ -59,3 +59,6 @@ database/*.db-*
 .vercel
 .env*
 !.env.example
+
+# ---------- Local assistant notes ----------
+.claude/

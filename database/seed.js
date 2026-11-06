@@ -3,6 +3,7 @@
 // Set SEED_SAMPLE=1 to also insert demo customers/technicians/requests.
 const path = require('path');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require(path.join(__dirname, '..', 'backend', 'db'));
 const { assignTechnician } = require(path.join(__dirname, '..', 'backend', 'services', 'assignment'));
 
@@ -46,6 +47,11 @@ function seedAdmin() {
 }
 
 function seedSample() {
+  // Sample accounts never get a password that is written into this public
+  // file; set SEED_SAMPLE_PASSWORD or read the one printed below.
+  const samplePassword =
+    process.env.SEED_SAMPLE_PASSWORD || crypto.randomBytes(9).toString('base64url');
+  console.log(`[seed] Sample accounts password: ${samplePassword}`);
   const customers = [
     ['أحمد محمد', '+201001112222', 'مدينة نصر، القاهرة', 30.0444, 31.2357],
     ['سارة علي', '+201002223333', 'الزمالك، القاهرة', 30.0567, 31.2165],
@@ -56,7 +62,7 @@ function seedSample() {
   customers.forEach(([name, phone, location, lat, lng]) => {
     const userId = ensureUser(
       name === 'أحمد محمد' ? 'ahmed@example.com' : `customer-${Date.now()}@example.com`,
-      'REMOVED-PASSWORD',
+      samplePassword,
       'customer'
     );
     const existing = db.prepare('SELECT id FROM customers WHERE user_id = ?').get(userId);
@@ -80,7 +86,7 @@ function seedSample() {
 
   technicians.forEach(([name, phone, specialty, location, lat, lng]) => {
     const email = `tech-${specialty}-${Date.now()}@example.com`;
-    const userId = ensureUser(email, 'REMOVED-PASSWORD', 'technician');
+    const userId = ensureUser(email, samplePassword, 'technician');
     const existing = db.prepare('SELECT id FROM technicians WHERE user_id = ?').get(userId);
     if (!existing) {
       db.prepare(
@@ -110,4 +116,4 @@ seedAdmin();
 if (process.env.SEED_SAMPLE === '1') seedSample();
 
 console.log('[seed] Done.');
-console.log('    Admin login : admin@fixrequest.com / REMOVED-PASSWORD');
+console.log('    Admin login : admin@fixrequest.com / $SEED_ADMIN_PASSWORD');
