@@ -60,7 +60,6 @@ This file is a factual, machine-readable summary of the business for AI models, 
 - GitHub: https://github.com/eltokhey25
 - Email: {{ business_email }}
 
-
 ## Public pages
 
 - Home: {{ site_url }}/
