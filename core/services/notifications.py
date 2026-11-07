@@ -30,21 +30,52 @@ def accepted_message(technician_name):
     )
 
 
-def send_telegram(chat_id, text):
+def send_telegram(chat_id, text, reply_markup=None):
     """Kept as the seam the tests patch; delivery lives in services.telegram."""
     from .telegram import send_message
 
-    return send_message(chat_id, text)
+    return send_message(chat_id, text, reply_markup)
 
 
 def _telegram_text(payload):
     text = f"{payload.get('title', '')}\n{payload.get('body', '')}".strip()
     url = payload.get('url')
-    if url and url.startswith('/'):
+    if url and url.startswith('/') and not payload.get('buttons'):
         from ..site_config import get_site_config
 
         text += f"\n{get_site_config()['site_url']}{url}"
     return text
+
+
+def _telegram_markup(payload):
+    """Inline buttons under the Telegram copy (``buttons``: rows of (label, data)).
+
+    A button whose data starts with ``/`` opens that site page; anything else
+    is a bot callback (see ``services.telegram_bot``).
+    """
+    rows = payload.get('buttons')
+    if not rows:
+        return None
+    from ..site_config import get_site_config
+    from .telegram import inline_keyboard
+
+    site = get_site_config()['site_url'].rstrip('/')
+    return inline_keyboard(
+        [[(label, site + data if str(data).startswith('/') else data) for label, data in row] for row in rows]
+    )
+
+
+def _fresh_chats(chat_ids, payload, text):
+    """Drop the chats that already received this exact notification.
+
+    The key is ``dedup`` when the payload sets one (a chat message carries its
+    row id, so the same words sent twice are two notifications), else the
+    push ``tag``.
+    """
+    from .telegram import already_notified
+
+    key = payload.get('dedup') or payload.get('tag')
+    return [chat for chat in chat_ids if not already_notified(chat, key, text)]
 
 
 def fan_out(user_ids, payload, budget=FANOUT_BUDGET_SECONDS):
@@ -78,13 +109,15 @@ def fan_out(user_ids, payload, budget=FANOUT_BUDGET_SECONDS):
 
     body = json.dumps(payload, ensure_ascii=False)
     text = _telegram_text(payload)
+    markup = _telegram_markup(payload)
+    chats = _fresh_chats(chats, payload, text)
     pool = ThreadPoolExecutor(max_workers=FANOUT_WORKERS)
     try:
         push_jobs = {
             pool.submit(push.deliver, s.endpoint, s.p256dh, s.auth, body): s.pk
             for s in subscriptions
         }
-        chat_jobs = {pool.submit(telegram.deliver_message, c, text): c for c in chats}
+        chat_jobs = {pool.submit(telegram.deliver_message, c, text, markup): c for c in chats}
         done, pending = wait(list(push_jobs) + list(chat_jobs), timeout=budget)
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
@@ -115,7 +148,11 @@ def _push(user_id, payload):
         User.objects.filter(pk=user_id).values_list('telegram_chat_id', flat=True).first()
     )
     if chat_id:
-        send_telegram(chat_id, _telegram_text(payload))
+        text = _telegram_text(payload)
+        # The same event reported twice (a retried webhook, a double click)
+        # must not reach the chat twice.
+        if _fresh_chats([chat_id], payload, text):
+            send_telegram(chat_id, text, _telegram_markup(payload))
     return result
 
 
@@ -131,9 +168,14 @@ def notify_request_accepted(request):
         user.pk,
         {
             'title': '✅ تم قبول طلبك',
-            'body': f'الفني: {name or "الفني"} — هيتواصل معاك قريب',
+            'body': f'الفني: {name or "الفني"} — هيتواصل معاك قريب'
+            + (f'\n🔐 كود البداية: {request.start_pin} — قوله للفني لما يوصل' if request.start_pin else ''),
             'url': '/customer/my-requests.html',
             'tag': f'request-accepted-{request.pk}',
+            'buttons': [
+                [('🔎 تفاصيل الطلب', f'req:view:{request.pk}'), ('💬 كلّم الفني', f'chat:open:{request.pk}')],
+                [('🌐 طلباتي على الموقع', '/customer/my-requests.html')],
+            ],
         },
     )
     return True
@@ -151,10 +193,15 @@ def notify_new_offer(technician_user_ids, request):
     area = (request.location_text or '').split('—')[0].strip()
     payload = {
         'title': '🔔 طلب جديد',
-        'body': label + (f' — {area}' if area else ''),
+        'body': label + (f' — {area}' if area else '') + f'\nطلب #{request.pk}: {(request.description or "")[:120]}',
         'url': '/technician/dashboard.html',
-        'tag': 'new-request',
+        'tag': f'new-request-{request.pk}',
         'requireInteraction': True,
+        # The bot resolves the technician's own offer row from the request id.
+        'buttons': [
+            [('✅ قبول', f'offer:accept:r{request.pk}'), ('❌ رفض', f'offer:decline:r{request.pk}')],
+            [('📥 كل الطلبات الواردة', 'menu:incoming')],
+        ],
     }
     return fan_out(technician_user_ids, payload)
 
@@ -173,11 +220,66 @@ def notify_job_completed(request):
             'url': f'/customer/my-requests.html?review={request.pk}',
             'tag': f'request-completed-{request.pk}',
             'requireInteraction': True,
+            'buttons': [[('⭐ أكّد المبلغ وقيّم', f'/customer/my-requests.html?review={request.pk}')]],
         },
     )
 
 
-def notify_chat_message(recipient_user_id, sender_name, body, request_id, recipient_role):
+def notify_job_started(request):
+    """The technician entered the doorstep code: the work has officially begun."""
+    customer = getattr(request, 'customer', None) if request.customer_id else None
+    if customer is None:
+        return
+    technician = getattr(request, 'technician', None)
+    _push(
+        customer.user_id,
+        {
+            'title': '🛠️ بدأ الشغل في طلبك',
+            'body': f'{technician.name if technician else "الفني"} بدأ الشغل دلوقتي في طلب #{request.pk}.',
+            'url': '/customer/my-requests.html',
+            'tag': f'request-started-{request.pk}',
+            'buttons': [[('🔎 تفاصيل الطلب', f'req:view:{request.pk}'), ('💬 كلّم الفني', f'chat:open:{request.pk}')]],
+        },
+    )
+
+
+def notify_on_the_way(request):
+    """The technician pressed "on my way" in the bot."""
+    customer = getattr(request, 'customer', None) if request.customer_id else None
+    if customer is None:
+        return
+    technician = getattr(request, 'technician', None)
+    _push(
+        customer.user_id,
+        {
+            'title': '🚗 الفني في الطريق إليك',
+            'body': f'{technician.name if technician else "الفني"} في الطريق لطلب #{request.pk}. '
+            'جهّز كود البداية عشان تقوله لما يوصل.',
+            'url': '/customer/my-requests.html',
+            'tag': f'on-the-way-{request.pk}',
+            'buttons': [[('🔎 تفاصيل الطلب', f'req:view:{request.pk}'), ('💬 كلّم الفني', f'chat:open:{request.pk}')]],
+        },
+    )
+
+
+def notify_technician_withdrew(request):
+    """The assigned technician handed the job back; it is being re-offered."""
+    customer = getattr(request, 'customer', None) if request.customer_id else None
+    if customer is None:
+        return
+    _push(
+        customer.user_id,
+        {
+            'title': '🔄 بندوّر على فني تاني لطلبك',
+            'body': f'الفني اعتذر عن طلب #{request.pk}، وعرضناه على باقي الفنيين. هبلّغك أول ما حد يقبله.',
+            'url': '/customer/my-requests.html',
+            'tag': f'request-reoffered-{request.pk}',
+            'buttons': [[('🔎 تفاصيل الطلب', f'req:view:{request.pk}')]],
+        },
+    )
+
+
+def notify_chat_message(recipient_user_id, sender_name, body, request_id, recipient_role, message_id=None):
     _push(
         recipient_user_id,
         {
@@ -185,6 +287,10 @@ def notify_chat_message(recipient_user_id, sender_name, body, request_id, recipi
             'body': f'{sender_name}: {body[:50]}',
             'url': f'/chat.html?id={request_id}',
             'tag': f'chat-{request_id}',
+            'dedup': f'chat-message-{message_id}' if message_id else None,
+            'buttons': [
+                [('↩️ رد من هنا', f'chat:open:{request_id}'), ('🌐 افتح المحادثة', f'/chat.html?id={request_id}')],
+            ],
         },
     )
 
@@ -249,6 +355,7 @@ def notify_request_cancelled(technician_user_id, request_id):
             'body': f'طلب #{request_id} اتلغى وإنت متاح دلوقتي لطلبات تانية.',
             'url': '/technician/dashboard.html',
             'tag': f'request-cancelled-{request_id}',
+            'buttons': [[('📥 الطلبات الواردة', 'menu:incoming')]],
         },
     )
 

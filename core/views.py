@@ -13,7 +13,6 @@ frontend was written against: the browser expects ``token`` (not SimpleJWT's
 """
 
 import json
-import math
 import re
 import secrets
 from datetime import timedelta
@@ -23,7 +22,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Count, F, Q
+from django.db.models import Avg, Count, Q
 from django.http import FileResponse, Http404
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -58,11 +57,8 @@ from .serializers import (
     TechnicianDocumentUploadSerializer,
     TechnicianRequestSerializer,
 )
-from .services.assignment import mark_declined, release_technician
 from .services.broadcast import (
     BroadcastError,
-    accept_broadcast,
-    broadcast_request,
     cancel_request,
     close_offers,
     decline_broadcast,
@@ -72,17 +68,9 @@ from .services.broadcast import (
 from .services.notifications import (
     notify_account_locked,
     notify_login,
-    notify_request_accepted,
     notify_request_cancelled,
 )
-from .services.start_pin import (
-    START_PIN_ATTEMPTS,
-    START_PIN_LENGTH,
-    START_PIN_LOCK_MINUTES,
-    generate_start_pin,
-    start_pin_lock_until,
-)
-from .services.pricing import quote_for
+from .services.jobs import accept_offer, place_order, reject_assigned_job, start_job
 from .tokens import DashawyRefreshToken
 from .upload_validators import (
     open_stored_upload,
@@ -109,8 +97,7 @@ ACCOUNT_LOCK_MINUTES = 15
 # Failed sign-ins tolerated from one IP address per 15 minutes, across every
 # account. Generous enough for a shared office NAT, far too small for a spray.
 LOGIN_IP_FAILURE_LIMIT = 50
-# Open orders one customer may have at once, and orders per account per day.
-MAX_OPEN_ORDERS = 3
+# Orders per account per day (open orders at once: services.jobs.MAX_OPEN_ORDERS).
 MAX_ORDERS_PER_DAY = 10
 
 AUTH_ERROR = 'البريد الإلكتروني/الهاتف أو كلمة المرور غير صحيحة'
@@ -708,18 +695,9 @@ class CustomerRequestListCreateView(APIView):
             request, 'customer-order-account', limit=MAX_ORDERS_PER_DAY,
             window_seconds=86400, identifier=f'user:{request.user.pk}',
         )
-        open_orders = Request.objects.filter(
-            customer_id=customer.pk, status__in=('pending', 'assigned', 'in_progress')
-        ).count()
-        if open_orders >= MAX_OPEN_ORDERS:
-            raise bad_request(
-                f'عندك {MAX_OPEN_ORDERS} طلبات شغالة بالفعل. '
-                'استنى لحد ما تخلص أو ألغِ واحد منهم قبل ما تطلب تاني.'
-            )
         serializer = CreateRequestSerializer(data=_body(request))
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        quote = quote_for(data['specialty'])
 
         # "اطلب منه": a technician chosen from the directory is asked first.
         # Anyone not approved (or gone) is simply not a valid choice.
@@ -731,25 +709,11 @@ class CustomerRequestListCreateView(APIView):
             if preferred is None:
                 raise bad_request('الفني المختار غير متاح حالياً، اختر فني تاني أو اطلب من غير اختيار')
 
-        created = Request.objects.create(
-            customer_id=customer.pk,
-            specialty=data['specialty'],
-            custom_specialty_text=data.get('custom_specialty_text'),
-            description=data['description'],
-            location_text=data.get('resolved_location') or None,
-            latitude=data.get('latitude'),
-            longitude=data.get('longitude'),
-            status='pending',
-            preferred_technician=preferred,
-            **quote,
-        )
-
         # The request is offered to the technicians; the customer hears back
         # when one of them accepts (see TechnicianBroadcastAcceptView). With a
         # preferred technician the offer goes to them alone first, and to
         # everyone if they decline or do not answer in time.
-        offers = broadcast_request(created.pk)
-        created.refresh_from_db()
+        created, offers = place_order(customer, data, preferred)
         offered_to_preferred = bool(
             preferred and created.preferred_technician_id == preferred.pk
         )
@@ -871,14 +835,7 @@ class TechnicianBroadcastAcceptView(APIView):
 
     def post(self, request, pk):
         technician = _technician_for(request.user)
-        if technician.availability == 'busy':
-            raise bad_request('خلّص الطلب اللي معاك الأول')
-        try:
-            job = accept_broadcast(pk, technician)
-        except BroadcastError as exc:
-            raise ApiError(exc.message, exc.status_code)
-        job = Request.objects.select_related('customer__user', 'technician').get(pk=job.pk)
-        notify_request_accepted(job)
+        job = accept_offer(technician, pk)
         return Response(
             {
                 'message': 'تم قبول الطلب بنجاح',
@@ -905,98 +862,11 @@ class TechnicianBroadcastDeclineView(APIView):
 def _start_job_with_pin(request, pk):
     """Move an assigned job to ``in_progress`` after checking the door code.
 
-    This is the **only** status transition into ``in_progress``. The assigned
-    technician must submit the four-digit code the customer received; wrong
-    guesses increment ``start_pin_attempts`` and lock the code after
-    ``START_PIN_ATTEMPTS`` failures for ``START_PIN_LOCK_MINUTES``.
+    The guards (one attempt spent per guess, the lock after too many) live in
+    ``services.jobs.start_job``, which the Telegram bot shares.
     """
     technician = _technician_for(request.user)
-    job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
-    if job is None:
-        raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
-    if job.status != 'assigned':
-        raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
-
-    # Rows assigned before this flow existed have no code yet. Generating one
-    # lazily keeps those jobs startable instead of permanently stuck.
-    if not job.start_pin:
-        Request.objects.filter(
-            Q(start_pin__isnull=True) | Q(start_pin=''), pk=job.pk
-        ).update(start_pin=generate_start_pin())
-        job.refresh_from_db(fields=['start_pin'])
-
-    now = utc_now()
-    if job.start_pin_locked_until and job.start_pin_locked_until <= now:
-        # The lock has expired; start the technician with a clean counter.
-        Request.objects.filter(pk=job.pk, start_pin_locked_until__lte=now).update(
-            start_pin_attempts=0, start_pin_locked_until=None
-        )
-
-    # Spend one attempt BEFORE looking at the code, in a single guarded
-    # UPDATE. Checking first and counting afterwards let a burst of parallel
-    # guesses all pass the check before any of them was counted, so the
-    # five-attempt budget was no limit at all against 10,000 requests at once.
-    spent = (
-        Request.objects.filter(pk=job.pk, technician_id=technician.pk, status='assigned')
-        .filter(Q(start_pin_locked_until__isnull=True) | Q(start_pin_locked_until__lte=now))
-        .filter(start_pin_attempts__lt=START_PIN_ATTEMPTS)
-        .update(start_pin_attempts=F('start_pin_attempts') + 1)
-    )
-    if not spent:
-        job.refresh_from_db(fields=['start_pin_attempts', 'start_pin_locked_until', 'status'])
-        if job.status != 'assigned':
-            raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
-        if not job.start_pin_locked_until or job.start_pin_locked_until <= now:
-            # Attempts ran out without a lock being written yet (a parallel
-            # request is about to); write it here too.
-            Request.objects.filter(pk=job.pk, start_pin_locked_until__isnull=True).update(
-                start_pin_locked_until=start_pin_lock_until(now)
-            )
-            job.refresh_from_db(fields=['start_pin_locked_until'])
-        minutes = max(
-            1, math.ceil((job.start_pin_locked_until - now).total_seconds() / 60)
-        )
-        raise ApiError(
-            f'المحاولات مقفلة. حاول تاني بعد {minutes} دقيقة',
-            status.HTTP_429_TOO_MANY_REQUESTS,
-        )
-
-    submitted = str(_body(request).get('pin') or '').strip()
-    valid_shape = re.fullmatch(r'\d{%d}' % START_PIN_LENGTH, submitted) is not None
-    if not valid_shape or not secrets.compare_digest(
-        submitted, job.start_pin or ''
-    ):
-        job.refresh_from_db(fields=['start_pin_attempts'])
-        if job.start_pin_attempts >= START_PIN_ATTEMPTS:
-            Request.objects.filter(pk=job.pk).update(
-                start_pin_locked_until=start_pin_lock_until(now)
-            )
-            raise ApiError(
-                'محاولات كتير غلط. الكود مقفول لمدة '
-                f'{START_PIN_LOCK_MINUTES} دقيقة',
-                status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-        remaining = START_PIN_ATTEMPTS - job.start_pin_attempts
-        label = 'محاولة واحدة' if remaining == 1 else f'{remaining} محاولات'
-        raise ApiError(
-            f'الكود غلط. باقي لك {label}', status.HTTP_400_BAD_REQUEST
-        )
-
-    claimed = Request.objects.filter(
-        pk=job.pk, technician_id=technician.pk, status='assigned'
-    ).update(
-        status='in_progress',
-        started_at=now,
-        updated_at=now,
-        # Single use: once the job starts the code is no longer a valid way in.
-        start_pin=None,
-        start_pin_attempts=0,
-        start_pin_locked_until=None,
-    )
-    if not claimed:
-        raise bad_request('لا يمكن بدء هذا الطلب في حالته الحالية')
-
-    job.refresh_from_db()
+    job = start_job(technician, pk, _body(request).get('pin'))
     return Response(
         {
             'message': 'تم بدء تنفيذ الطلب',
@@ -1034,31 +904,7 @@ class TechnicianRequestRejectView(APIView):
 
     def post(self, request, pk):
         technician = _technician_for(request.user)
-        job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
-        if job is None:
-            raise ApiError('الطلب غير موجود', status.HTTP_404_NOT_FOUND)
-        if job.status != 'assigned':
-            raise bad_request('لا يمكن رفض هذا الطلب في حالته الحالية')
-
-        now = utc_now()
-        released = Request.objects.filter(
-            pk=job.pk, technician_id=technician.pk, status='assigned'
-        ).update(
-            technician_id=None,
-            status='pending',
-            assigned_at=None,
-            updated_at=now,
-        )
-        if not released:
-            raise bad_request('لا يمكن رفض هذا الطلب في حالته الحالية')
-
-        # Record the decline, free the technician and offer the request to
-        # the remaining technicians again.
-        mark_declined(job.pk, technician.pk)
-        release_technician(technician.pk)
-        offers = broadcast_request(job.pk)
-        job.refresh_from_db()
-
+        offers = reject_assigned_job(technician, pk)
         return Response(
             {
                 'message': (
@@ -1067,7 +913,7 @@ class TechnicianRequestRejectView(APIView):
                     else 'تم رفض الطلب، ولا يوجد فني متاح حالياً'
                 ),
                 # The job is no longer theirs: no customer details in the reply.
-                'request': {'id': job.pk, 'status': job.status},
+                'request': {'id': int(pk), 'status': 'pending'},
                 'broadcast': {'sent_to': offers['count']},
             }
         )

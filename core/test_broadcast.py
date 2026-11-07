@@ -93,7 +93,7 @@ class BroadcastFlowTests(APITestCase):
         won = self.client.post(f'/api/technician/broadcasts/{offer_a}/accept')
         self.assertEqual(won.status_code, status.HTTP_200_OK)
         self.send_telegram.assert_called_once()
-        chat_id, text = self.send_telegram.call_args.args
+        chat_id, text = self.send_telegram.call_args.args[:2]
         self.assertEqual(chat_id, '555001')
         self.assertIn('فني أ', text)
 

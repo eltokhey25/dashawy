@@ -130,10 +130,12 @@ class MessageThreadView(APIView):
             request_id=job.pk, sender_id=request.user.pk, sender_role=role, body=raw.strip()
         )
         if role == 'customer':
-            notify_chat_message(job.technician.user_id, 'العميل', message.body, job.pk, 'technician')
+            notify_chat_message(
+                job.technician.user_id, 'العميل', message.body, job.pk, 'technician', message.pk
+            )
         else:
             notify_chat_message(
-                job.customer.user_id, job.technician.name or 'الفني', message.body, job.pk, 'customer'
+                job.customer.user_id, job.technician.name or 'الفني', message.body, job.pk, 'customer', message.pk
             )
         return Response({'message': _message_json(message)}, status=status.HTTP_201_CREATED)
 

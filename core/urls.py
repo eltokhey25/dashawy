@@ -24,6 +24,7 @@ from .public_views import (
 from .system_views import AdminMigrateView, AdminMigrationsView
 from .backup_views import AdminBackupDownloadView, cron_backup, cron_settle
 from .telegram_views import (
+    AdminTelegramWebhookView,
     RequestOtpView,
     ResetPasswordView,
     TelegramLinkView,
@@ -422,6 +423,11 @@ urlpatterns = [
     re_path(r'^admin/backup/?$', AdminBackupDownloadView.as_view(), name='admin-backup'),
     re_path(r'^admin/system/migrations/?$', AdminMigrationsView.as_view(), name='admin-migrations'),
     re_path(r'^admin/system/migrate/?$', AdminMigrateView.as_view(), name='admin-migrate'),
+    re_path(
+        r'^admin/telegram/webhook/?$',
+        AdminTelegramWebhookView.as_view(),
+        name='admin-telegram-webhook',
+    ),
     # Admin management
     re_path(r'^admin/admins/?$', AdminAccountListView.as_view(), name='admin-admins'),
     re_path(

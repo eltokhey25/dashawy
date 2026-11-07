@@ -122,6 +122,39 @@ All API routes live under `/api/`. Authentication uses a Bearer JWT returned as
 | `POST` | `/api/technician/requests/<id>/accept` | Technician | Deprecated alias for `/start`; still requires the code |
 | `POST` | `/api/technician/requests/<id>/reject` | Technician | Reject and reassign |
 
+### Telegram bot
+
+Telegram POSTs every message and button press to
+`POST /api/telegram/webhook/<secret>` (the secret is derived from the bot
+token and must also arrive in Telegram's `X-Telegram-Bot-Api-Secret-Token`
+header). The handlers live in `core/services/telegram_bot.py`; they call the
+same service functions as the API (`core/services/jobs.py`), so the bot can do
+everything the dashboards do:
+
+* `/start`, `/menu`, `/help`, `/support` for everyone; an unlinked chat gets
+  the link instructions (`/start <token>` from the site's link page, or the
+  token pasted as a message);
+* customers: `/requests`, `/track <id>`, `/new` (service, area, address,
+  description, confirm), cancelling, and a chat with the technician;
+* technicians: `/incoming` (accept / decline), `/jobs` with *on my way*,
+  *started* (asks for the doorstep code), *finished* (asks for the work
+  notes) and *hand back*, `/wallet`, and a chat with the customer;
+* notifications carry buttons (accept / decline an offer, reply to a
+  message, open the order) and the same text is never sent to a chat twice
+  (`core.services.telegram.already_notified`); a retried update is handled
+  once.
+
+Register the webhook after the first deploy, and again whenever `SITE_URL`
+changes. Either from a machine that has the bot token:
+
+```bash
+python manage.py telegram_webhook --url https://your-domain
+```
+
+or, signed in as the super admin, `GET /api/admin/telegram/webhook` shows what
+Telegram has registered and `POST /api/admin/telegram/webhook` registers it.
+Both also publish the command menu Telegram shows under the "/" button.
+
 ### Admin dashboard
 
 Admin endpoints require `role='admin'` or `is_super_admin=True`.
@@ -158,6 +191,8 @@ values for your environment.
 | `SOCIAL_FACEBOOK` / `SOCIAL_INSTAGRAM` / `SOCIAL_TIKTOK` | Empty | Social profile URLs. Empty values hide the icon instead of rendering a dead link. |
 | `COMMISSION_RATE` | `20` (or settings table) | Platform commission percentage applied to new requests. |
 | `GOOGLE_CLIENT_ID` | Empty | OAuth 2.0 Web client ID for Google Sign-In. When empty the button is hidden and the endpoint returns 503. |
+| `TELEGRAM_BOT_TOKEN` | Empty | Token from @BotFather. Enables account linking, the password-reset code, notifications and the bot's commands. The webhook secret is derived from it. |
+| `TELEGRAM_BOT_USERNAME` | Looked up from Telegram | The bot's username, used for the `t.me/<bot>?start=<token>` link. Optional; saves one API call. |
 
 Generate a production Django key with:
 

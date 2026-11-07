@@ -5,6 +5,7 @@
 * ``POST /api/auth/request-otp``            — {identifier}: 6-digit code by Telegram
 * ``POST /api/auth/reset-password``         — {identifier, otp, new_password}
 * ``POST /api/telegram/webhook/<secret>``   — called by Telegram, never by the site
+* ``GET/POST /api/admin/telegram/webhook``  — super admin: inspect / register the webhook
 
 The code is stored hashed (SHA-256), lasts 10 minutes and is single-use.
 Every "does this account exist" question gets the same answer, so the
@@ -25,6 +26,7 @@ from rest_framework.views import APIView
 from .auth_backend import hash_password
 from .exceptions import ApiError, bad_request
 from .models import Otp, User, utc_now
+from .permissions import IsSuperAdmin
 from .ratelimit import client_ip, throttle
 from .services import telegram
 from .services.notifications import notify_login, notify_password_changed
@@ -255,3 +257,48 @@ def telegram_webhook(request, secret):
         logging.getLogger(__name__).warning('Telegram update failed', exc_info=True)
         result = 'error'
     return JsonResponse({'ok': True, 'result': result})
+
+
+class AdminTelegramWebhookView(APIView):
+    """Register the bot's webhook from the admin panel (Vercel has no shell).
+
+    ``GET`` shows what Telegram has registered next to what it should be;
+    ``POST`` registers ``<SITE_URL>/api/telegram/webhook/<secret>`` and the
+    command menu. The URL embeds the secret, so only the super admin sees it.
+    """
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def _site_url(self):
+        from .site_config import get_site_config
+
+        return get_site_config()['site_url']
+
+    def get(self, request):
+        if not telegram.is_configured():
+            raise ApiError('TELEGRAM_BOT_TOKEN مش متظبط على السيرفر', status.HTTP_503_SERVICE_UNAVAILABLE)
+        expected = telegram.webhook_url(self._site_url())
+        try:
+            info = telegram.webhook_info()
+        except telegram.TelegramError as exc:
+            raise ApiError(f'تليجرام مش بيرد: {exc}', status.HTTP_502_BAD_GATEWAY)
+        return Response(
+            {
+                'bot_username': telegram.bot_username(),
+                'expected_url': expected,
+                'registered_url': info.get('url') or '',
+                'registered': (info.get('url') or '') == expected,
+                'pending_updates': info.get('pending_update_count', 0),
+                'last_error': info.get('last_error_message') or '',
+                'allowed_updates': info.get('allowed_updates') or [],
+            }
+        )
+
+    def post(self, request):
+        if not telegram.is_configured():
+            raise ApiError('TELEGRAM_BOT_TOKEN مش متظبط على السيرفر', status.HTTP_503_SERVICE_UNAVAILABLE)
+        try:
+            url = telegram.setup_webhook(self._site_url())
+        except telegram.TelegramError as exc:
+            raise ApiError(f'تليجرام رفض التسجيل: {exc}', status.HTTP_502_BAD_GATEWAY)
+        return Response({'message': 'تم تسجيل الويب هوك', 'url': url, 'bot_username': telegram.bot_username()})

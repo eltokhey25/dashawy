@@ -21,8 +21,7 @@ from .exceptions import ApiError, bad_request
 from .guest_views import _label_for
 from .models import Request, Review, utc_now
 from .permissions import IsCustomer, IsTechnician
-from .services.assignment import release_technician
-from .services.notifications import notify_job_completed
+from .services.jobs import complete_job
 from .services.payments import (
     PaymentError,
     customer_report,
@@ -35,7 +34,6 @@ from .views import _body, _customer_for, _json_ready, _technician_for
 
 MAX_COMMENT_LENGTH = 1000
 MAX_REPLY_LENGTH = 1000
-MAX_WORK_NOTES = 2000
 
 
 def _not_found(message='الطلب غير موجود'):
@@ -70,34 +68,7 @@ class TechnicianRequestCompleteView(APIView):
 
     def post(self, request, pk):
         technician = _technician_for(request.user)
-        job = Request.objects.filter(pk=pk, technician_id=technician.pk).first()
-        if job is None:
-            raise _not_found()
-        if job.status != 'in_progress':
-            raise bad_request('فقط طلبات العمل الجارية يمكن إكمالها')
-
-        notes = str(_body(request).get('work_notes') or '').strip()[:MAX_WORK_NOTES]
-        if len(notes) < 5:
-            raise bad_request('يرجى كتابة ما تم إنجازه (5 أحرف على الأقل)')
-
-        now = utc_now()
-        with transaction.atomic():
-            updated = Request.objects.filter(
-                pk=job.pk, technician_id=technician.pk, status='in_progress'
-            ).update(
-                status='completed',
-                completed_at=now,
-                completed_by_technician_at=now,
-                work_notes=notes,
-                updated_at=now,
-            )
-            if not updated:
-                raise bad_request('فقط طلبات العمل الجارية يمكن إكمالها')
-            release_technician(technician.pk)
-
-        notify_job_completed(
-            Request.objects.select_related('customer', 'technician').get(pk=job.pk)
-        )
+        complete_job(technician, pk, _body(request).get('work_notes'))
         return Response(
             {
                 'message': 'تم إكمال المهمة بنجاح',

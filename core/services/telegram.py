@@ -1,15 +1,16 @@
-"""Telegram bot: account linking, the password-reset code and messages.
+"""Telegram transport: sending, account linking and the webhook entry point.
 
 The Node backend long-polled ``getUpdates``, which needs a process that never
-stops; on Vercel there is none, so Telegram now POSTs each update to the
-webhook (``core.telegram_views.TelegramWebhookView``). ``setup_webhook``
-registers that URL with Telegram once, with a secret Telegram echoes in a
-header on every call.
+stops; on Vercel there is none, so Telegram POSTs each update to the webhook
+(``core.telegram_views.telegram_webhook``). ``setup_webhook`` registers that
+URL with Telegram once, with a secret Telegram echoes in a header on every
+call, and publishes the bot's command menu.
 
 Linking: the site creates a short-lived token and a ``t.me/<bot>?start=<token>``
 link; when the person opens it, Telegram sends ``/start <token>`` to the
-webhook and the chat is attached to the account. Nothing here raises on a
-failed send: a notification must never break the action that triggered it.
+webhook and the chat is attached to the account. Every other command and
+button press is handled by ``services.telegram_bot``. Nothing here raises on
+a failed send: a notification must never break the action that triggered it.
 """
 
 import hashlib
@@ -30,6 +31,25 @@ logger = logging.getLogger(__name__)
 API = 'https://api.telegram.org/bot{token}/{method}'
 LINK_TTL_MINUTES = 15
 USERNAME_CACHE_KEY = 'dashawy:telegram:bot-username'
+# Telegram re-sends an update until the webhook answers 200, and a slow cold
+# start can make it retry one that was already handled: remember each
+# update_id for a day. The same notification text is never sent twice to a
+# chat within this window either (see ``already_notified``).
+UPDATE_DEDUP_SECONDS = 24 * 3600
+NOTIFY_DEDUP_SECONDS = 12 * 3600
+
+# The command menu Telegram shows under the "/" button, in both roles' words.
+BOT_COMMANDS = (
+    ('start', 'القائمة الرئيسية'),
+    ('menu', 'القائمة الرئيسية'),
+    ('requests', 'طلباتي وحالتها'),
+    ('new', 'طلب فني جديد'),
+    ('incoming', 'الطلبات الواردة (للفني)'),
+    ('jobs', 'شغلي الحالي (للفني)'),
+    ('wallet', 'رصيد المحفظة (للفني)'),
+    ('support', 'التواصل مع الدعم'),
+    ('help', 'شرح الأوامر'),
+)
 
 LINK_WELCOME = (
     'أهلاً بيك في بوت دشاوي 👋\n'
@@ -98,23 +118,90 @@ def api_call(method, payload=None, timeout=10):
 SENT, UNREACHABLE, FAILED = 'sent', 'unreachable', 'failed'
 
 
-def deliver_message(chat_id, text):
+def deliver_message(chat_id, text, reply_markup=None):
     """Send without touching the database (safe from a worker thread).
 
-    Returns ``SENT``, ``UNREACHABLE`` (blocked bot or deleted chat: the caller
-    should unlink it) or ``FAILED``.
+    ``reply_markup`` is an inline keyboard (see ``inline_keyboard``). Returns
+    ``SENT``, ``UNREACHABLE`` (blocked bot or deleted chat: the caller should
+    unlink it) or ``FAILED``.
     """
     if not chat_id or not is_configured():
         return FAILED
+    payload = {'chat_id': chat_id, 'text': text, 'disable_web_page_preview': True}
+    if reply_markup:
+        payload['reply_markup'] = reply_markup
     try:
-        api_call(
-            'sendMessage',
-            {'chat_id': chat_id, 'text': text, 'disable_web_page_preview': True},
-        )
+        api_call('sendMessage', payload)
         return SENT
     except TelegramError as exc:
         logger.warning('Telegram send failed: %s', exc)
         return UNREACHABLE if _chat_unreachable(exc) else FAILED
+
+
+def inline_keyboard(rows):
+    """``[[(label, data), ...], ...]`` -> Telegram ``InlineKeyboardMarkup``.
+
+    ``data`` starting with ``http`` opens that link; anything else comes back
+    as ``callback_data`` (Telegram allows 64 bytes).
+    """
+    keyboard = []
+    for row in rows:
+        buttons = []
+        for label, data in row:
+            if str(data).startswith(('http://', 'https://')):
+                buttons.append({'text': label, 'url': data})
+            else:
+                buttons.append({'text': label, 'callback_data': str(data)[:64]})
+        if buttons:
+            keyboard.append(buttons)
+    return {'inline_keyboard': keyboard}
+
+
+def edit_message(chat_id, message_id, text, reply_markup=None):
+    """Replace a bot message in place (menus); False when Telegram refuses."""
+    if not chat_id or not message_id or not is_configured():
+        return False
+    payload = {
+        'chat_id': chat_id,
+        'message_id': message_id,
+        'text': text,
+        'disable_web_page_preview': True,
+    }
+    if reply_markup:
+        payload['reply_markup'] = reply_markup
+    try:
+        api_call('editMessageText', payload)
+        return True
+    except TelegramError as exc:
+        logger.info('Telegram edit failed: %s', exc)
+        return False
+
+
+def answer_callback(callback_id, text=None, alert=False):
+    """Stop the button's spinner, optionally with a toast or an alert box."""
+    if not callback_id or not is_configured():
+        return False
+    payload = {'callback_query_id': callback_id}
+    if text:
+        payload['text'] = text[:200]
+        payload['show_alert'] = bool(alert)
+    try:
+        api_call('answerCallbackQuery', payload)
+        return True
+    except TelegramError as exc:
+        logger.info('Telegram answerCallbackQuery failed: %s', exc)
+        return False
+
+
+def already_notified(chat_id, tag, text):
+    """True when this exact notification reached the chat recently.
+
+    Called on the request thread (the cache may be the database). The first
+    call for a (chat, tag, text) claims it; later ones within
+    ``NOTIFY_DEDUP_SECONDS`` are duplicates.
+    """
+    digest = hashlib.sha256(f'{chat_id}|{tag or ""}|{text}'.encode('utf-8')).hexdigest()[:32]
+    return not cache.add(f'dashawy:telegram:notified:{digest}', 1, NOTIFY_DEDUP_SECONDS)
 
 
 def unlink_chats(chat_ids):
@@ -124,9 +211,9 @@ def unlink_chats(chat_ids):
         User.objects.filter(telegram_chat_id__in=chat_ids).update(telegram_chat_id=None)
 
 
-def send_message(chat_id, text):
+def send_message(chat_id, text, reply_markup=None):
     """Plain-text message to a chat. Returns True on success, False otherwise."""
-    outcome = deliver_message(chat_id, text)
+    outcome = deliver_message(chat_id, text, reply_markup)
     if outcome == UNREACHABLE:
         unlink_chats([chat_id])
     return outcome == SENT
@@ -222,22 +309,8 @@ def link_chat(user_id, chat_id):
         User.objects.filter(pk=user_id).update(telegram_chat_id=chat)
 
 
-def handle_update(update):
-    """Process one Telegram update (only ``/start`` matters)."""
-    message = (update or {}).get('message') or (update or {}).get('edited_message')
-    chat = (message or {}).get('chat') or {}
-    chat_id = chat.get('id')
-    if chat_id is None:
-        return 'ignored'
-    text = str(message.get('text') or '').strip()
-    if not text.lower().startswith('/start'):
-        return 'ignored'
-    parts = text.split(maxsplit=1)
-    token = parts[1].strip() if len(parts) > 1 else ''
-    if not token:
-        send_message(chat_id, LINK_WELCOME)
-        return 'welcome'
-
+def consume_link_token(token, chat_id):
+    """Attach ``chat_id`` to the account behind ``token``; returns the user id or None."""
     now = utc_now()
     with transaction.atomic():
         row = (
@@ -247,27 +320,58 @@ def handle_update(update):
         )
         if row is None:
             TelegramLinkToken.objects.filter(token=token).delete()
-        else:
-            link_chat(row.user_id, chat_id)
-            row.delete()
-    if row is None:
-        send_message(chat_id, LINK_INVALID)
-        return 'invalid'
-    send_message(chat_id, LINK_SUCCESS)
-    return 'linked'
+            return None
+        link_chat(row.user_id, chat_id)
+        row.delete()
+        return row.user_id
+
+
+def handle_update(update):
+    """Process one Telegram update: a message or a button press.
+
+    A retried update (same ``update_id``) is acknowledged without being
+    handled again, so a slow first attempt never accepts an offer twice.
+    """
+    update = update or {}
+    update_id = update.get('update_id')
+    if update_id is not None and not cache.add(
+        f'dashawy:telegram:update:{update_id}', 1, UPDATE_DEDUP_SECONDS
+    ):
+        return 'duplicate'
+    from . import telegram_bot
+
+    return telegram_bot.handle_update(update)
+
+
+def webhook_url(site_url):
+    return f'{site_url.rstrip("/")}/api/telegram/webhook/{webhook_secret()}'
 
 
 def setup_webhook(site_url):
-    """Register ``<site_url>/api/telegram/webhook/<secret>`` with Telegram."""
-    secret = webhook_secret()
-    url = f'{site_url.rstrip("/")}/api/telegram/webhook/{secret}'
+    """Register ``<site_url>/api/telegram/webhook/<secret>`` with Telegram.
+
+    Also publishes the command menu. Returns the registered URL.
+    """
+    url = webhook_url(site_url)
     api_call(
         'setWebhook',
         {
             'url': url,
-            'secret_token': secret,
-            'allowed_updates': ['message', 'edited_message'],
+            'secret_token': webhook_secret(),
+            'allowed_updates': ['message', 'edited_message', 'callback_query'],
             'drop_pending_updates': True,
         },
     )
+    try:
+        api_call(
+            'setMyCommands',
+            {'commands': [{'command': c, 'description': d} for c, d in BOT_COMMANDS]},
+        )
+    except TelegramError as exc:
+        logger.warning('setMyCommands failed: %s', exc)
     return url
+
+
+def webhook_info():
+    """What Telegram currently has registered (``getWebhookInfo``)."""
+    return api_call('getWebhookInfo') or {}

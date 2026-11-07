@@ -55,8 +55,12 @@ class TelegramBase(APITestCase):
             HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN=header,
         )
 
+    _update_id = 0
+
     def start_update(self, text, chat_id=555):
-        return {'update_id': 1, 'message': {'chat': {'id': chat_id}, 'text': text}}
+        # Telegram numbers its updates; a repeated id is a retry and is skipped.
+        TelegramBase._update_id += 1
+        return {'update_id': TelegramBase._update_id, 'message': {'chat': {'id': chat_id}, 'text': text}}
 
 
 class LinkingTests(TelegramBase):
@@ -100,7 +104,7 @@ class LinkingTests(TelegramBase):
     def test_bad_token_and_bare_start(self):
         self.assertEqual(self.webhook(self.start_update('/start')).json()['result'], 'welcome')
         self.assertEqual(self.webhook(self.start_update('/start nope')).json()['result'], 'invalid')
-        self.assertEqual(self.webhook({'message': {'chat': {'id': 1}, 'text': 'hello'}}).json()['result'], 'ignored')
+        self.assertEqual(self.webhook({'message': {'chat': {'id': 1}, 'text': 'hello'}}).json()['result'], 'unlinked')
 
     def test_webhook_refuses_wrong_secret_or_header(self):
         update = self.start_update('/start x')
@@ -227,7 +231,10 @@ class NotificationChannelTests(TelegramBase):
         User.objects.filter(pk=self.user.pk).update(telegram_chat_id='555')
         notify_chat_message(self.user.pk, 'الفني', 'السلام عليكم', 42, 'customer')
         self.assertIn('رسالة جديدة', self.sent_texts()[-1])
-        self.assertIn('/chat.html?id=42', self.sent_texts()[-1])
+        # The link to the thread is a button under the message.
+        last = [c.args[1] for c in self.api_call.call_args_list if c.args[0] == 'sendMessage'][-1]
+        urls = [b.get('url') for row in last['reply_markup']['inline_keyboard'] for b in row]
+        self.assertTrue(any(u and u.endswith('/chat.html?id=42') for u in urls))
 
     def test_unlinked_account_gets_nothing_on_telegram(self):
         self.client.post('/api/auth/login', {'identifier': '01000000901', 'password': PASSWORD}, format='json')
