@@ -360,7 +360,8 @@
         card.appendChild(Ui.el('div', { class: 'req-meta' }, meta));
 
         if (r.description)
-          card.appendChild(Ui.el('div', { class: 'req-desc' }, [Ui.escapeHtml(r.description)]));
+          card.appendChild(Ui.el('div', { class: 'req-desc' }, [r.description]));
+        if (r.photo_url && window.RequestPhoto) card.appendChild(RequestPhoto.inline(r.photo_url));
 
         // On the waiting queue: nothing has gone wrong, the request is simply
         // waiting for a technician to become free. Saying so — and for how long —
@@ -398,7 +399,7 @@
           Ui.el('div', { class: 'detail-row' }, [
             Ui.el('span', { class: 'dk' }, ['الموقع']),
             Ui.el('span', { class: 'dv' }, [
-              Ui.escapeHtml(r.location_text || r.customer_location || '—'),
+              (r.location_text || r.customer_location || '—'),
             ]),
           ])
         );

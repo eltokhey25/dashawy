@@ -374,7 +374,7 @@
                       },
                       [Ui.initials(r.customer_name)]
                     ),
-                    Ui.escapeHtml(r.customer_name || '—'),
+                    (r.customer_name || '—'),
                   ]),
                 ]),
                 Ui.el('td', {}, [
@@ -394,7 +394,7 @@
                 ]),
                 Ui.el('td', {}, [
                   r.technician_name
-                    ? Ui.escapeHtml(r.technician_name)
+                    ? r.technician_name
                     : Ui.el('span', { class: 'muted' }, ['—']),
                 ]),
                 Ui.el('td', {}, [money(r.service_price)]),
@@ -494,14 +494,14 @@
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['العميل']),
                 Ui.el('span', { class: 'dv' }, [
-                  Ui.escapeHtml(r.customer_name || '—') +
+                  (r.customer_name || '—') +
                     (r.customer_phone ? ' — ' + r.customer_phone : ''),
                 ]),
               ]),
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['الفني']),
                 Ui.el('span', { class: 'dv' }, [
-                  Ui.escapeHtml(r.technician_name || '—') +
+                  (r.technician_name || '—') +
                     (r.technician_phone ? ' — ' + r.technician_phone : ''),
                 ]),
               ]),
@@ -663,17 +663,17 @@
               [Ui.ic(m.icon), m.label]
             )
           );
-          add('الوصف', Ui.escapeHtml(r.description || '—'));
+          add('الوصف', (r.description || '—'));
           add(
             'العميل',
-            Ui.escapeHtml(r.customer_name || '—') +
+            (r.customer_name || '—') +
               (r.customer_phone ? ' — ' + r.customer_phone : '')
           );
-          add('موقع العميل', Ui.escapeHtml(r.location_text || '—'));
+          add('موقع العميل', (r.location_text || '—'));
           add(
             'الفني',
             r.technician_name
-              ? Ui.escapeHtml(r.technician_name) + ' — ' + (r.technician_phone || '')
+              ? r.technician_name + ' — ' + (r.technician_phone || '')
               : '—'
           );
           add('المبلغ', money(r.service_price));
@@ -682,12 +682,12 @@
             money(r.commission_amount) + ' (' + Number(r.commission_percent || 0) + '%)'
           );
           add('صافي الفني', money(r.technician_earning));
-          add('ما تم عمله', Ui.escapeHtml(r.work_notes || '—'));
+          add('ما تم عمله', (r.work_notes || '—'));
           add('أُنجز في', Ui.dateTime(r.completed_at));
           add('حالة الدفع', (PAYMENT_STATUS[r.payment_status] || PAYMENT_STATUS.unpaid).label);
           if (r.payment_method)
             add('طريقة الدفع', r.payment_method === 'cash' ? 'كاش' : 'إنستاباي');
-          if (r.payment_reference) add('رقم العملية', Ui.escapeHtml(r.payment_reference));
+          if (r.payment_reference) add('رقم العملية', r.payment_reference);
           if (r.payment_confirmed_at) add('أُكدّفت في', Ui.dateTime(r.payment_confirmed_at));
 
           Ui.openModal('تفاصيل الطلب #' + r.id, rows, [
@@ -751,7 +751,7 @@
                       [Ui.initials(w.name)]
                     ),
                     Ui.el('span', {}, [
-                      Ui.escapeHtml(w.name || '—'),
+                      (w.name || '—'),
                       w.phone
                         ? Ui.el(
                             'span',
@@ -899,7 +899,7 @@
                     ]),
                   ]),
                   Ui.el('span', { class: 'dv' }, [
-                    Ui.el('div', {}, [Ui.escapeHtml(t.note || '—')]),
+                    Ui.el('div', {}, [t.note || '—']),
                     Ui.el('div', { class: 'tbl-sub' }, [
                       Ui.dateTime(t.created_at) +
                         (t.request_id ? ' — طلب #' + t.request_id : '') +
@@ -952,7 +952,7 @@
             Ui.el('div', { class: 'detail-grid', style: 'margin-bottom:14px' }, [
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['الفني']),
-                Ui.el('span', { class: 'dv' }, [Ui.escapeHtml(w.name || '—')]),
+                Ui.el('span', { class: 'dv' }, [w.name || '—']),
               ]),
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['الرصيد الحالي']),

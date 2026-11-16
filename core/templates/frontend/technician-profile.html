@@ -107,7 +107,7 @@
 
       headerCard.appendChild(avatar);
       headerCard.appendChild(Ui.el('div', { class: 'pp-info' }, [
-        Ui.el('h1', { class: 'pp-name' }, [Ui.escapeHtml(t.name)]),
+        Ui.el('h1', { class: 'pp-name' }, [t.name]),
         Ui.el('div', { class: 'pp-meta' }, [
           Ui.el('span', {}, [Ui.ic('fa-solid fa-location-dot'), ' ' + (t.location_text || '—')]),
           p.years_experience ? Ui.el('span', {}, [Ui.ic('fa-solid fa-briefcase'), ' ' + p.years_experience + ' سنة خبرة']) : null
@@ -129,7 +129,7 @@
       ]));
 
       if (p.bio) {
-        headerCard.appendChild(Ui.el('div', { class: 'pp-bio' }, [Ui.escapeHtml(p.bio)]));
+        headerCard.appendChild(Ui.el('div', { class: 'pp-bio' }, [p.bio]));
       }
 
       container.appendChild(headerCard);
@@ -188,12 +188,12 @@
             Ui.el('span', { class: 'stars review-stars' }, rStars)
           ]));
           if (r.comment) {
-            item.appendChild(Ui.el('p', { class: 'review-comment' }, [Ui.escapeHtml(r.comment)]));
+            item.appendChild(Ui.el('p', { class: 'review-comment' }, [r.comment]));
           }
           if (r.technician_reply) {
             item.appendChild(Ui.el('div', { class: 'review-reply' }, [
               Ui.el('div', { class: 'rr-head' }, [Ui.ic('fa-solid fa-reply'), ' رد الفني']),
-              Ui.el('div', { class: 'rr-body' }, [Ui.escapeHtml(r.technician_reply)])
+              Ui.el('div', { class: 'rr-body' }, [r.technician_reply])
             ]));
           }
           list.appendChild(item);

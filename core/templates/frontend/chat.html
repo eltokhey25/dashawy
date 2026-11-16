@@ -262,7 +262,7 @@
             Ui.el('div', { class: 'chat-bubble ' + (isMine ? 'mine' : 'theirs') }, [
               // Passed as a RAW string: Ui.el turns string children into text
               // nodes, which the DOM escapes by itself. Wrapping this in
-              // Ui.escapeHtml() would double-escape and the reader would see
+              // an HTML-escaping helper would double-escape and the reader would see
               // literal "&lt;b&gt;" in their own message.
               Ui.el('div', { class: 'cb-body' }, [m.body]),
               Ui.el('div', { class: 'cb-time' }, [Ui.dateTime(m.created_at)]),

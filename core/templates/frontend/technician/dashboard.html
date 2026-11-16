@@ -292,7 +292,7 @@
       }
 
       // Text goes in as a raw string: Ui.el writes children with textContent,
-      // which escapes on its own. Passing Ui.escapeHtml() here would double-encode
+      // which escapes on its own. Escaping the text here first would double-encode
       // and the technician would literally read "a&lt;b&gt;".
       function para(cls, text) {
         return Ui.el('div', { class: cls }, [String(text == null ? '' : text)]);

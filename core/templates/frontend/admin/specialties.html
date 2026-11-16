@@ -148,9 +148,9 @@
               // Chip styles are inlined: the shared .as-icon rule is scoped to
               // .adm-stat, so it does not apply inside a table cell.
               Ui.el('span', { attrs: { style: 'width:38px;height:38px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;background:var(--brand-50);color:var(--brand-600)' } }, [Ui.ic(ic)]),
-              Ui.el('div', {}, [Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(s.label)]), Ui.el('div', { class: 'tbl-sub' }, ['#' + s.id])])
+              Ui.el('div', {}, [Ui.el('div', { class: 'tbl-main' }, [s.label]), Ui.el('div', { class: 'tbl-sub' }, ['#' + s.id])])
             ])]),
-            Ui.el('td', {}, [Ui.el('code', { attrs: { dir: 'ltr' } }, [Ui.escapeHtml(s.key)])]),
+            Ui.el('td', {}, [Ui.el('code', { attrs: { dir: 'ltr' } }, [s.key])]),
             Ui.el('td', {}, [s.enabled ? Ui.el('span', { class: 'adm-badge green' }, [Ui.ic('fa-solid fa-eye'), 'ظاهر']) : Ui.el('span', { class: 'adm-badge red' }, [Ui.ic('fa-solid fa-eye-slash'), 'معطّل'])]),
             Ui.el('td', {}, [Ui.el('span', { class: 'muted' }, [s.requests_count + ' طلب'])]),
             Ui.el('td', {}, [Ui.el('div', { style: 'display:flex;gap:6px;justify-content:flex-end' }, [

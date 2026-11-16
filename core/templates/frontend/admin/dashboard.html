@@ -447,7 +447,7 @@
                       },
                       [Ui.initials(r.customer_name)]
                     ),
-                    Ui.escapeHtml(r.customer_name),
+                    r.customer_name,
                   ]),
                 ]),
                 Ui.el('td', {}, [
@@ -504,7 +504,7 @@
               )
             );
             const info = Ui.el('div', { style: 'flex:1;min-width:0' }, [
-              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(t.name)]),
+              Ui.el('div', { class: 'tbl-main' }, [t.name]),
               Ui.el(
                 'span',
                 {
@@ -539,7 +539,7 @@
               ])
             );
           add('رقم الطلب', '#' + r.id);
-          const custWrap = Ui.el('span', {}, [Ui.escapeHtml(r.customer_name)]);
+          const custWrap = Ui.el('span', {}, [r.customer_name]);
           if (r.customer_phone)
             custWrap.appendChild(
               Ui.el(
@@ -565,14 +565,14 @@
             )
           );
           if (r.custom_specialty_text)
-            add('الخدمة المطلوبة', Ui.escapeHtml(r.custom_specialty_text));
+            add('الخدمة المطلوبة', r.custom_specialty_text);
           add('الحالة', Ui.statusBadge(r.status));
-          add('الموقع', Ui.escapeHtml(r.customer_location || r.location_text || '—'));
-          if (r.description) add('الوصف', Ui.el('div', {}, [Ui.escapeHtml(r.description)]));
+          add('الموقع', (r.customer_location || r.location_text || '—'));
+          if (r.description) add('الوصف', Ui.el('div', {}, [r.description]));
           if (r.technician_name)
             add(
               'الفني المسند',
-              Ui.escapeHtml(r.technician_name) +
+              r.technician_name +
                 (r.technician_phone ? ' (جهة ' + r.technician_phone + ')' : '')
             );
           add('أُنشئ', Ui.dateTime(r.created_at));
@@ -646,7 +646,7 @@
             Ui.el('div', { class: 'form-hint' }, [
               r.status === 'assigned' || r.status === 'in_progress'
                 ? 'الطلب مسند بالفعل لـ ' +
-                  (r.technician_name ? Ui.escapeHtml(r.technician_name) : 'فني')
+                  (r.technician_name ? r.technician_name : 'فني')
                 : 'لا يمكن تعيين فني لطلب ' + Ui.statusLabel(r.status),
             ])
           );
