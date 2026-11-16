@@ -43,6 +43,8 @@ def stale_requests(now=None):
         )
         .exclude(amount_status__in=SETTLED + ('disputed',))
         .exclude(payment_status__in=('confirmed', 'refunded'))
+        # An InstaPay receipt waiting for an admin is not a stalled cash report.
+        .exclude(payment_method='instapay', payment_status='pending_verification')
         .annotate(booked=Exists(booked))
         .filter(booked=False)
         .order_by('completed_at', 'id')

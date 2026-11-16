@@ -147,6 +147,15 @@ def api_not_found(request, *args, **kwargs):
 # The trailing slash is optional because the existing frontend calls these
 # paths without one ("/api/auth/login"); APPEND_SLASH would otherwise issue a
 # redirect that turns a POST into a GET.
+from .instapay_views import (
+    AdminInstapayReceiptActionView,
+    AdminInstapayReceiptImageView,
+    AdminInstapayReceiptListView,
+    CustomerInstapayReceiptListView,
+    CustomerInstapayReceiptView,
+    InstapayConfigView,
+)
+
 urlpatterns = [
     # Public configuration / landing data
     re_path(r'^public/config/?$', PublicConfigView.as_view(), name='public-config'),
@@ -196,6 +205,17 @@ urlpatterns = [
         CustomerReportPaymentView.as_view(),
         name='customer-report-payment',
     ),
+    re_path(
+        r'^customer/requests/(?P<pk>\d+)/instapay-receipt/?$',
+        CustomerInstapayReceiptView.as_view(),
+        name='customer-instapay-receipt',
+    ),
+    re_path(
+        r'^customer/requests/(?P<pk>\d+)/instapay-receipts/?$',
+        CustomerInstapayReceiptListView.as_view(),
+        name='customer-instapay-receipts',
+    ),
+    re_path(r'^payments/instapay/?$', InstapayConfigView.as_view(), name='instapay-config'),
     re_path(
         r'^customer/requests/(?P<pk>\d+)/pay/?$',
         CustomerPayView.as_view(),
@@ -536,6 +556,21 @@ urlpatterns = [
         r'^admin/payments/(?P<pk>\d+)/confirm/?$',
         AdminPaymentConfirmView.as_view(),
         name='admin-payment-confirm',
+    ),
+    re_path(
+        r'^admin/instapay/receipts/?$',
+        AdminInstapayReceiptListView.as_view(),
+        name='admin-instapay-receipts',
+    ),
+    re_path(
+        r'^admin/instapay/receipts/(?P<pk>\d+)/image/?$',
+        AdminInstapayReceiptImageView.as_view(),
+        name='admin-instapay-receipt-image',
+    ),
+    re_path(
+        r'^admin/instapay/receipts/(?P<pk>\d+)/(?P<action>approve|reject)/?$',
+        AdminInstapayReceiptActionView.as_view(),
+        name='admin-instapay-receipt-action',
     ),
     re_path(
         r'^admin/payments/(?P<pk>\d+)/refund/?$',

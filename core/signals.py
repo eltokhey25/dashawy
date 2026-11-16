@@ -18,7 +18,7 @@ from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
-from .models import Request, Technician, TechnicianPortfolio, TechnicianProfile
+from .models import PaymentReceipt, Request, Technician, TechnicianPortfolio, TechnicianProfile
 from .upload_validators import resolve_stored_upload
 
 log = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ FILE_FIELDS = {
     Request: ('order_photo_path',),
     TechnicianProfile: ('profile_image_path',),
     TechnicianPortfolio: ('image_path',),
+    PaymentReceipt: ('image_path',),
 }
 
 

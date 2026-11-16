@@ -418,3 +418,129 @@ def notify_account_created(user):
             'tag': 'welcome',
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# InstaPay receipts
+# ---------------------------------------------------------------------------
+
+
+def notify_instapay_confirmed(request_id, settlement):
+    """Tell both sides the transfer was confirmed and the job is closed."""
+    from ..models import Request
+
+    job = Request.objects.select_related('customer', 'technician').filter(pk=request_id).first()
+    if job is None:
+        return
+    amount = _money(settlement['final_amount'])
+    if job.customer_id and job.customer:
+        _push(
+            job.customer.user_id,
+            {
+                'title': '✅ تم تأكيد دفعك',
+                'body': f'استلمنا تحويل إنستاباي {amount} ج.م لطلب #{job.pk} والمهمة انتهت. قيّم الفني.',
+                'url': f'/customer/my-requests.html?review={job.pk}',
+                'tag': f'instapay-confirmed-{job.pk}',
+                'buttons': [[('⭐ قيّم الخدمة', f'/customer/my-requests.html?review={job.pk}')]],
+            },
+        )
+    if job.technician_id and job.technician:
+        closed = ' والمهمة اتقفلت' if settlement.get('finished_now') else ''
+        _push(
+            job.technician.user_id,
+            {
+                'title': '💸 العميل دفع إنستاباي',
+                'body': (
+                    f'طلب #{job.pk}: العميل دفع {amount} ج.م للمنصة{closed}. '
+                    f'نصيبك {_money(settlement["earning"])} ج.م اتضاف لمحفظتك.'
+                ),
+                'url': '/technician/dashboard.html?tab=wallet',
+                'tag': f'instapay-earned-{job.pk}',
+            },
+        )
+
+
+def _receipt_reviewers():
+    """Admins who may decide a receipt: the super admin and anyone with ``stats``."""
+    from ..models import User
+    from ..permissions import _admin_permissions
+
+    return [
+        admin.pk
+        for admin in User.objects.filter(role='admin').exclude(blocked=True)
+        if admin.is_super_admin or 'stats' in _admin_permissions(admin)
+    ]
+
+
+def instapay_review_text(receipt):
+    """What the reviewer needs to find the transfer in the bank's SMS."""
+    import json
+
+    from .instapay import cairo_local
+
+    amount = receipt.amount if receipt.amount is not None else receipt.claimed_amount
+    job = receipt.request
+    customer = receipt.customer.name if receipt.customer else '—'
+    lines = [
+        f'طلب #{receipt.request_id} — العميل: {customer}',
+        f'💵 المبلغ: {_money(amount)} ج.م',
+    ]
+    if receipt.amount is not None and abs(receipt.amount - receipt.claimed_amount) >= 0.01:
+        lines.append(f'(العميل كتب {_money(receipt.claimed_amount)} ج.م)')
+    lines.append(f'🔢 الرقم المرجعي: {receipt.reference or "مش مقروء"}')
+    lines.append(f'👤 المحوّل: {receipt.sender or "مش مقروء"}')
+    if receipt.transferred_at:
+        lines.append(f'🕒 وقت التحويل: {cairo_local(receipt.transferred_at)}')
+    if job is not None and job.technician_id and job.technician:
+        lines.append(f'🛠️ الفني: {job.technician.name}')
+    try:
+        open_checks = [c['detail'] for c in json.loads(receipt.checks or '[]') if c.get('ok') is None]
+    except (TypeError, ValueError):
+        open_checks = []
+    if open_checks:
+        lines.append('ليه محتاج مراجعة: ' + '، '.join(open_checks))
+    lines.append('شوف رسايل بنك مصر: التحويل ده وصل؟')
+    return '\n'.join(lines)
+
+
+def instapay_review_buttons(receipt):
+    return [
+        [('✅ الفلوس وصلت', f'pay:ok:{receipt.pk}'), ('❌ مش واصلة', f'pay:no:{receipt.pk}')],
+        [('🧾 صورة الوصل', '/admin/finance?tab=receipts')],
+    ]
+
+
+def notify_instapay_needs_review(receipt):
+    """Ask the reviewers to check their bank SMS and decide with one tap.
+
+    Only receipts the automatic checks could not decide come here; the
+    buttons are handled by the bot (``services.telegram_bot``).
+    """
+    return fan_out(
+        _receipt_reviewers(),
+        {
+            'title': '🧾 وصل إنستاباي محتاج تأكيدك',
+            'body': instapay_review_text(receipt),
+            'url': '/admin/finance?tab=receipts',
+            'tag': f'instapay-review-{receipt.pk}',
+            'buttons': instapay_review_buttons(receipt),
+        },
+    )
+
+
+def notify_instapay_rejected(receipt):
+    """Tell the customer an admin refused their receipt, and why."""
+    from ..models import Customer
+
+    user_id = Customer.objects.filter(pk=receipt.customer_id).values_list('user_id', flat=True).first()
+    if not user_id:
+        return
+    _push(
+        user_id,
+        {
+            'title': '⚠️ لم نتمكن من تأكيد التحويل',
+            'body': f'طلب #{receipt.request_id}: {receipt.reason} ارفع وصل صحيح أو تواصل مع الدعم.',
+            'url': '/customer/my-requests.html',
+            'tag': f'instapay-rejected-{receipt.pk}',
+        },
+    )

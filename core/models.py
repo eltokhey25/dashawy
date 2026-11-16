@@ -664,12 +664,15 @@ class WalletTransaction(models.Model):
     TYPE_PAYOUT = 'payout'
     TYPE_WITHDRAWAL = 'withdrawal'
     TYPE_ADJUSTMENT = 'adjustment'
+    # An earning taken back out of the balance (a refunded InstaPay job).
+    TYPE_REVERSAL = 'reversal'
     TYPE_CHOICES = [
         (TYPE_PAYMENT, 'Payment'),
         (TYPE_DEBT, 'Debt'),
         (TYPE_PAYOUT, 'Payout'),
         (TYPE_WITHDRAWAL, 'Withdrawal'),
         (TYPE_ADJUSTMENT, 'Adjustment'),
+        (TYPE_REVERSAL, 'Reversal'),
     ]
 
     id = models.AutoField(primary_key=True)
@@ -1011,6 +1014,86 @@ class StoredFile(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class PaymentReceipt(models.Model):
+    """An InstaPay transfer receipt a customer uploaded for a request.
+
+    The image is read automatically (``services.instapay``): the amount,
+    recipient, reference number and time are extracted and checked, and the
+    row records what was read and why it was accepted, refused or left for
+    an admin. ``reference`` is unique among verified receipts, so one
+    transfer can never pay for two orders.
+    """
+
+    STATUS_VERIFIED = 'verified'
+    STATUS_REVIEW = 'review'
+    STATUS_REJECTED = 'rejected'
+    STATUS_CHOICES = [
+        (STATUS_VERIFIED, 'Verified'),
+        (STATUS_REVIEW, 'Needs admin review'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    request = models.ForeignKey(
+        Request,
+        on_delete=models.CASCADE,
+        db_column='request_id',
+        related_name='payment_receipts',
+    )
+    customer = models.ForeignKey(
+        Customer,
+        on_delete=models.CASCADE,
+        db_column='customer_id',
+        related_name='payment_receipts',
+    )
+    # Emptied when an automatically refused image is discarded.
+    image_path = models.CharField(max_length=500, null=True, blank=True)
+    image_sha256 = models.CharField(max_length=64, db_index=True)
+    claimed_amount = models.FloatField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    # Shown to the customer (and the admin) in Arabic.
+    reason = models.TextField(null=True, blank=True)
+    # JSON list of {key, ok, detail}: every check that ran.
+    checks = models.TextField(default='[]')
+
+    # What was read from the image.
+    amount = models.FloatField(null=True, blank=True)
+    reference = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+    recipient = models.CharField(max_length=255, null=True, blank=True)
+    sender = models.CharField(max_length=255, null=True, blank=True)
+    transferred_at = models.DateTimeField(null=True, blank=True)
+    extracted = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(default=utc_now)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        db_column='reviewed_by',
+        related_name='+',
+        null=True,
+        blank=True,
+        db_index=False,
+    )
+    review_note = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'payment_receipts'
+        indexes = [
+            models.Index(fields=['status', 'created_at'], name='idx_receipts_status'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['reference'],
+                condition=models.Q(status='verified'),
+                name='uniq_verified_receipt_ref',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Receipt #{self.pk} for request #{self.request_id} ({self.status})'
 
 
 class RevokedAccessToken(models.Model):
