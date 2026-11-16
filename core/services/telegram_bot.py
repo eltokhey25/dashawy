@@ -13,7 +13,8 @@ page). Everything else is routed by role:
   current jobs with "on my way", "started" (asks for the doorstep code),
   "finished" (asks for the work notes) and "hand back", the wallet, and a
   chat with the customer;
-* admin: a short summary and the dashboard link.
+* admin: a short summary and the dashboard link, and one-tap decisions on
+  InstaPay receipts the automatic checks left for review (``pay:ok|no:<id>``).
 
 Multi-step flows (new order, the doorstep code, the work notes, a chat
 message) keep their state in the cache under the chat id for a few minutes,
@@ -843,6 +844,51 @@ def show_admin_summary(reply, user, edit=False):
     )
 
 
+def _can_review_receipts(user):
+    from ..permissions import _admin_permissions
+
+    return user.role == 'admin' and (user.is_super_admin or 'stats' in _admin_permissions(user))
+
+
+def decide_receipt(reply, user, action, receipt_id):
+    """One tap on an InstaPay review message: the money arrived, or it did not."""
+    from ..models import PaymentReceipt
+    from .instapay import approve_receipt, reject_receipt
+    from .payments import PaymentError
+
+    if not _can_review_receipts(user):
+        reply.send('مش عندك صلاحية تأكيد المدفوعات.')
+        return 'forbidden'
+    receipt = PaymentReceipt.objects.filter(pk=receipt_id).first()
+    if receipt is None:
+        reply.send('الوصل ده مش موجود.', edit=True)
+        return 'unknown'
+    try:
+        if action == 'ok':
+            receipt, settlement = approve_receipt(receipt_id, user.pk, note='تأكيد من تليجرام')
+            reply.send(
+                f'✅ تم تأكيد دفع طلب #{receipt.request_id} '
+                f'({settlement["final_amount"]:g} ج.م) والمهمة اتقفلت.\n'
+                f'نصيب الفني {settlement["earning"]:g} ج.م اتضاف لمحفظته.',
+                edit=True,
+            )
+        else:
+            reject_receipt(receipt_id, user.pk, note='التحويل ما وصلش لحساب المنصة.')
+            reply.send(
+                f'❌ اترفض وصل طلب #{receipt.request_id} والعميل اتبلّغ يرفع وصل صحيح أو يدفع كاش.',
+                edit=True,
+            )
+    except PaymentError as exc:
+        receipt.refresh_from_db()
+        labels = {'verified': 'اتأكد', 'rejected': 'اترفض', 'review': 'لسه قيد المراجعة'}
+        reply.send(
+            f'⚠️ {exc.message}\nوصل طلب #{receipt.request_id}: {labels.get(receipt.status, receipt.status)}.',
+            edit=True,
+        )
+        return 'error'
+    return f'pay:{action}'
+
+
 # ---------------------------------------------------------------------------
 # Routing
 # ---------------------------------------------------------------------------
@@ -1003,6 +1049,9 @@ def _handle_callback(reply, user, data):
         else:
             return 'unknown'
         return f'job:{action}'
+
+    if kind == 'pay' and action in ('ok', 'no') and value.isdigit():
+        return decide_receipt(reply, user, action, int(value))
 
     if kind == 'chat':
         if action == 'open' and value.isdigit():

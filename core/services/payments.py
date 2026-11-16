@@ -98,6 +98,15 @@ def add_wallet_transaction(technician_id, *, type, amount, request_id=None, note
         elif type == WalletTransaction.TYPE_WITHDRAWAL:
             balance = max(0.0, _round2(balance - magnitude))
             withdrawn = _round2(withdrawn + magnitude)
+        elif type == WalletTransaction.TYPE_REVERSAL:
+            # An earning taken back (a refunded InstaPay job). Whatever the
+            # technician already withdrew of it becomes money they owe.
+            taken = min(balance, magnitude)
+            shortfall = _round2(magnitude - taken)
+            balance = _round2(balance - taken)
+            earned = max(0.0, _round2(earned - magnitude))
+            if shortfall > 0:
+                debt, owed = _round2(debt + shortfall), _round2(owed + shortfall)
 
         WalletTransaction.objects.create(
             technician_id=technician_id,
@@ -240,6 +249,14 @@ def _report(request, field, amount):
             raise PaymentError('تم تسجيل المبلغ مسبقاً', 409)
         if request.payment_status == 'refunded':
             raise PaymentError('تم استرداد هذا الطلب')
+        if request.payment_method == 'instapay':
+            # Paid (or being verified) through InstaPay: there is no cash to report.
+            raise PaymentError(
+                'تم دفع هذا الطلب بإنستاباي'
+                if request.payment_status == 'confirmed'
+                else 'يوجد وصل إنستاباي قيد المراجعة لهذا الطلب',
+                409,
+            )
         now = utc_now()
         updates = {field: amount, 'amount_status': 'pending', 'updated_at': now}
         if field == 'technician_reported_amount':
@@ -441,6 +458,8 @@ def refund_request(request_id, admin_user_id):
     """Mark a completed job refunded and take back its booked commission.
 
     Idempotent: a second call finds the job refunded and changes nothing.
+    The transfer back to an InstaPay customer is made by the admin by hand;
+    this only records it.
     """
     with transaction.atomic():
         job = Request.objects.select_for_update().filter(pk=request_id).first()
@@ -463,7 +482,25 @@ def refund_request(request_id, admin_user_id):
                 note=f'إلغاء عمولة طلب #{job.pk} بعد الاسترداد',
             )
             reversed_total += float(amount or 0)
+        # An InstaPay job credited the technician's share instead: take it back.
+        credited = WalletTransaction.objects.filter(
+            request_id=job.pk, type=WalletTransaction.TYPE_PAYMENT
+        ).values_list('technician_id', 'amount')
+        earning_total = 0.0
+        for technician_id, amount in credited:
+            add_wallet_transaction(
+                technician_id,
+                type=WalletTransaction.TYPE_REVERSAL,
+                amount=amount,
+                request_id=job.pk,
+                note=f'سحب نصيب طلب #{job.pk} بعد الاسترداد',
+            )
+            earning_total += float(amount or 0)
         Request.objects.filter(pk=job.pk).update(
             payment_status='refunded', updated_at=utc_now()
         )
-    return {'already_refunded': False, 'reversed': _round2(reversed_total)}
+    return {
+        'already_refunded': False,
+        'reversed': _round2(reversed_total),
+        'reversed_earning': _round2(earning_total),
+    }

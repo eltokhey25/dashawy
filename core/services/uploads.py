@@ -43,6 +43,11 @@ def user_upload_names(user_id):
         stored += Request.objects.filter(customer_id=customer['pk']).values_list(
             'order_photo_path', flat=True
         )
+        from ..models import PaymentReceipt
+
+        stored += PaymentReceipt.objects.filter(customer_id=customer['pk']).values_list(
+            'image_path', flat=True
+        )
     names = []
     for path in stored:
         name = resolve_stored_upload(path) if path else None
@@ -121,6 +126,9 @@ def referenced_upload_names():
     stored += TechnicianProfile.objects.values_list('profile_image_path', flat=True)
     stored += TechnicianPortfolio.objects.values_list('image_path', flat=True)
     stored += Request.objects.values_list('order_photo_path', flat=True)
+    from ..models import PaymentReceipt
+
+    stored += PaymentReceipt.objects.values_list('image_path', flat=True)
     names = set()
     for path in stored:
         name = resolve_stored_upload(path) if path else None

@@ -208,6 +208,10 @@
       return Ui.el('span', { class: 'badge ' + m.badge }, [Ui.ic(m.icon), Ui.availabilityLabel(a)]);
     },
 
+    // Only for text that is about to be concatenated into a raw HTML string
+    // (a literal insertAdjacentHTML template, say). Never wrap a Ui.el child
+    // in it: children become text nodes, so the DOM already escapes them and
+    // the reader would see a literal "&amp;".
     escapeHtml(str) {
       return String(str == null ? '' : str)
         .replace(/&/g, '&amp;')
@@ -217,12 +221,14 @@
         .replace(/'/g, '&#39;');
     },
 
+    // Builds an element. There is deliberately no `html` option: every child
+    // is a Node or a string that becomes a text node, so no caller can put
+    // server or user data through innerHTML by accident.
     el(tag, options, children) {
       options = options || {};
       const node = document.createElement(tag);
       if (options.class) node.className = options.class;
       if (options.text !== undefined) node.textContent = options.text;
-      if (options.html !== undefined) node.innerHTML = options.html;
       if (options.id) node.id = options.id;
       if (options.attrs) {
         Object.entries(options.attrs).forEach(([k, v]) => node.setAttribute(k, v == null ? '' : v));

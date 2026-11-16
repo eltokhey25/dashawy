@@ -6819,6 +6819,24 @@ main,
   color: var(--danger-700);
 }
 
+/* InstaPay: offer box and the account rows in the sheet. */
+.instapay-box {
+  background: var(--brand-soft);
+  border-color: var(--brand-100, var(--line));
+}
+/* .pay-dest colours its links like text; the payment-link button keeps its own. */
+.pay-dest a.btn {
+  color: #fff;
+  justify-self: start;
+}
+.instapay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* Payment sheet (modal) */
 .pay-total {
   display: flex;

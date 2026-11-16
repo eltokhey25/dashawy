@@ -136,6 +136,10 @@
             <button class="tab active" data-tab="payments">
               <i class="fa-solid fa-receipt"></i> طلبات التسوية
             </button>
+            <button class="tab" data-tab="receipts">
+              <i class="fa-solid fa-mobile-screen-button"></i> إيصالات إنستاباي
+              <span id="receipts-badge" class="adm-tab-badge" style="display: none"></span>
+            </button>
             <button class="tab" data-tab="wallets">
               <i class="fa-solid fa-wallet"></i> محافظ الفنيين
             </button>
@@ -225,12 +229,14 @@
           debt: 'عمولة على الفني',
           payout: 'تحويل للمنصة',
           adjustment: 'تسوية يدوية',
+          reversal: 'سحب أرباح (استرداد)',
         };
         const TX_BADGE = {
           payment: 'green',
           debt: 'red',
           payout: 'blue',
           adjustment: 'yellow',
+          reversal: 'red',
         };
 
         const PAYMENT_STATUS = {
@@ -374,7 +380,7 @@
                       },
                       [Ui.initials(r.customer_name)]
                     ),
-                    Ui.escapeHtml(r.customer_name || '—'),
+                    (r.customer_name || '—'),
                   ]),
                 ]),
                 Ui.el('td', {}, [
@@ -394,7 +400,7 @@
                 ]),
                 Ui.el('td', {}, [
                   r.technician_name
-                    ? Ui.escapeHtml(r.technician_name)
+                    ? r.technician_name
                     : Ui.el('span', { class: 'muted' }, ['—']),
                 ]),
                 Ui.el('td', {}, [money(r.service_price)]),
@@ -494,14 +500,14 @@
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['العميل']),
                 Ui.el('span', { class: 'dv' }, [
-                  Ui.escapeHtml(r.customer_name || '—') +
+                  (r.customer_name || '—') +
                     (r.customer_phone ? ' — ' + r.customer_phone : ''),
                 ]),
               ]),
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['الفني']),
                 Ui.el('span', { class: 'dv' }, [
-                  Ui.escapeHtml(r.technician_name || '—') +
+                  (r.technician_name || '—') +
                     (r.technician_phone ? ' — ' + r.technician_phone : ''),
                 ]),
               ]),
@@ -663,17 +669,17 @@
               [Ui.ic(m.icon), m.label]
             )
           );
-          add('الوصف', Ui.escapeHtml(r.description || '—'));
+          add('الوصف', (r.description || '—'));
           add(
             'العميل',
-            Ui.escapeHtml(r.customer_name || '—') +
+            (r.customer_name || '—') +
               (r.customer_phone ? ' — ' + r.customer_phone : '')
           );
-          add('موقع العميل', Ui.escapeHtml(r.location_text || '—'));
+          add('موقع العميل', (r.location_text || '—'));
           add(
             'الفني',
             r.technician_name
-              ? Ui.escapeHtml(r.technician_name) + ' — ' + (r.technician_phone || '')
+              ? r.technician_name + ' — ' + (r.technician_phone || '')
               : '—'
           );
           add('المبلغ', money(r.service_price));
@@ -682,12 +688,12 @@
             money(r.commission_amount) + ' (' + Number(r.commission_percent || 0) + '%)'
           );
           add('صافي الفني', money(r.technician_earning));
-          add('ما تم عمله', Ui.escapeHtml(r.work_notes || '—'));
+          add('ما تم عمله', (r.work_notes || '—'));
           add('أُنجز في', Ui.dateTime(r.completed_at));
           add('حالة الدفع', (PAYMENT_STATUS[r.payment_status] || PAYMENT_STATUS.unpaid).label);
           if (r.payment_method)
             add('طريقة الدفع', r.payment_method === 'cash' ? 'كاش' : 'إنستاباي');
-          if (r.payment_reference) add('رقم العملية', Ui.escapeHtml(r.payment_reference));
+          if (r.payment_reference) add('رقم العملية', r.payment_reference);
           if (r.payment_confirmed_at) add('أُكدّفت في', Ui.dateTime(r.payment_confirmed_at));
 
           Ui.openModal('تفاصيل الطلب #' + r.id, rows, [
@@ -751,7 +757,7 @@
                       [Ui.initials(w.name)]
                     ),
                     Ui.el('span', {}, [
-                      Ui.escapeHtml(w.name || '—'),
+                      (w.name || '—'),
                       w.phone
                         ? Ui.el(
                             'span',
@@ -899,7 +905,7 @@
                     ]),
                   ]),
                   Ui.el('span', { class: 'dv' }, [
-                    Ui.el('div', {}, [Ui.escapeHtml(t.note || '—')]),
+                    Ui.el('div', {}, [t.note || '—']),
                     Ui.el('div', { class: 'tbl-sub' }, [
                       Ui.dateTime(t.created_at) +
                         (t.request_id ? ' — طلب #' + t.request_id : '') +
@@ -952,7 +958,7 @@
             Ui.el('div', { class: 'detail-grid', style: 'margin-bottom:14px' }, [
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['الفني']),
-                Ui.el('span', { class: 'dv' }, [Ui.escapeHtml(w.name || '—')]),
+                Ui.el('span', { class: 'dv' }, [w.name || '—']),
               ]),
               Ui.el('div', { class: 'detail-row' }, [
                 Ui.el('span', { class: 'dk' }, ['الرصيد الحالي']),
@@ -1253,7 +1259,330 @@
         // ============================================================
         // Render / load / tabs
         // ============================================================
+        // ============================================================
+        // InstaPay receipts
+        //
+        // Clean receipts confirm themselves; this tab is where an admin decides the
+        // ones the automatic checks left open, and audits the ones they accepted.
+        // ============================================================
+        let receipts = [];
+        let receiptState = 'review';
+        let receiptMeta = { review_count: 0, auto_reader: false, config: { enabled: false } };
+
+        const RECEIPT_STATES = {
+          review: { label: 'بانتظار المراجعة', badge: 'yellow' },
+          verified: { label: 'مؤكد', badge: 'green' },
+          rejected: { label: 'مرفوض', badge: 'red' },
+        };
+
+        async function loadReceipts() {
+          try {
+            const data = await api('/api/admin/instapay/receipts?status=' + receiptState);
+            receipts = data.receipts || [];
+            receiptMeta = data;
+          } catch (e) {
+            receipts = [];
+            toast(e.message, 'error');
+          }
+          const badge = document.getElementById('receipts-badge');
+          if (badge) {
+            badge.textContent = receiptMeta.review_count || 0;
+            badge.style.display = receiptMeta.review_count ? '' : 'none';
+          }
+        }
+
+        function checkList(checks) {
+          return Ui.el(
+            'ul',
+            { attrs: { style: 'margin:6px 0 0;padding:0;list-style:none;font-size:0.8rem' } },
+            (checks || []).map((c) =>
+              Ui.el('li', { attrs: { style: 'margin:2px 0' } }, [
+                Ui.ic(
+                  c.ok === true
+                    ? 'fa-solid fa-circle-check'
+                    : c.ok === false
+                      ? 'fa-solid fa-circle-xmark'
+                      : 'fa-solid fa-circle-question'
+                ),
+                ' ' + c.detail,
+              ])
+            )
+          );
+        }
+
+        async function showReceiptImage(r) {
+          try {
+            const blob = await apiBlob(r.image_url);
+            const url = URL.createObjectURL(blob);
+            const img = Ui.el('img', {
+              attrs: { src: url, alt: 'وصل التحويل', style: 'max-width:100%;border-radius:8px' },
+            });
+            Ui.openModal({ title: 'وصل طلب #' + r.request_id }, Ui.el('div', {}, [img]), null, {
+              onClose: () => URL.revokeObjectURL(url),
+            });
+          } catch (e) {
+            toast(e.message, 'error');
+          }
+        }
+
+        function openReceiptDecision(r, action) {
+          const amountInput = Ui.el('input', {
+            class: 'input',
+            attrs: {
+              type: 'number',
+              step: '0.01',
+              min: '1',
+              dir: 'ltr',
+              value: String(r.amount || r.claimed_amount || ''),
+            },
+          });
+          const noteInput = Ui.el('textarea', {
+            class: 'input',
+            attrs: {
+              rows: '2',
+              maxlength: '500',
+              placeholder:
+                action === 'approve'
+                  ? 'مثال: اتأكدت من وصول التحويل في كشف الحساب'
+                  : 'السبب اللي هيوصل للعميل',
+            },
+          });
+          const body = Ui.el('div', {}, [
+            Ui.el('p', { class: 'muted', attrs: { style: 'line-height:1.7' } }, [
+              action === 'approve'
+                ? 'قبل التأكيد اتأكد إن التحويل وصل فعلاً لحساب المنصة. التأكيد بيقفل المهمة ويضيف نصيب الفني لمحفظته.'
+                : 'الرفض بيرجّع الطلب لـ«غير مدفوع» والعميل يقدر يرفع وصل جديد أو يدفع كاش.',
+            ]),
+            action === 'approve'
+              ? Ui.el('div', { class: 'form-group' }, [
+                  Ui.el('label', { class: 'form-label' }, ['المبلغ الواصل (ج.م)']),
+                  amountInput,
+                ])
+              : null,
+            Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label' }, [action === 'approve' ? 'ملاحظة' : 'سبب الرفض']),
+              noteInput,
+            ]),
+          ]);
+          const btn = Ui.el(
+            'button',
+            { class: 'adm-btn ' + (action === 'approve' ? 'primary' : 'danger') },
+            [action === 'approve' ? 'تأكيد الدفع' : 'رفض الوصل']
+          );
+          const handle = Ui.openModal(
+            { title: (action === 'approve' ? 'تأكيد وصل طلب #' : 'رفض وصل طلب #') + r.request_id },
+            body,
+            btn
+          );
+          btn.addEventListener('click', async () => {
+            const payload = { note: noteInput.value.trim() };
+            if (action === 'approve') {
+              const amount = Number(amountInput.value);
+              if (!isFinite(amount) || amount <= 0) {
+                toast('المبلغ غير صالح', 'error');
+                return;
+              }
+              payload.amount = amount;
+            } else if (!payload.note) {
+              toast('اكتب سبب الرفض', 'error');
+              return;
+            }
+            Ui.btnLoading(btn, 'جارٍ الحفظ…');
+            try {
+              const res = await api('/api/admin/instapay/receipts/' + r.id + '/' + action, {
+                method: 'POST',
+                body: payload,
+              });
+              toast(res.message, 'success');
+              handle.close();
+              await loadReceipts();
+              render();
+            } catch (err) {
+              toast(err.message, 'error');
+              Ui.btnReset(btn);
+            }
+          });
+        }
+
+        function instapaySettingsCard() {
+          const card = Ui.el('div', { class: 'adm-card', attrs: { style: 'margin-bottom:16px' } });
+          const s = moneySettings;
+          const field = (key, label, hint, attrs) => {
+            const input = Ui.el('input', {
+              class: 'input',
+              attrs: Object.assign({ value: String(s[key] || ''), dir: 'ltr' }, attrs || {}),
+            });
+            input.dataset.key = key;
+            return Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label' }, [label]),
+              input,
+              hint ? Ui.el('div', { class: 'form-hint' }, [hint]) : null,
+            ]);
+          };
+          const enabled = Ui.el('input', { attrs: { type: 'checkbox' } });
+          enabled.checked = ['1', 'true', 'on'].includes(String(s.instapay_enabled || ''));
+          const grid = Ui.el('div', { class: 'form-grid' }, [
+            Ui.el('label', { class: 'form-group', attrs: { style: 'display:flex;gap:8px;align-items:center' } }, [
+              enabled,
+              'تفعيل الدفع بإنستاباي للعملاء',
+            ]),
+            field('instapay_name', 'اسم الحساب كما يظهر في الوصل', 'بيتقارن بالاسم المكتوب في الوصل.', {
+              dir: 'auto',
+            }),
+            field('instapay_number', 'رقم الموبايل المربوط بإنستاباي', 'مثال: 01012345678', {
+              inputmode: 'tel',
+            }),
+            field('instapay_address', 'عنوان الدفع (IPA)', 'مثال: dashawy@instapay'),
+            field('instapay_link', 'رابط الدفع', 'https://ipn.eg/S/…'),
+            field(
+              'instapay_auto_max',
+              'أقصى مبلغ يتأكد تلقائياً (ج.م)',
+              'المبالغ الأكبر بتستنى مراجعتك. الافتراضي 5000.',
+              { type: 'number', min: '1', step: '1' }
+            ),
+          ]);
+          const save = Ui.el('button', { class: 'adm-btn primary' }, [
+            Ui.ic('fa-solid fa-floppy-disk'),
+            ' حفظ بيانات إنستاباي',
+          ]);
+          save.addEventListener('click', async () => {
+            const settings = { instapay_enabled: enabled.checked ? '1' : '0' };
+            grid.querySelectorAll('input[data-key]').forEach((i) => {
+              settings[i.dataset.key] = i.value.trim();
+            });
+            Ui.btnLoading(save, 'جارٍ الحفظ…');
+            try {
+              const res = await api('/api/admin/settings', { method: 'PUT', body: { settings } });
+              moneySettings = res.settings || moneySettings;
+              toast('تم حفظ بيانات إنستاباي', 'success');
+              await loadReceipts();
+              render();
+            } catch (err) {
+              toast(err.message, 'error');
+              Ui.btnReset(save);
+            }
+          });
+          card.appendChild(
+            Ui.el('div', { class: 'adm-card-head' }, [Ui.el('h3', {}, ['حساب إنستاباي'])])
+          );
+          if (!receiptMeta.auto_reader) {
+            card.appendChild(
+              Ui.el('p', { class: 'muted', attrs: { style: 'color:var(--warning-700)' } }, [
+                Ui.ic('fa-solid fa-triangle-exclamation'),
+                ' القراءة التلقائية للإيصالات مش مفعّلة على السيرفر (ANTHROPIC_API_KEY) — كل وصل هيستنى مراجعتك.',
+              ])
+            );
+          }
+          card.appendChild(grid);
+          card.appendChild(save);
+          return card;
+        }
+
+        function renderReceipts() {
+          const wrapAll = Ui.el('div');
+          if (CAN_PRICE) wrapAll.appendChild(instapaySettingsCard());
+
+          const filters = Ui.el(
+            'div',
+            { class: 'btn-tabs', attrs: { style: 'margin-bottom:12px' } },
+            Object.keys(RECEIPT_STATES).map((key) => {
+              const b = Ui.el(
+                'button',
+                { class: 'tab' + (key === receiptState ? ' active' : ''), attrs: { type: 'button' } },
+                [RECEIPT_STATES[key].label]
+              );
+              b.addEventListener('click', async () => {
+                receiptState = key;
+                await loadReceipts();
+                render();
+              });
+              return b;
+            })
+          );
+          wrapAll.appendChild(filters);
+
+          const card = Ui.el('div', { class: 'adm-card' });
+          if (!receipts.length) {
+            card.appendChild(
+              Ui.el('div', { class: 'adm-empty' }, [
+                Ui.ic('fa-solid fa-receipt'),
+                Ui.el('b', {}, ['مفيش إيصالات هنا']),
+              ])
+            );
+            wrapAll.appendChild(card);
+            return wrapAll;
+          }
+          const tbody = Ui.el('tbody');
+          receipts.forEach((r) => {
+            const st = RECEIPT_STATES[r.status] || { label: r.status, badge: 'gray' };
+            const actions = Ui.el('div', { attrs: { style: 'display:flex;gap:6px;flex-wrap:wrap' } });
+            if (r.has_image) {
+              const view = Ui.el('button', { class: 'adm-btn sm' }, [Ui.ic('fa-solid fa-image'), ' الوصل']);
+              view.addEventListener('click', () => showReceiptImage(r));
+              actions.appendChild(view);
+            }
+            if (r.status === 'review') {
+              const ok = Ui.el('button', { class: 'adm-btn sm primary' }, ['تأكيد']);
+              ok.addEventListener('click', () => openReceiptDecision(r, 'approve'));
+              const no = Ui.el('button', { class: 'adm-btn sm danger' }, ['رفض']);
+              no.addEventListener('click', () => openReceiptDecision(r, 'reject'));
+              actions.appendChild(ok);
+              actions.appendChild(no);
+            }
+            tbody.appendChild(
+              Ui.el('tr', {}, [
+                Ui.el('td', {}, [
+                  Ui.el('b', {}, ['#' + r.request_id]),
+                  Ui.el('div', { class: 'muted', attrs: { style: 'font-size:0.78rem' } }, [
+                    (r.customer_name || '—') + ' ← ' + (r.technician_name || '—'),
+                  ]),
+                ]),
+                Ui.el('td', {}, [
+                  Ui.el('div', {}, ['المكتوب: ' + money(r.claimed_amount)]),
+                  Ui.el('div', { class: 'muted' }, ['في الوصل: ' + (r.amount != null ? money(r.amount) : '—')]),
+                  Number(r.service_price) > 0
+                    ? Ui.el('div', { class: 'muted' }, ['الاسترشادي: ' + money(r.service_price)])
+                    : null,
+                ]),
+                Ui.el('td', { attrs: { style: 'font-size:0.8rem' } }, [
+                  Ui.el('div', {}, ['المستلم: ' + (r.recipient || '—')]),
+                  Ui.el('div', {}, ['المرسل: ' + (r.sender || '—')]),
+                  Ui.el('div', { attrs: { dir: 'ltr', style: 'text-align:right' } }, [
+                    (r.reference || '—') + (r.transferred_at ? ' · ' + r.transferred_at : ''),
+                  ]),
+                ]),
+                Ui.el('td', {}, [
+                  Ui.el('span', { class: 'adm-badge ' + st.badge }, [
+                    st.label + (r.automatic ? ' (تلقائي)' : ''),
+                  ]),
+                  checkList(r.checks),
+                  r.review_note ? Ui.el('div', { class: 'muted' }, ['ملاحظة: ' + r.review_note]) : null,
+                ]),
+                Ui.el('td', {}, [Ui.dateTime ? Ui.dateTime(r.created_at) : r.created_at]),
+                Ui.el('td', {}, [actions]),
+              ])
+            );
+          });
+          const table = Ui.el('table', { class: 'adm-table' }, [
+            Ui.el('thead', {}, [
+              Ui.el('tr', {}, [
+                Ui.el('th', {}, ['الطلب']),
+                Ui.el('th', {}, ['المبلغ']),
+                Ui.el('th', {}, ['بيانات التحويل']),
+                Ui.el('th', {}, ['نتيجة الفحص']),
+                Ui.el('th', {}, ['وقت الرفع']),
+                Ui.el('th', {}, ['']),
+              ]),
+            ]),
+            tbody,
+          ]);
+          card.appendChild(Ui.el('div', { class: 'adm-table-wrap' }, [table]));
+          wrapAll.appendChild(card);
+          return wrapAll;
+        }
+
         function buildTab() {
+          if (tab === 'receipts') return renderReceipts();
           if (tab === 'wallets') return renderWallets();
           if (tab === 'pricing') return renderPricing();
           return renderPayments();
@@ -1283,6 +1612,7 @@
             ]);
             payments = payRes.payments || [];
             wallets = walletRes.wallets || [];
+            await loadReceipts();
 
             // The tariff editor needs the 'settings' permission; without it the tab is
             // hidden, so these two reads are only worth making when it is visible.
@@ -1311,10 +1641,20 @@
           }
         }
 
-        document.querySelectorAll('.tab').forEach((t) => {
+        const wantedTab = new URLSearchParams(window.location.search).get('tab');
+        if (wantedTab === 'receipts') {
+          tab = 'receipts';
+          document
+            .querySelectorAll('.btn-tabs > .tab[data-tab]')
+            .forEach((x) => x.classList.toggle('active', x.dataset.tab === 'receipts'));
+        }
+
+        document.querySelectorAll('.btn-tabs > .tab[data-tab]').forEach((t) => {
           t.addEventListener('click', () => {
             tab = t.dataset.tab;
-            document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+            document
+              .querySelectorAll('.btn-tabs > .tab[data-tab]')
+              .forEach((x) => x.classList.toggle('active', x === t));
             render();
           });
         });

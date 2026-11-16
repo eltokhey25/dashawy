@@ -238,7 +238,7 @@
           tbody.appendChild(Ui.el('tr', {}, [
             Ui.el('td', {}, ['#' + a.id]),
             Ui.el('td', {}, [
-              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(a.email)]),
+              Ui.el('div', { class: 'tbl-main' }, [a.email]),
               isMe ? Ui.el('div', { class: 'tbl-sub' }, ['(أنت)']) : null
             ]),
             Ui.el('td', {}, [

@@ -139,7 +139,7 @@
           ? Ui.el('span', {}, [Ui.ic('fa-solid fa-user-gear'), r.technician_name + (r.technician_phone ? ' · ' + r.technician_phone : '')])
           : Ui.el('span', {}, [Ui.ic('fa-solid fa-magnifying-glass'), 'جارٍ البحث عن فني متاح…'])
       ]));
-      if (r.description) card.appendChild(Ui.el('div', { class: 'req-desc' }, [Ui.escapeHtml(r.description)]));
+      if (r.description) card.appendChild(Ui.el('div', { class: 'req-desc' }, [r.description]));
       card.appendChild(Ui.el('a', { class: 'btn btn-ghost btn-sm', attrs: { href: '/customer/my-requests.html' } }, ['تفاصيل ومتابعة']));
       return card;
     }

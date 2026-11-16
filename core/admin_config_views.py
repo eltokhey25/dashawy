@@ -25,7 +25,7 @@ from .views import _body, _json_ready
 DEFAULT_SPECIALTY_ICON = 'fa-solid fa-wrench'
 # Rendered as links on every page, so only plain https URLs are accepted:
 # a ``javascript:`` value would run in every visitor's browser on click.
-URL_SETTINGS = frozenset({'facebook_url', 'instagram_url'})
+URL_SETTINGS = frozenset({'facebook_url', 'instagram_url', 'instapay_link'})
 
 EDITABLE_SETTINGS = frozenset(
     {
@@ -37,8 +37,12 @@ EDITABLE_SETTINGS = frozenset(
         'whatsapp',
         'facebook_url',
         'instagram_url',
+        'instapay_enabled',
         'instapay_number',
         'instapay_name',
+        'instapay_address',
+        'instapay_link',
+        'instapay_auto_max',
         'wallet_debt_limit',
         'wallet_debt_warning',
         'settlement_grace_hours',

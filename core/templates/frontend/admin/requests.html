@@ -365,7 +365,7 @@
                       },
                       [Ui.initials(r.customer_name)]
                     ),
-                    Ui.escapeHtml(r.customer_name),
+                    r.customer_name,
                   ]),
                 ]),
                 Ui.el('td', {}, [
@@ -384,7 +384,7 @@
                           style:
                             'display:block;margin-top:4px;font-size:0.82rem;color:var(--adm-body)',
                         },
-                        [Ui.escapeHtml(r.custom_specialty_text)]
+                        [r.custom_specialty_text]
                       )
                     : null,
                 ]),
@@ -406,7 +406,7 @@
                 Ui.el('td', {}, [Ui.amountStatusBadge(r.amount_status)]),
                 Ui.el('td', {}, [
                   r.technician_name
-                    ? Ui.escapeHtml(r.technician_name)
+                    ? r.technician_name
                     : Ui.el('span', { class: 'muted' }, ['—']),
                 ]),
                 Ui.el('td', {}, [Ui.dateTime(r.created_at)]),
@@ -525,9 +525,9 @@
             )
           );
           if (r.custom_specialty_text)
-            add('الخدمة المطلوبة (مخصصة)', Ui.escapeHtml(r.custom_specialty_text));
+            add('الخدمة المطلوبة (مخصصة)', r.custom_specialty_text);
           add('الحالة', Ui.statusBadge(r.status));
-          const custWrap = Ui.el('span', {}, [Ui.escapeHtml(r.customer_name)]);
+          const custWrap = Ui.el('span', {}, [r.customer_name]);
           if (r.customer_phone)
             custWrap.appendChild(
               Ui.el(
@@ -544,15 +544,17 @@
               )
             );
           add('العميل', custWrap);
-          add('موقع العميل', Ui.escapeHtml(r.location_text || r.customer_location || '—'));
+          add('موقع العميل', (r.location_text || r.customer_location || '—'));
           add(
             'الفني المسند',
             r.technician_name
-              ? Ui.escapeHtml(r.technician_name) +
+              ? r.technician_name +
                   (r.technician_phone ? ' (جهة ' + r.technician_phone + ')' : '')
               : Ui.el('span', { class: 'muted' }, ['لا يوجد بعد'])
           );
-          if (r.description) add('الوصف', Ui.el('div', {}, [Ui.escapeHtml(r.description)]));
+          if (r.description) add('الوصف', Ui.el('div', {}, [r.description]));
+          if (r.photo_url && window.RequestPhoto)
+            add('صورة من العميل', RequestPhoto.inline(r.photo_url, { newTab: true }));
           add('أُنشئ', Ui.dateTime(r.created_at));
           if (r.assigned_at) add('أُسند في', Ui.dateTime(r.assigned_at));
           if (r.completed_at) add('أُنجز في', Ui.dateTime(r.completed_at));
@@ -590,7 +592,7 @@
             // Neutral wording: the endpoint also records these for an admin
             // confirming a pending payment the customer never answered, so
             // "ملاحظة الحل" would imply a dispute happened when there wasn't one.
-            if (r.dispute_note) addAmt('ملاحظة الإدارة', Ui.escapeHtml(r.dispute_note));
+            if (r.dispute_note) addAmt('ملاحظة الإدارة', r.dispute_note);
             if (r.dispute_resolved_at)
               addAmt('حُسم بواسطة الإدارة في', Ui.dateTime(r.dispute_resolved_at));
 
@@ -640,7 +642,7 @@
               body.appendChild(
                 Ui.el('div', { class: 'history-chip' }, [
                   Ui.ic('fa-solid fa-user-xmark'),
-                  ' ' + Ui.escapeHtml(name) + ' — رفض أو انتهى وقت القبول',
+                  ' ' + name + ' — رفض أو انتهى وقت القبول',
                 ])
               );
             });

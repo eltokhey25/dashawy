@@ -117,6 +117,301 @@
         return Number(n || 0).toFixed(2) + ' ج.م';
       }
 
+      // ---------------------------------------------------------------------
+      // InstaPay
+      //
+      // The customer transfers to the platform's account and uploads the receipt.
+      // The server reads it at once: a clean receipt confirms the payment and ends
+      // the job, a wrong one comes back with the reason, an unclear one waits for
+      // an admin. Nothing here decides anything.
+      // ---------------------------------------------------------------------
+      let instapayConfig = null;
+
+      async function loadInstapayConfig() {
+        try {
+          instapayConfig = await api('/api/payments/instapay');
+        } catch (e) {
+          instapayConfig = { enabled: false };
+        }
+      }
+
+      function canPayInstapay(r) {
+        return (
+          Boolean(instapayConfig && instapayConfig.enabled) &&
+          ['in_progress', 'completed'].includes(r.status) &&
+          Boolean(r.technician_id) &&
+          !r.amount_status &&
+          !r.payment_status
+        );
+      }
+
+      function instapayOfferBox(r) {
+        return Ui.el('div', { class: 'pay-box instapay-box' }, [
+          Ui.el('div', { class: 'pay-head' }, [
+            Ui.ic('fa-solid fa-mobile-screen-button'),
+            Ui.el('span', {}, ['ادفع بإنستاباي']),
+            Number(r.service_price) > 0
+              ? Ui.el('b', { class: 'pay-amount' }, [money(r.service_price)])
+              : null,
+          ]),
+          Ui.el('p', { class: 'pay-hint' }, [
+            r.status === 'in_progress'
+              ? 'حوّل المبلغ لدشاوي وارفع صورة الوصل — أول ما يتأكد المهمة بتنتهي تلقائياً.'
+              : 'تقدر تدفع بتحويل إنستاباي بدل الكاش وترفع صورة الوصل.',
+          ]),
+          Ui.el('div', { class: 'pay-actions' }, [
+            Ui.el(
+              'button',
+              { class: 'btn btn-brand btn-sm', attrs: { type: 'button', 'data-instapay': r.id } },
+              [Ui.ic('fa-solid fa-receipt'), 'حوّل وارفع الوصل']
+            ),
+          ]),
+        ]);
+      }
+
+      function instapayStatusBox(r) {
+        const state = r.payment_status || 'unpaid';
+        const labels = {
+          pending_verification: 'وصل إنستاباي قيد المراجعة',
+          confirmed: 'تم الدفع بإنستاباي',
+          refunded: 'تم استرداد المبلغ',
+        };
+        const hints = {
+          pending_verification:
+            'استلمنا الوصل ومحتاج مراجعة من فريقنا. هنبلغك أول ما يتأكد — مش محتاج تعمل حاجة دلوقتي.',
+          confirmed: r.payment_reference ? 'الرقم المرجعي: ' + r.payment_reference : null,
+          refunded: 'تم تسجيل استرداد المبلغ.',
+        };
+        return Ui.el('div', { class: 'pay-box pay-' + state }, [
+          Ui.el('div', { class: 'pay-head' }, [
+            Ui.ic(
+              state === 'confirmed'
+                ? 'fa-solid fa-circle-check'
+                : state === 'refunded'
+                  ? 'fa-solid fa-rotate-left'
+                  : 'fa-solid fa-clock'
+            ),
+            Ui.el('span', {}, [labels[state] || 'إنستاباي']),
+            Ui.el('b', { class: 'pay-amount' }, [money(r.final_amount || r.service_price)]),
+          ]),
+          hints[state] ? Ui.el('p', { class: 'pay-hint' }, [hints[state]]) : null,
+        ]);
+      }
+
+      function copyButton(text) {
+        const btn = Ui.el(
+          'button',
+          { class: 'btn btn-ghost btn-sm', attrs: { type: 'button', title: 'نسخ' } },
+          [Ui.ic('fa-regular fa-copy'), 'نسخ']
+        );
+        btn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(text);
+            toast('اتنسخ', 'success');
+          } catch (e) {
+            toast('انسخه يدوياً: ' + text, 'warn');
+          }
+        });
+        return btn;
+      }
+
+      async function uploadReceipt(requestId, file, amount) {
+        const form = new FormData();
+        form.append('receipt', file);
+        form.append('amount', String(amount));
+        const headers = { Accept: 'application/json' };
+        const token = Auth.getToken();
+        if (token) headers.Authorization = 'Bearer ' + token;
+        let res;
+        try {
+          res = await fetch('/api/customer/requests/' + requestId + '/instapay-receipt', {
+            method: 'POST',
+            headers,
+            body: form,
+          });
+        } catch (e) {
+          throw new Error('تعذر الاتصال بالخادم');
+        }
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = {};
+        }
+        if (!res.ok) throw new Error(data.error || 'حدث خطأ غير متوقع');
+        return data;
+      }
+
+      async function openInstapayModal(requestId) {
+        const r = allRequests.find((x) => x.id === requestId);
+        if (!r || !instapayConfig || !instapayConfig.enabled) return;
+        const cfg = instapayConfig;
+
+        const dest = Ui.el('div', { class: 'pay-dest' }, [
+          Ui.el('span', {}, ['1) حوّل المبلغ على حساب دشاوي في إنستاباي:']),
+        ]);
+        if (cfg.name) dest.appendChild(Ui.el('b', {}, [cfg.name]));
+        if (cfg.address) {
+          dest.appendChild(
+            Ui.el('div', { class: 'instapay-row' }, [
+              Ui.el('span', { class: 'pay-dest-num', attrs: { dir: 'ltr' } }, [cfg.address]),
+              copyButton(cfg.address),
+            ])
+          );
+        }
+        if (cfg.number) {
+          dest.appendChild(
+            Ui.el('div', { class: 'instapay-row' }, [
+              Ui.el('span', { class: 'pay-dest-num', attrs: { dir: 'ltr' } }, [cfg.number]),
+              copyButton(cfg.number),
+            ])
+          );
+        }
+        if (cfg.link) {
+          dest.appendChild(
+            Ui.el(
+              'a',
+              {
+                class: 'btn btn-accent btn-sm',
+                attrs: { href: cfg.link, target: '_blank', rel: 'noopener noreferrer' },
+              },
+              [Ui.ic('fa-solid fa-arrow-up-right-from-square'), 'افتح رابط الدفع في إنستاباي']
+            )
+          );
+        }
+
+        const amountInput = Ui.el('input', {
+          class: 'input',
+          id: 'instapay-amount',
+          attrs: {
+            type: 'number',
+            min: '1',
+            step: '0.01',
+            dir: 'ltr',
+            inputmode: 'decimal',
+            style: 'text-align:right;',
+            placeholder: 'مثال: 150',
+            value: Number(r.service_price) > 0 ? String(r.service_price) : '',
+          },
+        });
+        const fileInput = Ui.el('input', {
+          class: 'input',
+          id: 'instapay-file',
+          attrs: { type: 'file', accept: 'image/jpeg,image/png,image/webp' },
+        });
+        const lastRejection = Ui.el('div');
+
+        const body = Ui.el('div', {}, [
+          dest,
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label', attrs: { for: 'instapay-amount' } }, [
+              '2) المبلغ اللي حوّلته (ج.م) ',
+              Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+            ]),
+            amountInput,
+            Ui.el('div', { class: 'form-hint' }, [
+              'اكتبه زي ما هو في الوصل بالظبط — اتفق عليه مع الفني الأول.',
+            ]),
+          ]),
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label', attrs: { for: 'instapay-file' } }, [
+              '3) صورة الوصل ',
+              Ui.el('span', { style: 'color:var(--danger-500)' }, ['*']),
+            ]),
+            fileInput,
+            Ui.el('div', { class: 'form-hint' }, [
+              'سكرين شوت كامل لوصل العملية الناجحة: يظهر فيه المبلغ والمستلم والرقم المرجعي والتاريخ.',
+            ]),
+          ]),
+          lastRejection,
+          Ui.el('div', { class: 'form-hint' }, [
+            Ui.ic('fa-solid fa-shield-halved'),
+            document.createTextNode(
+              ' بنراجع الوصل تلقائياً فوراً. الوصل المتعدّل أو المستخدم قبل كده بيترفض.'
+            ),
+          ]),
+        ]);
+
+        const submitBtn = Ui.el(
+          'button',
+          { class: 'btn btn-brand btn-block', attrs: { type: 'button' } },
+          [Ui.ic('fa-solid fa-paper-plane'), 'ارفع الوصل']
+        );
+
+        const handle = Ui.openModal(
+          {
+            title: 'الدفع بإنستاباي — طلب #' + r.id,
+            icon: {
+              cls: 'fa-solid fa-mobile-screen-button',
+              bg: 'var(--brand-soft)',
+              color: 'var(--brand)',
+            },
+          },
+          body,
+          submitBtn
+        );
+
+        // The last refusal, so a customer who comes back knows what to fix.
+        api('/api/customer/requests/' + r.id + '/instapay-receipts')
+          .then((data) => {
+            const last = (data.receipts || [])[0];
+            if (last && last.status === 'rejected') {
+              lastRejection.appendChild(
+                Ui.el('p', { class: 'pay-hint', attrs: { style: 'color:var(--danger-600)' } }, [
+                  'آخر وصل اترفض: ' + last.reason,
+                ])
+              );
+            }
+          })
+          .catch(() => {});
+
+        submitBtn.addEventListener('click', async () => {
+          const amount = Number(amountInput.value);
+          if (!isFinite(amount) || amount <= 0) {
+            toast('اكتب المبلغ اللي حوّلته', 'error');
+            amountInput.focus();
+            return;
+          }
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) {
+            toast('اختار صورة الوصل', 'error');
+            return;
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            toast('حجم الصورة لازم يكون أقل من 5 ميجا', 'error');
+            return;
+          }
+          Ui.btnLoading(submitBtn, 'بنراجع الوصل…');
+          try {
+            const data = await uploadReceipt(r.id, file, amount);
+            const status = data.receipt && data.receipt.status;
+            if (status === 'verified') {
+              toast('✅ تم تأكيد الدفع والمهمة انتهت', 'success');
+              handle.close();
+            } else if (status === 'review') {
+              toast(data.message || 'الوصل قيد المراجعة', 'warn');
+              handle.close();
+            } else {
+              toast(data.message || 'الوصل اترفض', 'error');
+              Ui.clear(lastRejection);
+              lastRejection.appendChild(
+                Ui.el('p', { class: 'pay-hint', attrs: { style: 'color:var(--danger-600)' } }, [
+                  data.message || 'الوصل اترفض',
+                ])
+              );
+              fileInput.value = '';
+              Ui.btnReset(submitBtn);
+              await load();
+              return;
+            }
+            await load();
+          } catch (err) {
+            toast(err.message, 'error');
+            Ui.btnReset(submitBtn);
+          }
+        });
+      }
+
       async function loadMyReviews() {
         try {
           // Fetch all reviews for this customer's requests in one call
@@ -360,7 +655,8 @@
         card.appendChild(Ui.el('div', { class: 'req-meta' }, meta));
 
         if (r.description)
-          card.appendChild(Ui.el('div', { class: 'req-desc' }, [Ui.escapeHtml(r.description)]));
+          card.appendChild(Ui.el('div', { class: 'req-desc' }, [r.description]));
+        if (r.photo_url && window.RequestPhoto) card.appendChild(RequestPhoto.inline(r.photo_url));
 
         // On the waiting queue: nothing has gone wrong, the request is simply
         // waiting for a technician to become free. Saying so — and for how long —
@@ -398,7 +694,7 @@
           Ui.el('div', { class: 'detail-row' }, [
             Ui.el('span', { class: 'dk' }, ['الموقع']),
             Ui.el('span', { class: 'dv' }, [
-              Ui.escapeHtml(r.location_text || r.customer_location || '—'),
+              (r.location_text || r.customer_location || '—'),
             ]),
           ])
         );
@@ -455,6 +751,14 @@
           );
         }
 
+        // InstaPay: a job paid (or being verified) by transfer shows that state; one
+        // still unpaid offers the transfer once the technician has started.
+        if (r.payment_method === 'instapay') {
+          card.appendChild(instapayStatusBox(r));
+        } else if (canPayInstapay(r)) {
+          card.appendChild(instapayOfferBox(r));
+        }
+
         // Payment for finished work. A job in the two-sided cash flow is settled by
         // the customer CONFIRMING what they handed over — they already paid the
         // technician in cash, so the old "ادفع الآن" sheet (which recorded a claim to
@@ -462,7 +766,9 @@
         const legacyPaid =
           !r.amount_status &&
           (r.payment_status === 'confirmed' || r.payment_status === 'refunded');
-        if (r.status === 'completed' && !legacyPaid) {
+        if (r.payment_method === 'instapay') {
+          // Shown above by instapayStatusBox.
+        } else if (r.status === 'completed' && !legacyPaid) {
           card.appendChild(amountConfirmBox(r));
         } else if (r.status === 'completed') {
           // A pre-cash record settled by an admin: nothing left to confirm.
@@ -683,6 +989,7 @@
         try {
           const data = await api('/api/customer/requests');
           allRequests = data.requests || [];
+          if (!instapayConfig) await loadInstapayConfig();
           announceAccepted(allRequests);
           // Reviews are fetched alongside the list so a card can never render a
           // "rate now" button for a request that was already reviewed.
@@ -703,6 +1010,12 @@
         const btn = e.target.closest('[data-pay]');
         if (!btn) return;
         openPayModal(Number(btn.dataset.pay));
+      });
+
+      listEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-instapay]');
+        if (!btn) return;
+        openInstapayModal(Number(btn.dataset.instapay));
       });
 
       listEl.addEventListener('click', (e) => {

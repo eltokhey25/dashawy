@@ -679,14 +679,14 @@
               Ui.el('tr', {}, [
                 Ui.el('td', {}, ['#' + w.id]),
                 Ui.el('td', {}, [
-                  Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(w.technician_name || '—')]),
+                  Ui.el('div', { class: 'tbl-main' }, [w.technician_name || '—']),
                   Ui.el(
                     'div',
                     {
                       class: 'tbl-sub',
                       attrs: { dir: 'ltr', style: 'text-align:right' },
                     },
-                    [Ui.escapeHtml(w.technician_phone || '—')]
+                    [w.technician_phone || '—']
                   ),
                 ]),
                 Ui.el('td', {}, [Ui.el('b', {}, [money(w.amount)])]),
@@ -710,7 +710,7 @@
                     Ui.el('div', { class: 'form-hint' }, [
                       Ui.ic('fa-solid fa-note-sticky'),
                       ' ملاحظة: ',
-                      Ui.escapeHtml(w.note),
+                      w.note,
                     ]),
                   ]),
                 ])
@@ -817,8 +817,8 @@
             tbody.appendChild(
               Ui.el('tr', {}, [
                 Ui.el('td', {}, ['#' + p.id]),
-                Ui.el('td', {}, [Ui.escapeHtml(p.customer_name || '—')]),
-                Ui.el('td', {}, [Ui.escapeHtml(p.technician_name || '—')]),
+                Ui.el('td', {}, [p.customer_name || '—']),
+                Ui.el('td', {}, [p.technician_name || '—']),
                 Ui.el('td', {}, [
                   p.technician_reported_amount != null ? money(p.technician_reported_amount) : '—',
                 ]),
@@ -1515,14 +1515,14 @@
               Ui.el('div', { class: 'pds-row' }, [
                 Ui.el('span', { class: 'pds-label' }, ['الفني:']),
                 Ui.el('span', { class: 'pds-value' }, [
-                  Ui.escapeHtml(p.technician_name || '—') + ' — ' + money(techAmount),
+                  (p.technician_name || '—') + ' — ' + money(techAmount),
                 ]),
               ]),
               custAmount > 0
                 ? Ui.el('div', { class: 'pds-row' }, [
                     Ui.el('span', { class: 'pds-label' }, ['العميل:']),
                     Ui.el('span', { class: 'pds-value' }, [
-                      Ui.escapeHtml(p.customer_name || '—') + ' — ' + money(custAmount),
+                      (p.customer_name || '—') + ' — ' + money(custAmount),
                     ]),
                   ])
                 : Ui.el('div', { class: 'pds-row' }, [

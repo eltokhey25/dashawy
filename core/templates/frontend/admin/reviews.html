@@ -260,15 +260,15 @@
           const tr = Ui.el('tr', { class: isHidden ? 'rev-row-hidden' : '' }, [
             Ui.el('td', {}, ['#' + rv.id]),
             Ui.el('td', {}, [
-              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(rv.customer_name)]),
-              Ui.el('div', { class: 'tbl-sub' }, [Ui.escapeHtml(rv.customer_email || '')])
+              Ui.el('div', { class: 'tbl-main' }, [rv.customer_name]),
+              Ui.el('div', { class: 'tbl-sub' }, [rv.customer_email || ''])
             ]),
             Ui.el('td', {}, [
-              Ui.el('div', { class: 'tbl-main' }, [Ui.escapeHtml(rv.technician_name)]),
+              Ui.el('div', { class: 'tbl-main' }, [rv.technician_name]),
               Ui.el('div', { class: 'tbl-sub' }, ['ID #' + rv.technician_id])
             ]),
             Ui.el('td', {}, [Ui.el('span', { class: 'rev-stars' }, stars)]),
-            Ui.el('td', { class: 'rev-comment' }, [Ui.el('span', { attrs: { title: raw } }, [Ui.escapeHtml(comment)])]),
+            Ui.el('td', { class: 'rev-comment' }, [Ui.el('span', { attrs: { title: raw } }, [comment])]),
             Ui.el('td', {}, [
               isHidden
                 ? Ui.el('span', { class: 'adm-badge red' }, [Ui.ic('fa-solid fa-eye-slash'), ' مخفية'])

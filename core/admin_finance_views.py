@@ -316,8 +316,8 @@ class AdminPaymentConfirmView(APIView):
             return Response({'message': 'تم تأكيد الدفع مسبقاً', 'already_confirmed': True})
         if job.payment_status == 'refunded':
             raise bad_request('تم استرداد هذا الطلب — لا يمكن تأكيد دفعه')
-        if _body(request).get('method') == 'instapay':
-            raise bad_request('إنستاباي غير متاح حالياً — الدفع كاش فقط')
+        if job.payment_method == 'instapay' or _body(request).get('method') == 'instapay':
+            raise bad_request('دفع إنستاباي يتأكد من تبويب «إيصالات إنستاباي» بعد مراجعة الوصل')
 
         updated = Request.objects.filter(pk=pk).exclude(payment_status='confirmed').update(
             payment_status='confirmed',
@@ -356,4 +356,9 @@ class AdminPaymentRefundView(APIView):
         message = 'تم تسجيل الاسترداد'
         if result['reversed']:
             message += f" وإلغاء عمولة {result['reversed']:g} ج.م من محفظة الفني"
+        if result.get('reversed_earning'):
+            message += (
+                f" وسحب نصيب الفني {result['reversed_earning']:g} ج.م من محفظته"
+                ' — حوّل المبلغ للعميل على إنستاباي يدوياً'
+            )
         return Response({'message': message, **result})

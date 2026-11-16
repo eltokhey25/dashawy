@@ -292,7 +292,7 @@
       }
 
       // Text goes in as a raw string: Ui.el writes children with textContent,
-      // which escapes on its own. Passing Ui.escapeHtml() here would double-encode
+      // which escapes on its own. Escaping the text here first would double-encode
       // and the technician would literally read "a&lt;b&gt;".
       function para(cls, text) {
         return Ui.el('div', { class: cls }, [String(text == null ? '' : text)]);
@@ -452,6 +452,19 @@
               ]),
             ])
           );
+        } else if (r.status === 'completed' && r.payment_method === 'instapay') {
+          // Paid to the platform by InstaPay: nothing to report in cash.
+          card.appendChild(
+            Ui.el('div', { class: 'req-foot' }, [
+              Ui.el('span', { class: 'muted', style: 'font-size:0.82rem' }, [
+                Ui.ic('fa-solid fa-mobile-screen-button'),
+                r.payment_status === 'confirmed'
+                  ? ' العميل دفع بإنستاباي — نصيبك اتضاف لمحفظتك'
+                  : ' العميل رفع وصل إنستاباي وبيتراجع',
+              ]),
+              chatBtn,
+            ])
+          );
         } else if (r.status === 'completed' && r.amount_status == null) {
           // The job is done but the cash amount was never reported, so the commission
           // is unbooked and the customer is waiting. Flagged amber because it is the
@@ -508,7 +521,18 @@
         // The amount state machine, shown only once it has started. A request with no
         // amount_status has not entered the confirmation flow at all, so saying
         // "waiting for confirmation" there would be wrong.
-        if (r.status === 'completed' && r.amount_status == null) {
+        if (r.status === 'completed' && r.payment_method === 'instapay') {
+          card.appendChild(
+            Ui.el('div', { class: 'req-meta' }, [
+              Ui.el('span', {}, [
+                Ui.ic('fa-solid fa-mobile-screen-button'),
+                r.payment_status === 'confirmed'
+                  ? ' إنستاباي ' + money(r.final_amount) + ' — نصيبك ' + money(r.technician_earning)
+                  : ' وصل إنستاباي قيد المراجعة',
+              ]),
+            ])
+          );
+        } else if (r.status === 'completed' && r.amount_status == null) {
           card.appendChild(
             Ui.el('div', { class: 'req-foot' }, [
               Ui.el('span', { class: 'badge b-pending' }, [

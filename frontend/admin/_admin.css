@@ -569,7 +569,8 @@ body.adm-body {
 .adm-tab.active:focus-visible {
   outline-color: #fff;
 }
-.adm-tab .adm-tab-badge {
+.adm-tab .adm-tab-badge,
+.btn-tabs .tab .adm-tab-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -195,7 +195,7 @@
 
           tbody.appendChild(Ui.el('tr', {}, [
             Ui.el('td', {}, [String(r.id)]),
-            Ui.el('td', { class: 'dk' }, [Ui.escapeHtml(r.user_email || '—')]),
+            Ui.el('td', { class: 'dk' }, [r.user_email || '—']),
             Ui.el('td', {}, [Ui.el('span', { class: 'dsr-type ' + r.request_type }, [Ui.ic(TYPE_ICONS[r.request_type] || 'fa-solid fa-file'), TYPE_LABELS[r.request_type] || r.request_type])]),
             Ui.el('td', {}, [statusBadge(r.status)]),
             Ui.el('td', { style: 'white-space:nowrap' }, [fmtDate(r.requested_at)]),
