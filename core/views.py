@@ -86,6 +86,7 @@ from .validation import (
     local_mobile,
     normalize_email,
     normalize_phone,
+    normalize_username,
     parse_lat_lng,
     password_policy_error,
     resolve_location,
@@ -131,6 +132,7 @@ def _safe_user(user, profile_complete=None):
         # Accounts made from the order form may have no real email.
         'email': '' if is_placeholder_email(user.email) else user.email,
         'phone': user.phone or None,
+        'username': user.username or None,
         'role': user.role,
         'is_super_admin': bool(user.is_super_admin),
         'permissions': _permissions(user),
@@ -313,7 +315,11 @@ def _body(request):
 
 
 class LoginView(APIView):
-    """POST /api/auth/login — email or phone plus password."""
+    """POST /api/auth/login — email or phone plus password.
+
+    The /admin portal sends ``username`` instead; that path only ever matches
+    an admin account, so a customer or technician cannot sign in through it.
+    """
 
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -322,7 +328,11 @@ class LoginView(APIView):
         data = _body(request)
         # `identifier` is the current field; `email` is accepted for older
         # cached clients, exactly as the Express route did.
-        identifier = str(data.get('identifier') or data.get('email') or '').strip()
+        admin_username = 'username' in data
+        if admin_username:
+            identifier = normalize_username(data.get('username'))
+        else:
+            identifier = str(data.get('identifier') or data.get('email') or '').strip()
         password = data.get('password')
 
         if not identifier or not isinstance(password, str) or not password:
@@ -337,7 +347,9 @@ class LoginView(APIView):
             window_seconds=900, identifier=ip_scope, count=False,
         )
 
-        if '@' in identifier:
+        if admin_username:
+            user = User.objects.filter(username=identifier, role='admin').first()
+        elif '@' in identifier:
             user = User.objects.filter(email=normalize_email(identifier)).first()
         else:
             phone = normalize_phone(identifier)
@@ -351,7 +363,8 @@ class LoginView(APIView):
         # guessing is rate-limited by IP rather than only by existing account.
         auth_request = getattr(request, '_request', request)
         verified = authenticate(
-            auth_request, username=identifier, password=password
+            auth_request, username=identifier, password=password,
+            admin_username=admin_username,
         )
         if (
             user is None
@@ -615,6 +628,8 @@ class ChangePasswordView(APIView):
         user.failed_login_attempts = 0
         user.login_locked_until = None
         _reset_axes(user.email)
+        if user.username:
+            _reset_axes(user.username)
 
         token, refresh = _issue_token(user)
         return Response(
@@ -1663,6 +1678,8 @@ class AdminUserResetPasswordView(APIView):
         # a brand-new credential, and leaving them blocked would defeat the
         # admin's action.
         _reset_axes(target.email)
+        if target.username:
+            _reset_axes(target.username)
 
         target.refresh_from_db()
         safe = _safe_user(target)

@@ -233,7 +233,7 @@
         if (el) el.style.display = '';
       }
       const user = Auth.getUser();
-      document.getElementById('side-name').textContent = user.email;
+      document.getElementById('side-name').textContent = user.username || user.email;
       document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
       document.getElementById('tb-title').textContent = 'الإعدادات';
 

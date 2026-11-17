@@ -12,6 +12,9 @@ import re
 
 EMAIL_RE = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$')
 PHONE_RE = re.compile(r'^[+()\-\s0-9]{6,20}$')
+# Admin sign-in names: start with a letter so a username can never look like
+# an email (no '@') or a phone number (all digits) on the shared login API.
+USERNAME_RE = re.compile(r'^[a-z][a-z0-9._-]{2,31}$')
 
 PASSWORD_MIN_LENGTH = 8
 PASSWORD_MAX_LENGTH = 200
@@ -85,6 +88,14 @@ AREAS_BY_KEY = {area['key']: area for area in ALEXANDRIA_AREAS}
 
 def normalize_email(value):
     return str(value or '').strip().lower()
+
+
+def normalize_username(value):
+    return str(value or '').strip().lower()
+
+
+def is_valid_username(value):
+    return isinstance(value, str) and bool(USERNAME_RE.fullmatch(normalize_username(value)))
 
 
 def normalize_phone(value):

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reset an admin password on the production (Neon) database.
 #
-# Usage: scripts/reset-production-admin.sh [email]
+# Usage: scripts/reset-production-admin.sh [email-or-username]
 # Prompts for the new password without echoing it, pulls DATABASE_URL from the
 # linked Vercel project, resets the password, clears login lockouts, and
 # deletes the pulled credentials afterwards.
@@ -12,7 +12,7 @@ PY=.venv/bin/python
 
 EMAIL="${1:-}"
 if [ -z "$EMAIL" ]; then
-  read -rp "Admin email: " EMAIL
+  read -rp "Admin email or username: " EMAIL
 fi
 
 ENV_FILE="$(mktemp)"
@@ -33,11 +33,12 @@ django.setup()
 
 from django.core.management import call_command
 
-email = os.environ['ADMIN_EMAIL']
+who = os.environ['ADMIN_EMAIL']
+by = {'email': who} if '@' in who else {'username': who}
 password = getpass.getpass('New password (8+ chars, letters and numbers): ')
 if password != getpass.getpass('Repeat new password: '):
     raise SystemExit('Passwords do not match; nothing changed.')
-call_command('reset_admin_password', email=email, password=password)
+call_command('reset_admin_password', password=password, **by)
 call_command('axes_reset')
 EOF
 

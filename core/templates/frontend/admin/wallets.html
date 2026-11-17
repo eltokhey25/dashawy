@@ -162,7 +162,7 @@
           const el = document.getElementById('nav-admins');
           if (el) el.style.display = '';
         }
-        document.getElementById('side-name').textContent = me.email;
+        document.getElementById('side-name').textContent = me.username || me.email;
         document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
         document.getElementById('tb-title').textContent = 'المحافظ';
 

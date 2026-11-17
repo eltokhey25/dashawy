@@ -89,7 +89,7 @@
             <table class="adm-table">
               <thead><tr>
                 <th>#</th>
-                <th>البريد الإلكتروني</th>
+                <th>اسم المستخدم</th>
                 <th>النوع</th>
                 <th>الصلاحيات</th>
                 <th>الحالة</th>
@@ -118,6 +118,13 @@
         if (!/\d/.test(pwd)) return 'كلمة المرور يجب أن تحتوي على رقم واحد على الأقل';
         return null;
       }
+      // Mirrors USERNAME_RE in core/validation.py.
+      function usernameProblem(name) {
+        if (!/^[a-z][a-z0-9._-]{2,31}$/.test(name)) {
+          return 'اسم المستخدم من 3 لـ 32 حرف إنجليزي أو رقم أو . _ - ويبدأ بحرف';
+        }
+        return null;
+      }
     (async () => {
       if (!(await Admin.init())) throw new Error('redirect');
 
@@ -127,7 +134,7 @@
         const el = document.getElementById('nav-admins');
         if (el) el.style.display = '';
       }
-      document.getElementById('side-name').textContent = me.email;
+      document.getElementById('side-name').textContent = me.username || me.email;
       document.getElementById('side-avatar').textContent = Ui.initials('الإدارة');
       document.getElementById('tb-title').textContent = 'المسؤولون';
 
@@ -194,6 +201,11 @@
           // --- actions cell ---
           const actions = Ui.el('div', { style: 'display:flex;gap:6px;justify-content:flex-start' });
 
+          actions.appendChild(Ui.el('button', {
+            class: 'adm-btn sm',
+            attrs: { 'data-rename': a.id, title: 'تغيير اسم المستخدم' }
+          }, [Ui.ic('fa-solid fa-user-pen')]));
+
           if (!isSuper) {
             actions.appendChild(Ui.el('button', {
               class: 'adm-btn sm',
@@ -238,7 +250,8 @@
           tbody.appendChild(Ui.el('tr', {}, [
             Ui.el('td', {}, ['#' + a.id]),
             Ui.el('td', {}, [
-              Ui.el('div', { class: 'tbl-main' }, [a.email]),
+              Ui.el('div', { class: 'tbl-main', attrs: { dir: 'ltr' } }, [a.username || '—']),
+              a.email ? Ui.el('div', { class: 'tbl-sub', attrs: { dir: 'ltr' } }, [a.email]) : null,
               isMe ? Ui.el('div', { class: 'tbl-sub' }, ['(أنت)']) : null
             ]),
             Ui.el('td', {}, [
@@ -260,8 +273,14 @@
 
       // Actions
       tbody.addEventListener('click', async (e) => {
-        const btn = e.target.closest('[data-edit],[data-reset],[data-toggle],[data-del]');
+        const btn = e.target.closest('[data-edit],[data-reset],[data-toggle],[data-del],[data-rename]');
         if (!btn) return;
+
+        if (btn.hasAttribute('data-rename')) {
+          const admin = allAdmins.find((x) => x.id === Number(btn.dataset.rename));
+          if (admin) openRenameModal(admin);
+          return;
+        }
 
         if (btn.hasAttribute('data-edit')) {
           const admin = allAdmins.find((x) => x.id === Number(btn.dataset.edit));
@@ -345,8 +364,9 @@
             'سيحصل المسؤول الجديد على الصلاحيات التي تختارها فقط. المدير العام يحتفظ بكل الصلاحيات.'
           ]));
           body.appendChild(Ui.el('div', { class: 'form-group' }, [
-            Ui.el('label', { class: 'form-label' }, ['البريد الإلكتروني']),
-            Ui.el('input', { class: 'input', id: 'adm-email', attrs: { type: 'email', dir: 'ltr', placeholder: 'admin@example.com' } })
+            Ui.el('label', { class: 'form-label' }, ['اسم المستخدم']),
+            Ui.el('input', { class: 'input', id: 'adm-username', attrs: { type: 'text', dir: 'ltr', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', maxlength: '32', placeholder: 'ahmed.ali' } }),
+            Ui.el('div', { class: 'form-hint' }, ['ده اللي هيدخل بيه لوحة التحكم: حروف إنجليزي وأرقام و . _ - ويبدأ بحرف.'])
           ]));
           body.appendChild(Ui.el('div', { class: 'form-group' }, [
             Ui.el('label', { class: 'form-label' }, ['كلمة المرور']),
@@ -378,7 +398,7 @@
           body.appendChild(Ui.el('div', { class: 'perm-target' }, [
             Ui.ic('fa-solid fa-user-shield'),
             ' تعديل صلاحيات: ',
-            Ui.el('b', {}, [spec.email])
+            Ui.el('b', { attrs: { dir: 'ltr' } }, [spec.username || spec.email])
           ]));
         }
 
@@ -398,13 +418,15 @@
             const payload = { permissions };
 
             if (!isEdit) {
-              const email = document.getElementById('adm-email').value.trim();
+              const username = document.getElementById('adm-username').value.trim().toLowerCase();
               const password = document.getElementById('adm-pwd').value;
               const isSuper = document.getElementById('adm-super').checked;
-              if (!email || !password) { toast('الإيميل والباسورد مطلوبان', 'error'); return; }
+              if (!username || !password) { toast('اسم المستخدم والباسورد مطلوبين', 'error'); return; }
+              const userProblem = usernameProblem(username);
+              if (userProblem) { toast(userProblem, 'error'); return; }
               const pwdProblem = passwordProblem(password);
               if (pwdProblem) { toast(pwdProblem, 'error'); return; }
-              payload.email = email;
+              payload.username = username;
               payload.password = password;
               payload.is_super_admin = isSuper;
               // A super admin bypasses the permission list entirely, so storing
@@ -480,6 +502,46 @@
 
         Ui.openModal(
           { title: 'تغيير كلمة المرور', icon: { cls: 'fa-solid fa-key', bg: '#fef3c7', color: '#b45309' } },
+          body, saveBtn
+        );
+      }
+
+      // Change an admin's sign-in username.
+      function openRenameModal(admin) {
+        const input = Ui.el('input', { class: 'input', id: 'rn-username', attrs: { type: 'text', dir: 'ltr', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', maxlength: '32' } });
+        input.value = admin.username || '';
+        const body = Ui.el('div', {}, [
+          Ui.el('p', { style: 'color:var(--muted);font-size:0.87rem;margin-bottom:16px;line-height:1.7' }, [
+            'المسؤول هيدخل لوحة التحكم باسم المستخدم الجديد من أول مرة جاية. كلمة المرور زي ما هي.'
+          ]),
+          Ui.el('div', { class: 'form-group' }, [
+            Ui.el('label', { class: 'form-label' }, ['اسم المستخدم الجديد']),
+            input
+          ])
+        ]);
+
+        const saveBtn = Ui.el('button', {
+          class: 'btn btn-brand',
+          on: { click: async () => {
+            const username = input.value.trim().toLowerCase();
+            const problem = usernameProblem(username);
+            if (problem) { toast(problem, 'error'); return; }
+            Ui.btnLoading(saveBtn, 'جارٍ الحفظ…');
+            try {
+              const d = await api('/api/admin/admins/' + admin.id + '/username', { method: 'POST', body: { username } });
+              toast(d.message, 'success');
+              Ui.openModal(null, null, null, { onClose: null });
+              if (admin.id === me.id) {
+                await Auth.refreshUser();
+                document.getElementById('side-name').textContent = d.username;
+              }
+              load();
+            } catch (err) { toast(err.message, 'error'); Ui.btnReset(saveBtn); }
+          }}
+        }, [Ui.ic('fa-solid fa-check'), 'حفظ اسم المستخدم']);
+
+        Ui.openModal(
+          { title: 'تغيير اسم المستخدم', icon: { cls: 'fa-solid fa-user-pen', bg: 'var(--brand-50)', color: 'var(--brand-600)' } },
           body, saveBtn
         );
       }

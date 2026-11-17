@@ -6,6 +6,7 @@ permission the Node route required (super admin for admin accounts).
 """
 
 import json
+import secrets
 
 from django.db import transaction
 from django.db.models import Avg, Q
@@ -38,12 +39,15 @@ from .validation import (
     is_valid_email,
     is_valid_name,
     is_valid_phone,
+    is_valid_username,
     normalize_email,
     normalize_phone,
+    normalize_username,
     parse_lat_lng,
     password_policy_error,
     resolve_location,
 )
+from .guest_views import ADMIN_PLACEHOLDER_EMAIL_DOMAIN, is_placeholder_email
 from .views import _body, _json_ready
 
 VALID_PERMISSIONS = (
@@ -76,7 +80,8 @@ def _admin_json(user):
         permissions = []
     return {
         'id': user.pk,
-        'email': user.email,
+        'username': user.username,
+        'email': '' if is_placeholder_email(user.email) else user.email,
         'is_super_admin': 1 if user.is_super_admin else 0,
         'blocked': 1 if user.blocked else 0,
         'must_change_password': 1 if user.must_change_password else 0,
@@ -115,19 +120,27 @@ class AdminAccountListView(APIView):
 
     def post(self, request):
         data = _body(request)
-        email = data.get('email')
-        if not is_valid_email(email):
-            raise bad_request('البريد الإلكتروني غير صالح')
+        username = _clean_username(data.get('username'))
         problem = password_policy_error(data.get('password'))
         if problem:
             raise bad_request(problem)
-        email = normalize_email(email)
-        if User.objects.filter(email=email).exists():
-            raise bad_request('هذا البريد الإلكتروني مستخدم بالفعل')
+        # Admins sign in by username; an email is optional contact detail.
+        # Without one the NOT NULL/UNIQUE column gets an undeliverable
+        # reserved-TLD address that is never shown or used.
+        email = data.get('email')
+        if email not in (None, ''):
+            if not is_valid_email(email):
+                raise bad_request('البريد الإلكتروني غير صالح')
+            email = normalize_email(email)
+            if User.objects.filter(email=email).exists():
+                raise bad_request('هذا البريد الإلكتروني مستخدم بالفعل')
+        else:
+            email = f'admin-{secrets.token_hex(8)}@{ADMIN_PLACEHOLDER_EMAIL_DOMAIN}'
         permissions = _clean_permissions(data.get('permissions'))
         is_super = data.get('is_super_admin') in (True, 1, '1')
         user = User.objects.create(
             email=email,
+            username=username,
             password_hash=hash_password(data['password']),
             role='admin',
             is_super_admin=is_super,
@@ -139,13 +152,29 @@ class AdminAccountListView(APIView):
                 'message': 'تم إضافة المسؤول بنجاح',
                 'admin': {
                     'id': user.pk,
-                    'email': email,
+                    'username': username,
                     'is_super_admin': is_super,
                     'permissions': permissions,
                 },
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+def _clean_username(value, exclude_pk=None):
+    """A valid, unused admin username, or a 400 explaining why not."""
+    if not is_valid_username(value):
+        raise bad_request(
+            'اسم المستخدم غير صالح: من 3 لـ 32 حرف إنجليزي أو رقم أو . _ - '
+            'ويبدأ بحرف'
+        )
+    username = normalize_username(value)
+    taken = User.objects.filter(username=username)
+    if exclude_pk is not None:
+        taken = taken.exclude(pk=exclude_pk)
+    if taken.exists():
+        raise bad_request('اسم المستخدم ده مستخدم بالفعل')
+    return username
 
 
 class AdminAccountDetailView(APIView):
@@ -186,6 +215,18 @@ class AdminAccountResetPasswordView(APIView):
         target = _admin_or_404(pk)
         User.objects.filter(pk=target.pk).update(password_hash=hash_password(password))
         return Response({'message': 'تم تغيير كلمة المرور. يمكن للمسؤول تسجيل الدخول مباشرة.'})
+
+
+class AdminAccountUsernameView(APIView):
+    """POST /api/admin/admins/<id>/username — {username}."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, pk):
+        target = _admin_or_404(pk)
+        username = _clean_username(_body(request).get('username'), exclude_pk=target.pk)
+        User.objects.filter(pk=target.pk).update(username=username)
+        return Response({'message': 'تم تغيير اسم المستخدم', 'username': username})
 
 
 class AdminAccountToggleView(APIView):

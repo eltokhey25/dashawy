@@ -191,10 +191,10 @@
 
       <form id="login-form" novalidate>
         <div class="fied">
-          <label for="email">البريد الإلكتروني</label>
+          <label for="username">اسم المستخدم</label>
           <div class="field">
-            <i class="fa-solid fa-envelope"></i>
-            <input type="email" id="email" class="alf-input" autocomplete="username" placeholder="admin@example.com">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="username" class="alf-input" dir="ltr" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="32" placeholder="admin">
           </div>
         </div>
         <div class="fied">
@@ -263,18 +263,18 @@
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       clearErrors();
-      const email = document.getElementById('email').value.trim();
+      const username = document.getElementById('username').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
 
       let ok = true;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { invalid(document.getElementById('email'), 'بريد إلكتروني غير صالح'); ok = false; }
+      if (!username) { invalid(document.getElementById('username'), 'أدخل اسم المستخدم'); ok = false; }
       if (!password) { invalid(document.getElementById('password'), 'أدخل كلمة المرور'); ok = false; }
       if (!ok) return;
 
       btn.disabled = true;
       btn.innerHTML = '<span class="spin"></span> جارٍ التحقق…';
       try {
-        const data = await api('/api/auth/login', { method: 'POST', body: { email, password } });
+        const data = await api('/api/auth/login', { method: 'POST', body: { username, password } });
         if (data.user.role !== 'admin') {
           toast('هذه البوابة مخصصة للمسؤولين فقط', 'error');
           btn.disabled = false;

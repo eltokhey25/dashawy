@@ -46,6 +46,7 @@ from .admin_manage_views import (
     AdminAccountListView,
     AdminAccountResetPasswordView,
     AdminAccountToggleView,
+    AdminAccountUsernameView,
     AdminCustomerBlockView,
     AdminCustomerDetailView,
     AdminDataRequestListView,
@@ -454,6 +455,11 @@ urlpatterns = [
         r'^admin/admins/(?P<pk>\d+)/reset-password/?$',
         AdminAccountResetPasswordView.as_view(),
         name='admin-admin-reset-password',
+    ),
+    re_path(
+        r'^admin/admins/(?P<pk>\d+)/username/?$',
+        AdminAccountUsernameView.as_view(),
+        name='admin-admin-username',
     ),
     re_path(
         r'^admin/admins/(?P<pk>\d+)/toggle-active/?$',

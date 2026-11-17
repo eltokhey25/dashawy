@@ -228,7 +228,7 @@ class AdminManageTests(AdminBase):
         self.as_super()
         made = self.client.post(
             '/api/admin/admins',
-            {'email': 'new-admin@example.com', 'password': 'AdminPass123', 'permissions': ['stats', 'bogus']},
+            {'username': 'new.admin', 'password': 'AdminPass123', 'permissions': ['stats', 'bogus']},
             format='json',
         )
         self.assertEqual(made.status_code, 201)

@@ -89,8 +89,15 @@ def placeholder_email(phone: str) -> str:
     return f'{digits}@{PLACEHOLDER_EMAIL_DOMAIN}'
 
 
+# Admin accounts sign in by username and may have no email at all.
+ADMIN_PLACEHOLDER_EMAIL_DOMAIN = 'admin.dashawy.invalid'
+
+
 def is_placeholder_email(email) -> bool:
-    return str(email or '').endswith('@' + PLACEHOLDER_EMAIL_DOMAIN)
+    value = str(email or '')
+    return value.endswith('@' + PLACEHOLDER_EMAIL_DOMAIN) or value.endswith(
+        '@' + ADMIN_PLACEHOLDER_EMAIL_DOMAIN
+    )
 
 
 def _account_for_phone(phone: str):

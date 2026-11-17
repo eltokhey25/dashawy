@@ -13,7 +13,7 @@ import bcrypt
 from django.contrib.auth.backends import BaseBackend
 
 from .models import User
-from .validation import normalize_email, normalize_phone
+from .validation import normalize_email, normalize_phone, normalize_username
 
 # bcrypt only looks at the first 72 bytes. bcryptjs silently truncated longer
 # inputs; Python bcrypt 5.x raises ValueError instead. Truncating here keeps
@@ -57,7 +57,12 @@ class BcryptAuthBackend(BaseBackend):
             return None
 
         identifier = str(identifier).strip()
-        if '@' in identifier:
+        if kwargs.get('admin_username'):
+            # The /admin portal signs in by username, and only admins have one.
+            user = User.objects.filter(
+                username=normalize_username(identifier), role='admin'
+            ).first()
+        elif '@' in identifier:
             user = User.objects.filter(email=normalize_email(identifier)).first()
         else:
             phone = normalize_phone(identifier)

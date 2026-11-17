@@ -100,6 +100,9 @@ class User(models.Model):
 
     id = models.AutoField(primary_key=True)
     email = models.CharField(max_length=254, unique=True)
+    # Admin sign-in name for the /admin portal (stored lower-case). Customers
+    # and technicians keep signing in with email or phone and leave it empty.
+    username = models.CharField(max_length=32, unique=True, null=True, blank=True)
     phone = models.CharField(max_length=32, null=True, blank=True)
     password_hash = models.CharField(max_length=255)
     role = models.CharField(max_length=20, choices=UserRole.choices)
