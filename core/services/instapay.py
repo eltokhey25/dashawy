@@ -4,8 +4,9 @@ The customer transfers the amount to the platform's InstaPay account and
 uploads the receipt. InstaPay offers no API to look a transfer up, so the
 receipt image is the only evidence there is:
 
-1. a vision model *extracts* what the receipt says (amount, recipient,
-   reference number, time, status). It decides nothing;
+1. the receipt is *read* (amount, recipient, reference number, time,
+   status) by a vision model when an Anthropic API key is set, else by free
+   OCR on the server (services.receipt_ocr). The reader decides nothing;
 2. :func:`evaluate` checks those fields in code against the platform's
    account, the amount the customer typed, the order's dates and every
    reference used before;
@@ -225,15 +226,30 @@ RECEIPT_SCHEMA = {
 }
 
 
-def read_receipt(image_bytes, mime_type):
+def reader_available():
+    """Whether receipts are read automatically at all (model or OCR)."""
+    from . import receipt_ocr
+
+    return ai_configured() or receipt_ocr.available()
+
+
+def read_receipt(image_bytes, mime_type, config=None):
     """What the receipt image says, as a dict shaped like ``RECEIPT_SCHEMA``.
 
-    Returns ``None`` whenever the reader is not configured or did not give a
-    usable answer (timeout, API error, refusal, truncated output); the caller
-    then leaves the receipt for an admin.
+    With an Anthropic API key the vision model reads it; otherwise, or when
+    the model gives no usable answer, the free on-server OCR does. Returns
+    ``None`` when neither could read it; the receipt then waits for an admin.
     """
-    if not ai_configured():
-        return None
+    from . import receipt_ocr
+
+    extracted = _read_with_model(image_bytes, mime_type) if ai_configured() else None
+    if extracted is None:
+        extracted = receipt_ocr.read_receipt(image_bytes, config or instapay_config())
+    return extracted
+
+
+def _read_with_model(image_bytes, mime_type):
+    """The vision model's reading, or ``None`` on any failure."""
     try:
         import anthropic
     except ImportError:
@@ -439,6 +455,22 @@ def evaluate(extracted, *, claimed_amount, job, config, now=None, exclude_receip
     def field(name):
         return str(extracted.get(name) or '').strip()
 
+    # OCR reads characters, not meaning: a misread digit or a layout it does
+    # not know must not refuse an honest customer, so with OCR only a reused
+    # reference or plainly not-a-receipt is refused; any other doubt waits
+    # for an admin.
+    ocr = extracted.get('reader') == 'ocr'
+    if ocr and (
+        field('legibility') == 'unreadable'
+        or (not extracted.get('is_transfer_receipt') and int(extracted.get('word_count') or 0) < 8)
+    ):
+        return (
+            REVIEW,
+            'استلمنا الوصل وهنراجعه يدوياً في أقرب وقت.',
+            [_check('reader', None, 'القراءة الآلية (OCR) لم تتعرف على الوصل')],
+            facts,
+        )
+
     checks = []
     reference = re.sub(r'[^0-9A-Za-z]', '', to_ascii_digits(field('reference')))[:64] or None
     amount = parse_money(field('amount'))
@@ -532,6 +564,12 @@ def evaluate(extracted, *, claimed_amount, job, config, now=None, exclude_receip
                 _check('auto_max', None, f'أكبر من حد التأكيد التلقائي ({config["auto_max"]:g} ج.م)')
             )
 
+    if ocr:
+        for check in checks:
+            if check['ok'] is False and check['key'] not in OCR_REFUSABLE:
+                check['ok'] = None
+        checks.append(_check('reader', True, 'قراءة آلية (OCR) على السيرفر'))
+
     failed = [c for c in checks if c['ok'] is False]
     if failed:
         return REJECTED, REJECTION_MESSAGES.get(failed[0]['key'], failed[0]['detail']), checks, facts
@@ -539,6 +577,9 @@ def evaluate(extracted, *, claimed_amount, job, config, now=None, exclude_receip
         return REVIEW, 'استلمنا الوصل وهنراجعه يدوياً في أقرب وقت.', checks, facts
     return VERIFIED, 'تم التحقق من الوصل وتأكيد الدفع.', checks, facts
 
+
+# What an OCR reading may still refuse outright (see evaluate).
+OCR_REFUSABLE = ('receipt', 'reference')
 
 REJECTION_MESSAGES = {
     'status': 'العملية في الوصل مش ناجحة. ارفع وصل تحويل تم بنجاح.',
@@ -682,7 +723,7 @@ def submit_receipt(job_id, customer, uploaded_file, raw_amount):
         )
         extracted = None
     else:
-        extracted = read_receipt(image, mime)
+        extracted = read_receipt(image, mime, config)
         status, reason, checks, facts = evaluate(
             extracted, claimed_amount=amount, job=job, config=config
         )

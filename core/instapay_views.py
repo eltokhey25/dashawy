@@ -25,9 +25,9 @@ from .permissions import AdminPermission, IsCustomer
 from .ratelimit import throttle
 from .services.instapay import (
     _receipt_json,
-    ai_configured,
     approve_receipt,
     instapay_config,
+    reader_available,
     reject_receipt,
     submit_receipt,
 )
@@ -164,7 +164,7 @@ class AdminInstapayReceiptListView(APIView):
                 'review_count': PaymentReceipt.objects.filter(
                     status=PaymentReceipt.STATUS_REVIEW
                 ).count(),
-                'auto_reader': ai_configured(),
+                'auto_reader': reader_available(),
                 'config': _public_config(),
             }
         )
