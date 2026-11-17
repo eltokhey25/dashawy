@@ -202,6 +202,17 @@ DATABASES = {
 # Hosted deployments (Vercel + Neon) have no persistent disk for the SQLite
 # file, so DATABASE_URL switches to Postgres. Local development keeps SQLite.
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+# The Neon integration shares DATABASE_URL with every Vercel environment, so a
+# preview of any branch would read and write the live customers' data. A
+# preview only gets a database through PREVIEW_DATABASE_URL (a separate Neon
+# branch); without one it refuses to start rather than touch production.
+if os.environ.get('VERCEL_ENV') == 'preview':
+    DATABASE_URL = os.environ.get('PREVIEW_DATABASE_URL', '').strip()
+    if not DATABASE_URL and not RUNNING_TESTS:
+        raise ImproperlyConfigured(
+            'Vercel previews never use the production database: set '
+            'PREVIEW_DATABASE_URL (a separate Neon branch) for the Preview environment.'
+        )
 if DATABASE_URL and not RUNNING_TESTS:
     import dj_database_url
 
