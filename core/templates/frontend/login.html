@@ -62,9 +62,9 @@
 
   <!-- Form -->
   <main class="auth-form-side">
-    <div class="auth-form-inner">
+    <div class="auth-form-inner auth-stagger">
 
-      <div class="auth-form-header">
+      <div class="auth-form-header" style="--i:0">
         <a href="/" class="auth-back-link">
           <i class="fa-solid fa-arrow-right"></i> العودة للرئيسية
         </a>
@@ -74,17 +74,17 @@
 
       <form id="login-form" novalidate>
 
-        <div class="auth-notice">
+        <div class="auth-notice" style="--i:1">
           <i class="fa-solid fa-location-dot"></i>
           الخدمة متاحة حالياً في محافظة الإسكندرية فقط
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="--i:2">
           <label class="form-label" for="login-email">البريد الإلكتروني أو رقم الهاتف</label>
           <input type="text" id="login-email" class="input" autocomplete="username" placeholder="you@example.com أو 01xxxxxxxxx" dir="ltr" style="text-align:right">
         </div>
 
-        <div class="form-group">
+        <div class="form-group" style="--i:3">
           <div class="auth-label-row">
             <label class="form-label" for="login-password">كلمة المرور</label>
             <a href="/verify-otp" id="forgot-pwd-link">نسيت كلمة المرور؟</a>
@@ -97,25 +97,25 @@
           <span id="login-error-text"></span>
         </div>
 
-        <button type="submit" class="btn btn-brand btn-block btn-lg" id="login-btn" style="margin-top:6px">
+        <button type="submit" class="btn btn-brand btn-block btn-lg" id="login-btn" style="margin-top:6px;--i:4">
           <i class="fa-solid fa-right-to-bracket"></i> دخول
         </button>
 
       </form>
 
-      <div class="auth-divider" id="google-divider">أو</div>
+      <div class="auth-divider" id="google-divider" style="--i:5">أو</div>
 
       <!-- Google sign-in. Stays hidden unless the server reports the feature as
            configured (backend/config.js reads the credentials from the
            environment), so a deployment without them shows no dead button. -->
-      <div id="google-btn"></div>
+      <div id="google-btn" style="--i:6"></div>
 
-      <div class="auth-footer">
+      <div class="auth-footer" style="--i:7">
         <div>مش معاك حساب؟ <a href="/register.html">أنشئ حساب عميل</a></div>
         <div>عايز تشتغل فني؟ <a href="/register-tech.html">سجّل كفني</a></div>
       </div>
 
-      <ul class="auth-trust">
+      <ul class="auth-trust" style="--i:8">
         <li><i class="fa-solid fa-lock"></i> بياناتك مشفرة ومحمية</li>
         <li><i class="fa-solid fa-headset"></i> دعم فني متواصل</li>
         <li><i class="fa-solid fa-circle-check"></i> بدون رسوم خفية</li>

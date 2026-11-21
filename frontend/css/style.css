@@ -5550,6 +5550,32 @@ main,
   animation: fadeIn 400ms var(--ease-out);
 }
 
+/* Sign-in: instead of the whole card fading in at once, its pieces rise into
+   place one after another (each sets its order in --i). Short and small, so
+   the form is usable at once and never waits behind a click. */
+.auth-stagger {
+  animation: none;
+}
+.auth-stagger [style*='--i'] {
+  animation: authRise 420ms var(--ease-out) both;
+  animation-delay: calc(var(--i) * 55ms);
+}
+@keyframes authRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-stagger [style*='--i'] {
+    animation: none;
+  }
+}
+
 .auth-form-header {
   margin-bottom: 30px;
 }
