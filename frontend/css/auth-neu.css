@@ -1,0 +1,503 @@
+/* ============================================================
+   AUTH — SOFT UI (neumorphic) skin
+   ------------------------------------------------------------
+   Loaded only by the auth pages (sign-in, customer and technician
+   sign-up, complete-profile), on top of style.css, and switched on by <body class="auth-page auth-neu">.
+
+   One soft lavender surface for the page, the card and every
+   control; depth comes only from a pair of shadows — a light one
+   up-left and a tinted one down-right — raised for things you
+   press, sunk for things you type into. The brand indigo is kept
+   for the two things that act: the primary button and the round
+   button that swaps between the two pages.
+   ============================================================ */
+
+.auth-neu {
+  --neu-bg: #e8e7f5;
+  --neu-light: #ffffff;
+  --neu-dark: #c5c2e0;
+  --neu-ink: #26224f;
+  --neu-muted: #6f6c92;
+  --neu-raise: 10px 10px 22px var(--neu-dark), -10px -10px 22px var(--neu-light);
+  --neu-raise-sm: 5px 5px 11px var(--neu-dark), -5px -5px 11px var(--neu-light);
+  --neu-sink: inset 5px 5px 10px var(--neu-dark), inset -5px -5px 10px var(--neu-light);
+  --neu-sink-sm: inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neu-bg);
+  color: var(--neu-ink);
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* The split layout's brand panel has no place in a single centred card. */
+.auth-neu .auth-visual-side {
+  display: none;
+}
+
+/* ---------- Floating orbs behind the card ---------- */
+.neu-orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.neu-orbs span {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--neu-bg);
+  box-shadow: var(--neu-raise);
+  animation: neuFloat 9s ease-in-out infinite alternate;
+}
+.neu-orbs span:nth-child(1) {
+  width: 200px;
+  height: 200px;
+  top: 8%;
+  inset-inline-end: 9%;
+}
+.neu-orbs span:nth-child(2) {
+  width: 46px;
+  height: 46px;
+  top: 16%;
+  inset-inline-start: 22%;
+  animation-duration: 6s;
+  animation-delay: -2s;
+}
+.neu-orbs span:nth-child(3) {
+  width: 130px;
+  height: 130px;
+  bottom: 9%;
+  inset-inline-start: 11%;
+  animation-duration: 11s;
+  animation-delay: -4s;
+}
+.neu-orbs span:nth-child(4) {
+  width: 70px;
+  height: 70px;
+  bottom: 18%;
+  inset-inline-end: 20%;
+  box-shadow: var(--neu-sink);
+  animation-duration: 7.5s;
+  animation-delay: -1s;
+}
+@keyframes neuFloat {
+  from {
+    transform: translateY(-12px);
+  }
+  to {
+    transform: translateY(12px);
+  }
+}
+@media (max-width: 700px) {
+  .neu-orbs span:nth-child(1) {
+    width: 120px;
+    height: 120px;
+    top: -30px;
+    inset-inline-end: -30px;
+  }
+  .neu-orbs span:nth-child(3) {
+    width: 90px;
+    height: 90px;
+    bottom: -20px;
+    inset-inline-start: -20px;
+  }
+  .neu-orbs span:nth-child(2),
+  .neu-orbs span:nth-child(4) {
+    display: none;
+  }
+}
+
+/* ---------- The card ---------- */
+.auth-neu .auth-form-side {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 48px 16px;
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+.auth-neu .auth-form-inner {
+  position: relative;
+  max-width: 420px;
+  padding: 34px 30px 28px;
+  border-radius: 32px;
+  background: var(--neu-bg);
+  box-shadow: 18px 18px 40px var(--neu-dark), -18px -18px 40px var(--neu-light);
+  view-transition-name: neu-card;
+}
+/* style.css draws a brand square above the form on small screens; the
+   badge below replaces it. */
+.auth-neu .auth-form-inner::before {
+  display: none;
+}
+@media (max-width: 480px) {
+  .auth-neu .auth-form-side {
+    padding: 28px 16px;
+  }
+  .auth-neu .auth-form-inner {
+    padding: 28px 20px 24px;
+    border-radius: 26px;
+    box-shadow: 10px 10px 24px var(--neu-dark), -10px -10px 24px var(--neu-light);
+  }
+}
+
+/* Raised icon badge at the top of the card */
+.neu-badge {
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--neu-bg);
+  box-shadow: var(--neu-raise);
+  color: var(--brand-600);
+  font-size: 1.55rem;
+  view-transition-name: neu-badge;
+}
+.neu-badge i {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--neu-sink-sm);
+}
+
+/* Header */
+.auth-neu .auth-form-header {
+  text-align: center;
+  margin-bottom: 26px;
+}
+.auth-neu .auth-form-title {
+  color: var(--neu-ink);
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+.auth-neu .auth-form-sub {
+  color: var(--neu-muted);
+  font-size: 0.9rem;
+}
+
+/* "Back home" becomes a small round raised button in the card's corner.
+   The text stays in the link for screen readers; only its size is zero. */
+.auth-neu .auth-back-link {
+  position: absolute;
+  top: 18px;
+  inset-inline-start: 18px;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  border-radius: 50%;
+  justify-content: center;
+  gap: 0;
+  font-size: 0;
+  color: var(--neu-muted);
+  background: var(--neu-bg);
+  box-shadow: var(--neu-raise-sm);
+  transition: box-shadow 0.2s, color 0.2s;
+}
+.auth-neu .auth-back-link i {
+  font-size: 0.8rem;
+}
+.auth-neu .auth-back-link:hover {
+  color: var(--brand-600);
+}
+.auth-neu .auth-back-link:active {
+  box-shadow: var(--neu-sink-sm);
+}
+
+/* ---------- Fields ---------- */
+.auth-neu .form-label {
+  color: var(--neu-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding-inline: 6px;
+}
+.auth-neu .auth-label-row {
+  padding-inline-end: 6px;
+}
+.auth-neu .input {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 13px 16px;
+  background-color: var(--neu-bg);
+  color: var(--neu-ink);
+  box-shadow: var(--neu-sink);
+}
+.auth-neu .input::placeholder {
+  color: #a3a0c2;
+}
+.auth-neu .input:hover {
+  border-color: transparent;
+}
+.auth-neu .input:focus {
+  border-color: transparent;
+  box-shadow: var(--neu-sink), 0 0 0 2px var(--brand-300);
+}
+.auth-neu .input.invalid,
+.auth-neu .input.invalid:focus {
+  border-color: transparent;
+  box-shadow: var(--neu-sink), 0 0 0 2px var(--danger-500);
+}
+.auth-neu .input[readonly] {
+  color: var(--neu-muted);
+}
+.auth-neu .form-hint,
+.auth-neu .form-error {
+  padding-inline: 6px;
+}
+
+/* Password field with a show/hide eye */
+.neu-pass {
+  position: relative;
+}
+.neu-pass .input {
+  padding-inline-end: 48px;
+}
+.neu-eye {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--neu-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color 0.2s, box-shadow 0.2s;
+}
+.neu-eye:hover,
+.neu-eye[aria-pressed='true'] {
+  color: var(--brand-600);
+}
+.neu-eye:active {
+  box-shadow: var(--neu-sink-sm);
+}
+.neu-eye:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 1px;
+}
+
+/* ---------- Buttons ---------- */
+.auth-neu .btn-brand {
+  border: 0;
+  border-radius: 16px;
+  background: var(--brand-600);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 7px 7px 16px rgba(79, 70, 229, 0.35), -7px -7px 16px var(--neu-light);
+}
+.auth-neu .btn-brand:hover {
+  background: var(--brand-600);
+  transform: translateY(-1px);
+  box-shadow: 9px 9px 20px rgba(79, 70, 229, 0.4), -9px -9px 20px var(--neu-light);
+}
+.auth-neu .btn-brand:active {
+  transform: none;
+  background: var(--brand-700);
+  box-shadow: inset 4px 4px 10px rgba(30, 27, 90, 0.45), inset -3px -3px 8px rgba(255, 255, 255, 0.12);
+}
+.auth-neu .btn-outline {
+  border: 0;
+  border-radius: 16px;
+  background: var(--neu-bg);
+  color: var(--neu-ink);
+  box-shadow: var(--neu-raise-sm);
+}
+.auth-neu .btn-outline:hover {
+  background: var(--neu-bg);
+  color: var(--brand-600);
+}
+.auth-neu .btn-outline:active {
+  box-shadow: var(--neu-sink-sm);
+}
+
+/* ---------- Bits around the form ---------- */
+.auth-neu .auth-notice {
+  border: 0;
+  border-radius: 14px;
+  background: var(--neu-bg);
+  color: var(--brand-700);
+  box-shadow: var(--neu-sink-sm);
+}
+.auth-neu .auth-divider {
+  color: var(--neu-muted);
+}
+.auth-neu .auth-divider::before,
+.auth-neu .auth-divider::after {
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: var(--neu-sink-sm);
+}
+.auth-neu .auth-footer {
+  border-top: 0;
+  margin-top: 22px;
+  padding-top: 0;
+  color: var(--neu-muted);
+}
+.auth-neu .auth-trust li {
+  color: var(--neu-muted);
+}
+
+/* Technician sign-up: the commission note and the two document drops */
+.auth-neu .auth-info-box {
+  border: 0;
+  border-radius: 16px;
+  background: var(--neu-bg);
+  color: var(--neu-ink);
+  box-shadow: var(--neu-sink-sm);
+}
+.auth-neu .file-upload {
+  border: 2px dashed var(--neu-dark);
+  border-radius: 18px;
+  background: var(--neu-bg);
+  box-shadow: var(--neu-raise-sm);
+}
+.auth-neu .file-upload:hover {
+  border-color: var(--brand-300);
+  background: var(--neu-bg);
+}
+.auth-neu .file-upload.has-file {
+  border: 2px solid var(--accent);
+  box-shadow: var(--neu-sink-sm);
+}
+.auth-neu .file-upload.has-error {
+  border-color: var(--danger-500);
+}
+.auth-neu .file-upload-label .fu-text {
+  color: var(--neu-ink);
+}
+.auth-neu .file-upload-label .fu-hint {
+  color: var(--neu-muted);
+}
+
+/* Consent line on the profile form */
+.auth-neu .consent-row {
+  color: var(--neu-muted);
+}
+
+/* The round button that swaps between sign-in and sign-up */
+.neu-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 0.88rem;
+  color: var(--neu-muted);
+}
+.neu-switch-btn,
+.auth-neu .auth-footer a.neu-switch-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--brand-600);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 5px 5px 12px rgba(79, 70, 229, 0.38), -5px -5px 12px var(--neu-light);
+  transition: transform 0.3s var(--ease-out), box-shadow 0.2s;
+}
+.auth-neu .auth-footer a.neu-switch-btn:hover {
+  color: #fff;
+  text-decoration: none;
+  transform: rotate(90deg);
+}
+.auth-neu .auth-footer a.neu-switch-btn.is-back:hover {
+  transform: translateX(4px);
+}
+.neu-switch-btn:active {
+  box-shadow: inset 3px 3px 8px rgba(30, 27, 90, 0.45);
+}
+.neu-switch-btn:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 3px;
+}
+
+/* ---------- Sign-up wizard progress ---------- */
+.auth-neu .auth-wizard {
+  padding: 0;
+}
+.auth-neu .auth-progress::before {
+  height: 4px;
+  top: 17px;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: var(--neu-sink-sm);
+}
+.auth-neu .ap-num {
+  border: 0;
+  background: var(--neu-bg);
+  color: var(--neu-muted);
+  box-shadow: var(--neu-raise-sm);
+}
+.auth-neu .ap-step.active .ap-num {
+  background: var(--brand-600);
+  color: #fff;
+  box-shadow: 4px 4px 10px rgba(79, 70, 229, 0.38), -4px -4px 10px var(--neu-light);
+}
+.auth-neu .ap-step.done .ap-num {
+  background: var(--neu-bg);
+  color: var(--success-600);
+  box-shadow: var(--neu-sink-sm);
+}
+.auth-neu .auth-title {
+  color: var(--neu-ink);
+  font-size: 1.2rem;
+  text-align: center;
+}
+.auth-neu .auth-sub {
+  color: var(--neu-muted);
+  text-align: center;
+}
+
+/* ---------- Page-to-page swap ----------
+   Both pages opt in here, so going from one to the other morphs the card
+   (its height differs between them) and cross-fades its contents, instead
+   of a blank flash. Browsers without cross-document view transitions just
+   load the page as before. */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-group(neu-card) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+::view-transition-old(neu-card) {
+  animation: 180ms ease-in both neuOut;
+}
+::view-transition-new(neu-card) {
+  animation: 320ms 120ms cubic-bezier(0.2, 0.8, 0.2, 1) both neuIn;
+}
+@keyframes neuOut {
+  to {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@keyframes neuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neu-orbs span {
+    animation: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

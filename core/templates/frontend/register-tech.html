@@ -22,8 +22,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/auth-neu.css">
 </head>
-<body class="auth-page">
+<body class="auth-page auth-neu">
+
+  <div class="neu-orbs" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 
   <!-- Brand visual -->
   <aside class="auth-visual-side">
@@ -68,7 +71,9 @@
         <a href="/" class="auth-back-link">
           <i class="fa-solid fa-arrow-right"></i> العودة للرئيسية
         </a>
-        <h1 class="auth-form-title">انضم كفني 🛠️</h1>
+        <div class="neu-badge" aria-hidden="true"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+        <h1 class="auth-form-title">انضم كفني</h1>
+        <p class="auth-form-sub">استقبل طلبات الدش في منطقتك</p>
       </div>
 
       <div class="auth-wizard">
@@ -125,7 +130,10 @@
 
             <div class="form-group">
               <label class="form-label" for="reg-tech-password">كلمة المرور</label>
-              <input type="password" id="reg-tech-password" class="input" placeholder="8 أحرف على الأقل، فيها حرف ورقم" autocomplete="new-password">
+              <div class="neu-pass">
+                <input type="password" id="reg-tech-password" class="input" placeholder="8 أحرف على الأقل، فيها حرف ورقم" autocomplete="new-password">
+                <button type="button" class="neu-eye" data-pass-toggle="reg-tech-password" aria-label="إظهار كلمة المرور" aria-pressed="false"><i class="fa-solid fa-eye"></i></button>
+              </div>
               <div class="form-hint">8 أحرف على الأقل، لازم تحتوي على حرف واحد ورقم واحد</div>
             </div>
           </div>
@@ -234,7 +242,10 @@
         <div class="auth-divider">أو</div>
 
         <div class="auth-footer">
-          <div>عندك حساب؟ <a href="/login.html">سجّل دخول</a></div>
+          <div class="neu-switch">
+            <span>عندك حساب؟</span>
+            <a href="/login.html" class="neu-switch-btn is-back" aria-label="سجّل دخول" title="سجّل دخول"><i class="fa-solid fa-arrow-right"></i></a>
+          </div>
           <div>عايز تطلب خدمة كعميل؟ <a href="/register.html">أنشئ حساب عميل</a></div>
         </div>
 
@@ -251,6 +262,7 @@
   <script src="/js/api.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/ui.js"></script>
+  <script src="/js/auth-neu.js"></script>
   <script nonce="{{ csp_nonce }}">
     // Guests only — a signed-in user has nothing to register.
     if (Auth.isAuthed()) window.location.replace(Auth.homePath());
