@@ -38,6 +38,7 @@ NOINDEX_PREFIXES = (
     'change-password',
     'complete-profile',
     'verify-otp',
+    'new-password',
     'telegram-link',
     'chat',
     'auth',

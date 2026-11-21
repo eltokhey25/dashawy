@@ -3,6 +3,7 @@
 * ``GET  /api/auth/telegram-link``          — link status for the signed-in user
 * ``POST /api/auth/telegram-link``          — a 15-minute deep link for the signed-in user
 * ``POST /api/auth/request-otp``            — {identifier}: 6-digit code by Telegram
+* ``POST /api/auth/check-otp``              — {identifier, otp}: right code? (not used up)
 * ``POST /api/auth/reset-password``         — {identifier, otp, new_password}
 * ``POST /api/telegram/webhook/<secret>``   — called by Telegram, never by the site
 * ``GET/POST /api/admin/telegram/webhook``  — super admin: inspect / register the webhook
@@ -170,6 +171,54 @@ class RequestOtpView(APIView):
         return Response({'success': True, 'message': SENT_MESSAGE})
 
 
+def _live_otp(key, code):
+    """The unused, unexpired code record for ``key`` when ``code`` matches it."""
+    record = (
+        Otp.objects.filter(email=key, used=False, expires_at__gt=utc_now())
+        .order_by('-id')
+        .first()
+    )
+    if record is None or not secrets.compare_digest(record.otp_hash, _hash_otp(code)):
+        return None
+    return record
+
+
+def _otp_request(data):
+    """(identifier key, 6-digit code) from a request body, or a 400."""
+    key = _identifier_key(data.get('identifier') or data.get('email'))
+    code = str(data.get('otp') or '').strip()
+    if not key or not (code.isdigit() and len(code) == 6):
+        raise bad_request('الكود غير صحيح')
+    return key, code
+
+
+class CheckOtpView(APIView):
+    """POST /api/auth/check-otp — {identifier, otp}: is this code right?
+
+    Lets the code screen confirm the code as soon as the sixth digit is in,
+    before asking for the new password. The code is not used up: the reset
+    still checks it again. A wrong guess is charged to the same limits the
+    reset uses, so this adds no extra guesses.
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        key, code = _otp_request(_body(request))
+        limits = (
+            dict(scope='otp-verify-ip', limit=20, window_seconds=900),
+            dict(scope='otp-verify', limit=10, window_seconds=900, identifier=key),
+        )
+        for limit in limits:
+            throttle(request, count=False, **limit)
+        if _live_otp(key, code) is None:
+            for limit in limits:
+                throttle(request, **limit)
+            raise bad_request('الكود غير صحيح')
+        return Response({'valid': True})
+
+
 class ResetPasswordView(APIView):
     """POST /api/auth/reset-password — {identifier, otp, new_password}."""
 
@@ -178,10 +227,7 @@ class ResetPasswordView(APIView):
 
     def post(self, request):
         data = _body(request)
-        key = _identifier_key(data.get('identifier') or data.get('email'))
-        code = str(data.get('otp') or '').strip()
-        if not key or not (code.isdigit() and len(code) == 6):
-            raise bad_request('الكود غير صحيح')
+        key, code = _otp_request(data)
         throttle(request, 'otp-verify-ip', limit=20, window_seconds=900)
         throttle(request, 'otp-verify', limit=10, window_seconds=900, identifier=key)
 
@@ -189,13 +235,8 @@ class ResetPasswordView(APIView):
         if problem:
             raise bad_request(problem)
 
-        now = utc_now()
-        record = (
-            Otp.objects.filter(email=key, used=False, expires_at__gt=now)
-            .order_by('-id')
-            .first()
-        )
-        if record is None or not secrets.compare_digest(record.otp_hash, _hash_otp(code)):
+        record = _live_otp(key, code)
+        if record is None:
             raise bad_request('الكود غير صحيح')
         if not Otp.objects.filter(pk=record.pk, used=False).update(used=True):
             raise bad_request('الكود غير صحيح')

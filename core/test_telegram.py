@@ -170,6 +170,56 @@ class PasswordResetTests(TelegramBase):
         self.assertTrue(any('تغيير كلمة السر' in t for t in texts))
         self.assertTrue(any('تسجيل الدخول' in t for t in texts))
 
+    def test_check_otp_confirms_the_code_without_using_it(self):
+        self.link()
+        self.client.post('/api/auth/request-otp', {'identifier': '01000000901'}, format='json')
+        code = self.code_from_telegram()
+        wrong_code = '000000' if code != '000000' else '111111'
+
+        wrong = self.client.post(
+            '/api/auth/check-otp', {'identifier': '01000000901', 'otp': wrong_code}, format='json'
+        )
+        self.assertEqual(wrong.status_code, 400)
+        right = self.client.post(
+            '/api/auth/check-otp', {'identifier': '01000000901', 'otp': code}, format='json'
+        )
+        self.assertEqual(right.status_code, 200)
+        self.assertEqual(right.json(), {'valid': True})
+        # Checking does not use the code up: the reset still takes it.
+        reset = self.client.post(
+            '/api/auth/reset-password',
+            {'identifier': '01000000901', 'otp': code, 'new_password': 'NewPass123'},
+            format='json',
+        )
+        self.assertEqual(reset.status_code, 200)
+        spent = self.client.post(
+            '/api/auth/check-otp', {'identifier': '01000000901', 'otp': code}, format='json'
+        )
+        self.assertEqual(spent.status_code, 400)
+
+    def test_check_otp_wrong_guesses_share_the_reset_limit(self):
+        self.link()
+        self.client.post('/api/auth/request-otp', {'identifier': '01000000901'}, format='json')
+        code = self.code_from_telegram()
+        wrong_code = '000000' if code != '000000' else '111111'
+        for _ in range(10):
+            self.client.post(
+                '/api/auth/check-otp', {'identifier': '01000000901', 'otp': wrong_code}, format='json'
+            )
+        # Ten wrong checks use up the guesses for this account, so neither a
+        # further check nor the reset itself gets another try, even with the
+        # right code.
+        check = self.client.post(
+            '/api/auth/check-otp', {'identifier': '01000000901', 'otp': code}, format='json'
+        )
+        reset = self.client.post(
+            '/api/auth/reset-password',
+            {'identifier': '01000000901', 'otp': code, 'new_password': 'NewPass123'},
+            format='json',
+        )
+        self.assertEqual(check.status_code, 429)
+        self.assertEqual(reset.status_code, 429)
+
     def test_unlinked_and_unknown_accounts_get_the_same_answer(self):
         not_linked = self.client.post('/api/auth/request-otp', {'identifier': '01000000901'}, format='json')
         unknown = self.client.post('/api/auth/request-otp', {'identifier': '01099999999'}, format='json')

@@ -63,7 +63,7 @@
 
       <div class="card" style="padding: 26px">
         <form id="otp-form" novalidate>
-          <div class="form-group">
+          <div class="form-group" id="identifier-group">
             <label class="form-label" for="otp-identifier">رقم الموبايل أو البريد الإلكتروني</label>
             <input
               type="text"
@@ -76,43 +76,43 @@
             />
           </div>
 
-          <div class="form-group" id="otp-code-group" hidden>
-            <label class="form-label" for="otp-code">الكود اللي وصلك على تليجرام</label>
-            <div class="otp-field" id="otp-field" dir="ltr">
-              <input
-                type="text"
-                id="otp-code"
-                class="otp-input"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                autocomplete="one-time-code"
-                maxlength="6"
-                spellcheck="false"
-                disabled
-              />
-              <div class="otp-slots" aria-hidden="true">
-                <span class="otp-slot"></span><span class="otp-slot"></span><span class="otp-slot"></span>
-                <span class="otp-gap"></span>
-                <span class="otp-slot"></span><span class="otp-slot"></span><span class="otp-slot"></span>
+          <!-- Step two: the code. Once all six digits are in, the boxes gather
+               into a ring and spin while the server checks the code; a right
+               code turns into a check mark and moves on to the new-password
+               page. -->
+          <section class="otp-stage form-group" id="otp-code-group" hidden>
+            <h2 class="otp-stage-title" id="stage-title" aria-live="polite">اكتب الكود</h2>
+            <p class="otp-stage-sub" id="stage-sub">الكود اللي وصلك على تليجرام، 6 أرقام.</p>
+            <div class="otp-arena" id="otp-arena">
+              <div class="otp-ring" aria-hidden="true"></div>
+              <div class="otp-field" id="otp-field" dir="ltr">
+                <label class="sr-only" for="otp-code">الكود</label>
+                <input
+                  type="text"
+                  id="otp-code"
+                  class="otp-input"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  autocomplete="one-time-code"
+                  maxlength="6"
+                  spellcheck="false"
+                  disabled
+                />
+                <div class="otp-slots" id="otp-slots" aria-hidden="true">
+                  <span class="otp-slot"></span><span class="otp-slot"></span><span class="otp-slot"></span>
+                  <span class="otp-slot"></span><span class="otp-slot"></span><span class="otp-slot"></span>
+                </div>
+              </div>
+              <div class="otp-orb" aria-hidden="true"><i class="fa-solid fa-check"></i></div>
+              <div class="otp-burst" aria-hidden="true">
+                <span style="--a: 0deg"></span><span style="--a: 45deg"></span>
+                <span style="--a: 90deg"></span><span style="--a: 135deg"></span>
+                <span style="--a: 180deg"></span><span style="--a: 225deg"></span>
+                <span style="--a: 270deg"></span><span style="--a: 315deg"></span>
               </div>
             </div>
-          </div>
-
-          <div class="form-group" id="password-group" hidden>
-            <label class="form-label" for="new-password">كلمة السر الجديدة</label>
-            <input
-              type="password"
-              id="new-password"
-              class="input"
-              placeholder="8 حروف على الأقل، فيها حرف ورقم"
-              autocomplete="new-password"
-              dir="ltr"
-              disabled
-            />
-            <label class="order-show-password">
-              <input type="checkbox" id="show-password" /> إظهار كلمة السر
-            </label>
-          </div>
+            <div class="otp-badge-row"><span class="otp-badge" id="otp-badge">تم التحقق</span></div>
+          </section>
 
           <button type="submit" class="btn btn-brand btn-block btn-lg" id="submit-btn">
             <i class="fa-brands fa-telegram" aria-hidden="true"></i> ابعتلي الكود على تليجرام
@@ -146,6 +146,7 @@
         </div>
 
         <div
+          id="otp-links"
           style="
             display: flex;
             justify-content: center;
@@ -170,9 +171,46 @@
     </main>
 
     <style>
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      .otp-stage {
+        text-align: center;
+      }
+      .otp-stage-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--ink);
+        margin: 0 0 4px;
+      }
+      .otp-stage-sub {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin: 0;
+        min-height: 1.5em;
+      }
+      .otp-stage-title.swap,
+      .otp-stage-sub.swap {
+        animation: otp-text-in 320ms var(--ease-out) both;
+      }
+
+      /* The arena keeps one height through every phase, so the card never
+         jumps while the boxes turn into the ring and the check mark. */
+      .otp-arena {
+        position: relative;
+        display: grid;
+        place-items: center;
+        height: 150px;
+        margin-top: 8px;
+      }
       .otp-field {
         position: relative;
-        margin-top: 4px;
+        z-index: 2;
       }
       .otp-input {
         position: absolute;
@@ -191,46 +229,42 @@
         align-items: center;
         gap: 8px;
       }
-      .otp-gap {
-        width: 10px;
-        height: 2px;
-        border-radius: 2px;
-        background: var(--line-strong);
-        margin: 0 2px;
-      }
       .otp-slot {
         position: relative;
         display: grid;
         place-items: center;
-        width: 48px;
-        height: 58px;
+        width: 46px;
+        height: 56px;
         border: 1px solid var(--line);
         border-radius: 12px;
         background: var(--surface);
         color: var(--ink);
         font-family: var(--font-body);
-        font-size: 1.6rem;
+        font-size: 1.55rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
         transition:
-          border-color 120ms ease,
-          box-shadow 120ms ease,
-          background-color 120ms ease;
+          transform 520ms var(--ease-out),
+          opacity 320ms ease,
+          border-color 160ms ease,
+          border-radius 520ms var(--ease-out),
+          box-shadow 160ms ease,
+          background-color 160ms ease;
       }
       .otp-slot.filled {
-        border-color: var(--line-strong);
+        border-color: var(--brand-300, var(--line-strong));
         animation: otp-pop 160ms ease-out;
       }
       .otp-slot.active {
-        border-color: var(--ink);
-        box-shadow: 0 0 0 3px var(--ink-100);
+        border-color: var(--brand);
+        box-shadow: 0 0 0 3px var(--brand-100);
       }
       .otp-slot.active:empty::after {
         content: '';
         width: 2px;
-        height: 26px;
+        height: 24px;
         border-radius: 1px;
-        background: var(--ink);
+        background: var(--brand);
         animation: otp-caret 1s steps(1) infinite;
       }
       .otp-field.is-error .otp-slot {
@@ -242,12 +276,174 @@
       .otp-field.is-error .otp-slots {
         animation: otp-shake 320ms ease-in-out;
       }
-      .otp-field.is-done .otp-slot {
-        border-color: var(--ink-300);
-      }
       .otp-input:disabled + .otp-slots .otp-slot {
         background: var(--ink-50);
         color: var(--muted);
+      }
+
+      /* 1. Gather: each box flies to its seat on a circle (JS puts the offset
+            in --tx/--ty), shrinks and rounds, and the circle starts to spin. */
+      .otp-arena.is-orbit .otp-input {
+        pointer-events: none;
+      }
+      .otp-arena.is-orbit .otp-slot {
+        transform: translate(var(--tx, 0), var(--ty, 0)) scale(0.62);
+        border-radius: 50%;
+        border-color: var(--brand);
+        color: var(--brand-700, var(--brand));
+        background: var(--brand-50);
+        box-shadow: none;
+      }
+      .otp-arena.is-orbit .otp-slots {
+        animation: otp-orbit 1.1s linear 420ms infinite;
+      }
+
+      /* 2. Verifying: a ring spins around the orbiting digits. */
+      .otp-ring {
+        position: absolute;
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        border: 3px solid var(--brand-100);
+        border-top-color: var(--brand);
+        opacity: 0;
+        transform: scale(0.7);
+        transition:
+          opacity 260ms ease,
+          transform 420ms var(--ease-out);
+      }
+      .otp-arena.is-verifying .otp-ring {
+        opacity: 1;
+        transform: scale(1);
+        animation: spin 800ms linear infinite;
+      }
+
+      /* 3. Right code: the digits fall into the middle and an orb swells,
+            bursts and settles into a check mark. */
+      .otp-arena.is-success .otp-slot {
+        transform: translate(var(--cx, 0), var(--cy, 0)) scale(0);
+        opacity: 0;
+        transition:
+          transform 380ms cubic-bezier(0.55, 0, 0.75, 0.2),
+          opacity 380ms ease-in;
+      }
+      .otp-arena.is-success .otp-ring {
+        opacity: 0;
+        transform: scale(1.25);
+        animation: none;
+      }
+      .otp-orb {
+        position: absolute;
+        z-index: 3;
+        display: grid;
+        place-items: center;
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        background: var(--brand);
+        color: #fff;
+        font-size: 1.9rem;
+        transform: scale(0);
+        pointer-events: none;
+      }
+      .otp-orb i {
+        transform: scale(0);
+      }
+      .otp-arena.is-success .otp-orb {
+        animation: otp-orb 900ms var(--ease-out) 260ms both;
+      }
+      .otp-arena.is-success .otp-orb i {
+        animation: otp-check 420ms var(--ease-out) 820ms both;
+      }
+      .otp-burst {
+        position: absolute;
+        z-index: 2;
+        width: 0;
+        height: 0;
+      }
+      .otp-burst span {
+        position: absolute;
+        left: -5px;
+        top: -5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--brand);
+        opacity: 0;
+      }
+      .otp-arena.is-success .otp-burst span {
+        animation: otp-burst 620ms var(--ease-out) 640ms both;
+      }
+      .otp-badge-row {
+        min-height: 30px;
+        margin-top: 6px;
+      }
+      .otp-badge {
+        display: inline-block;
+        padding: 4px 14px;
+        border-radius: 999px;
+        background: var(--brand-50);
+        color: var(--brand-700, var(--brand));
+        border: 1px solid var(--brand-100);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      .otp-arena.is-success + .otp-badge-row .otp-badge {
+        animation: authRise 360ms var(--ease-out) 1000ms both;
+      }
+
+      @keyframes otp-orbit {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes otp-orb {
+        0% {
+          transform: scale(0);
+        }
+        35% {
+          transform: scale(0.55);
+        }
+        50% {
+          transform: scale(0.5);
+        }
+        62% {
+          transform: scale(1.12);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      @keyframes otp-check {
+        from {
+          transform: scale(0) rotate(-25deg);
+        }
+        to {
+          transform: scale(1) rotate(0);
+        }
+      }
+      @keyframes otp-burst {
+        0% {
+          opacity: 1;
+          transform: rotate(var(--a)) translateY(0) scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: rotate(var(--a)) translateY(-62px) scale(0.3);
+        }
+      }
+      @keyframes otp-text-in {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
       }
       @keyframes otp-caret {
         50% {
@@ -277,16 +473,20 @@
           gap: 6px;
         }
         .otp-slot {
-          width: 42px;
-          height: 52px;
-          font-size: 1.4rem;
+          width: 40px;
+          height: 50px;
+          font-size: 1.35rem;
         }
       }
       @media (prefers-reduced-motion: reduce) {
         .otp-slot,
         .otp-slot.filled,
         .otp-field.is-error .otp-slots,
-        .otp-slot.active:empty::after {
+        .otp-slot.active:empty::after,
+        .otp-arena.is-orbit .otp-slots,
+        .otp-arena.is-verifying .otp-ring,
+        .otp-stage-title.swap,
+        .otp-stage-sub.swap {
           animation: none;
           transition: none;
         }
@@ -306,15 +506,21 @@
     <script src="/js/auth.js"></script>
     <script src="/js/ui.js"></script>
     <script nonce="{{ csp_nonce }}">
-      // Two steps on one form: ask for the code, then submit the code with the
-      // new password. The server signs the person in on success.
+      // Two steps: ask for the code, then type it. The code is checked as soon
+      // as its sixth digit is in; a right one is handed to /new-password, where
+      // the new password is chosen and the server signs the person in.
+      const RESET_KEY = 'dashawy-otp-reset';
       const form = document.getElementById('otp-form');
       const btn = document.getElementById('submit-btn');
       const idEl = document.getElementById('otp-identifier');
+      const idGroup = document.getElementById('identifier-group');
       const codeEl = document.getElementById('otp-code');
       const codeGroup = document.getElementById('otp-code-group');
-      const passEl = document.getElementById('new-password');
-      const passGroup = document.getElementById('password-group');
+      const arena = document.getElementById('otp-arena');
+      const otpField = document.getElementById('otp-field');
+      const otpSlots = otpField.querySelectorAll('.otp-slot');
+      const stageTitle = document.getElementById('stage-title');
+      const stageSub = document.getElementById('stage-sub');
       const notLinkedBox = document.getElementById('not-linked-box');
       const sentMessage = document.getElementById('sent-message');
       const sentHint = document.getElementById('sent-hint');
@@ -322,24 +528,26 @@
       const changeIdBtn = document.getElementById('change-id-btn');
 
       let step = 'request';
+      let busy = false;
 
+      const params = new URLSearchParams(window.location.search);
       const sessionUser = Auth.getUser();
-      const fromQuery = new URLSearchParams(window.location.search).get('identifier') || '';
-      idEl.value = fromQuery || (sessionUser && (sessionUser.email || sessionUser.phone)) || '';
+      idEl.value = params.get('identifier') || (sessionUser && (sessionUser.email || sessionUser.phone)) || '';
 
       function setStep(next) {
         step = next;
         const verifying = step === 'verify';
+        idGroup.hidden = verifying;
         codeGroup.hidden = !verifying;
         codeEl.disabled = !verifying;
-        passGroup.hidden = !verifying;
-        passEl.disabled = !verifying;
         resendBtn.hidden = !verifying;
         changeIdBtn.hidden = !verifying;
+        btn.style.visibility = '';
         if (verifying) {
-          btn.innerHTML = '<i class="fa-solid fa-key" aria-hidden="true"></i> تغيير كلمة السر والدخول';
+          btn.innerHTML = '<i class="fa-solid fa-circle-check" aria-hidden="true"></i> تأكيد الكود';
           sentMessage.textContent = 'اتبعتلك كود على تليجرام.';
-          sentHint.textContent = 'اكتب الكود المكوّن من 6 أرقام، واختار كلمة السر الجديدة.';
+          sentHint.textContent = 'على الحساب المربوط بـ ' + idEl.value.trim();
+          setStage('اكتب الكود', 'الكود اللي وصلك على تليجرام، 6 أرقام.', false);
           codeEl.focus();
         } else {
           btn.innerHTML = '<i class="fa-brands fa-telegram" aria-hidden="true"></i> ابعتلي الكود على تليجرام';
@@ -348,8 +556,20 @@
         }
       }
 
-      const otpField = document.getElementById('otp-field');
-      const otpSlots = otpField.querySelectorAll('.otp-slot');
+      function setStage(title, sub, animate) {
+        [
+          [stageTitle, title],
+          [stageSub, sub],
+        ].forEach(([el, text]) => {
+          if (el.textContent === text) return;
+          el.textContent = text;
+          if (animate) {
+            el.classList.remove('swap');
+            void el.offsetWidth;
+            el.classList.add('swap');
+          }
+        });
+      }
 
       function renderCode() {
         const value = codeEl.value;
@@ -365,9 +585,8 @@
               slot.classList.add('filled');
             }
           }
-          slot.classList.toggle('active', focused && i === activeIndex);
+          slot.classList.toggle('active', focused && !busy && i === activeIndex);
         });
-        otpField.classList.toggle('is-done', value.length === 6);
       }
 
       function keepCaretAtEnd() {
@@ -387,32 +606,119 @@
         renderCode();
       }
 
+      // Seat every box on a circle round the arena's centre. Each box gets the
+      // offset from where it sits in the row to its seat (--tx/--ty) and to the
+      // centre (--cx/--cy) for the collapse on success.
+      function seatSlots() {
+        const box = arena.getBoundingClientRect();
+        const centreX = box.left + box.width / 2;
+        const centreY = box.top + box.height / 2;
+        const radius = 44;
+        otpSlots.forEach((slot, i) => {
+          const r = slot.getBoundingClientRect();
+          const x = r.left + r.width / 2 - centreX;
+          const y = r.top + r.height / 2 - centreY;
+          const angle = (i / otpSlots.length) * Math.PI * 2 - Math.PI / 2;
+          slot.style.setProperty('--tx', Math.cos(angle) * radius - x + 'px');
+          slot.style.setProperty('--ty', Math.sin(angle) * radius - y + 'px');
+          slot.style.setProperty('--cx', -x + 'px');
+          slot.style.setProperty('--cy', -y + 'px');
+        });
+      }
+
+      const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function saveReset(identifier, otp) {
+        try {
+          sessionStorage.setItem(RESET_KEY, JSON.stringify({ identifier, otp, at: Date.now() }));
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      async function verifyCode() {
+        if (busy) return;
+        clearFormErrors(form);
+        otpField.classList.remove('is-error');
+        const identifier = idEl.value.trim();
+        const otp = codeEl.value.trim();
+        if (!/^\d{6}$/.test(otp)) {
+          showCodeError('اكتب الكود المكوّن من 6 أرقام');
+          codeEl.focus();
+          return;
+        }
+        busy = true;
+        codeEl.blur();
+        renderCode();
+        // .btn sets its own display, so hide it without collapsing the card.
+        btn.style.visibility = 'hidden';
+        resendBtn.hidden = true;
+        changeIdBtn.hidden = true;
+
+        seatSlots();
+        arena.classList.add('is-orbit');
+        const check = api('/api/auth/check-otp', { method: 'POST', body: { identifier, otp } }).then(
+          () => null,
+          (err) => err
+        );
+        await wait(480);
+        arena.classList.add('is-verifying');
+        setStage('بنتأكد من الكود…', 'ثواني وبنراجعه بأمان.', true);
+        // Let the ring turn a little even on a fast answer.
+        const [failure] = await Promise.all([check, wait(1100)]);
+
+        if (!failure) {
+          arena.classList.add('is-success');
+          setStage('الكود صحيح', 'بنوديك تختار كلمة السر الجديدة…', true);
+          await wait(1900);
+          if (saveReset(identifier, otp)) {
+            window.location.href = '/new-password';
+            return;
+          }
+          toast('المتصفح مانعنا نكمل. افتح الصفحة من غير وضع التصفح الخاص وجرّب تاني.', 'error');
+        }
+
+        // Wrong code (or no answer): the ring breaks up and the boxes fly
+        // back into their row before turning red.
+        arena.classList.remove('is-verifying', 'is-success');
+        arena.classList.remove('is-orbit');
+        setStage('اكتب الكود', 'الكود اللي وصلك على تليجرام، 6 أرقام.', true);
+        await wait(520);
+        busy = false;
+        btn.style.visibility = '';
+        resendBtn.hidden = false;
+        changeIdBtn.hidden = false;
+        const message = (failure && failure.message) || 'حصلت مشكلة، جرّب تاني';
+        if (/الكود/.test(message)) {
+          showCodeError(message);
+          setTimeout(() => {
+            clearCode();
+            codeEl.focus();
+          }, 700);
+        } else {
+          toast(message, 'error');
+          codeEl.focus();
+        }
+      }
+
       codeEl.addEventListener('input', () => {
+        if (busy) return;
         codeEl.value = codeEl.value.replace(/\D/g, '').slice(0, 6);
         if (otpField.classList.contains('is-error')) {
           otpField.classList.remove('is-error');
           clearFormErrors(codeGroup);
         }
         renderCode();
-        // Code complete: hand off to the password so the flow keeps moving.
-        if (codeEl.value.length === 6 && !passEl.value) passEl.focus();
+        if (codeEl.value.length === 6) verifyCode();
       });
       ['focus', 'blur'].forEach((ev) => codeEl.addEventListener(ev, renderCode));
       ['focus', 'click', 'keyup'].forEach((ev) => codeEl.addEventListener(ev, keepCaretAtEnd));
-      document.getElementById('show-password').addEventListener('change', (e) => {
-        passEl.type = e.target.checked ? 'text' : 'password';
-      });
 
       function resetAlerts() {
         notLinkedBox.hidden = true;
         clearFormErrors(form);
         otpField.classList.remove('is-error');
-      }
-
-      function destinationAfterAuth(data) {
-        const user = data.user || {};
-        if (user.role === 'customer' && user.profile_complete === false) return Auth.completeProfilePath();
-        return Auth.homePath(user.role);
       }
 
       async function requestCode(trigger, loadingText) {
@@ -436,58 +742,18 @@
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (step === 'request') {
-          const data = await requestCode(btn, 'جارٍ الإرسال…');
-          if (!data) return;
-          clearCode();
-          passEl.value = '';
-          idEl.setAttribute('readonly', 'readonly');
-          // The server answers the same way for unknown and unlinked accounts,
-          // so the only honest hint is: no code means not linked.
-          notLinkedBox.hidden = false;
-          setStep('verify');
-          toast(data.message || 'اتبعتلك كود على تليجرام', 'success');
+        if (step === 'verify') {
+          verifyCode();
           return;
         }
-
-        resetAlerts();
-        const identifier = idEl.value.trim();
-        const otp = codeEl.value.trim();
-        const password = passEl.value;
-        if (!/^\d{6}$/.test(otp)) {
-          showCodeError('اكتب الكود المكوّن من 6 أرقام');
-          codeEl.focus();
-          return;
-        }
-        if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
-          setFieldError(passEl, 'كلمة السر 8 حروف على الأقل، فيها حرف إنجليزي ورقم');
-          passEl.focus();
-          return;
-        }
-
-        Ui.btnLoading(btn, 'جارٍ التغيير…');
-        try {
-          const data = await api('/api/auth/reset-password', {
-            method: 'POST',
-            body: { identifier, otp, new_password: password },
-          });
-          Auth.setSession(data);
-          toast('تم تغيير كلمة السر وتسجيل دخولك', 'success');
-          setTimeout(() => {
-            window.location.href = destinationAfterAuth(data);
-          }, 600);
-        } catch (err) {
-          toast(err.message, 'error');
-          if (/الكود/.test(err.message || '')) {
-            showCodeError(err.message);
-            // Let the red boxes register before clearing them for a retry.
-            setTimeout(() => {
-              clearCode();
-              codeEl.focus();
-            }, 700);
-          }
-          Ui.btnReset(btn);
-        }
+        const data = await requestCode(btn, 'جارٍ الإرسال…');
+        if (!data) return;
+        clearCode();
+        // The server answers the same way for unknown and unlinked accounts,
+        // so the only honest hint is: no code means not linked.
+        notLinkedBox.hidden = false;
+        setStep('verify');
+        toast(data.message || 'اتبعتلك كود على تليجرام', 'success');
       });
 
       resendBtn.addEventListener('click', async () => {
@@ -501,13 +767,15 @@
       changeIdBtn.addEventListener('click', () => {
         resetAlerts();
         clearCode();
-        passEl.value = '';
         setStep('request');
-        idEl.removeAttribute('readonly');
         idEl.focus();
       });
 
       setStep('request');
+      // Sent back from /new-password because the code ran out.
+      if (params.get('expired') === '1') {
+        toast('الكود خلص أو اتستخدم. ابعت كود جديد.', 'error');
+      }
       if (!idEl.value) idEl.focus();
     </script>
     <script src="/js/pwa-install.js"></script>

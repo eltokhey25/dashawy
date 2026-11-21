@@ -211,11 +211,19 @@ class PasswordRecoveryUiTests(APITestCase):
         reset = self.client.get('/verify-otp.html')
         self.assertEqual(reset.status_code, status.HTTP_200_OK)
         self.assertContains(reset, 'id="otp-form"')
-        self.assertContains(reset, '/api/auth/reset-password')
+        # The code is checked on its own page, then the password is chosen on
+        # the next one.
+        self.assertContains(reset, '/api/auth/check-otp')
+        self.assertContains(reset, "'/new-password'")
+        new_password = self.client.get('/new-password')
+        self.assertEqual(new_password.status_code, status.HTTP_200_OK)
+        self.assertContains(new_password, 'id="np-form"')
+        self.assertContains(new_password, '/api/auth/reset-password')
+        self.assertEqual(new_password['X-Robots-Tag'], 'noindex, nofollow')
         link = self.client.get('/telegram-link.html')
         self.assertEqual(link.status_code, status.HTTP_200_OK)
         self.assertContains(link, 'id="link-form"')
-        for response in (reset, link):
+        for response in (reset, new_password, link):
             self.assertNotContains(response, 'الخدمة غير متاحة حالياً')
 
     def test_dashboards_load_the_telegram_widget(self):
