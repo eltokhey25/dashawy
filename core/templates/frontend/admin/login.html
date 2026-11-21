@@ -39,22 +39,8 @@
       justify-content: center;
       align-items: center;
       padding: 28px 16px;
-      background:
-        radial-gradient(1100px 520px at 85% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
-        radial-gradient(900px 500px at 5% 110%, rgba(168, 85, 247, 0.14), transparent 55%),
-        linear-gradient(160deg, var(--bg1) 0%, var(--bg2) 100%);
+      background: var(--bg1);
       overflow-x: hidden;
-    }
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
-      background-size: 42px 42px;
-      pointer-events: none;
-      z-index: 0;
     }
     .wrap { position: relative; z-index: 1; width: 100%; max-width: 410px; }
     .top-link {
@@ -83,8 +69,8 @@
     .logo {
       width: 58px; height: 58px; border-radius: 17px;
       display: grid; place-items: center; font-size: 1.45rem; color: #fff;
-      background: linear-gradient(135deg, var(--brand) 0%, var(--brand2) 100%);
-      box-shadow: 0 18px 40px -12px rgba(99, 102, 241, 0.7);
+      background: var(--brand);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
       margin-bottom: 20px;
     }
     .card h1 { font-size: 1.45rem; font-weight: 800; margin-bottom: 6px; }
@@ -129,9 +115,9 @@
     .btn-go {
       width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 9px;
       margin-top: 8px; padding: 13px 20px; border: none; border-radius: 13px;
-      background: linear-gradient(135deg, var(--brand), var(--brand2));
+      background: var(--brand);
       color: #fff; font-family: 'IBM Plex Sans Arabic', 'Cairo', system-ui, sans-serif; font-size: 0.98rem; font-weight: 800;
-      cursor: pointer; box-shadow: 0 16px 34px -12px rgba(99, 102, 241, 0.65);
+      cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
       transition: all 0.18s ease;
     }
     .btn-go:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }

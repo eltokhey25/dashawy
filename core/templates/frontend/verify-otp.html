@@ -27,7 +27,7 @@
       align-items: center;
       justify-content: center;
       padding: 24px 16px;
-      background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 60%);
+      background: var(--bg);
       font-family: 'Cairo', sans-serif;
     "
   >
@@ -39,20 +39,21 @@
             place-items: center;
             width: 64px;
             height: 64px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #4f46e5, #a855f7);
-            color: #fff;
-            font-size: 1.6rem;
-            box-shadow: 0 16px 40px -10px rgba(79, 70, 229, 0.5);
-            margin-bottom: 14px;
+            border-radius: 16px;
+            background: var(--surface);
+            border: 1px solid var(--line);
+            color: var(--ink);
+            font-size: 1.4rem;
+            box-shadow: var(--shadow-xs);
+            margin-bottom: 16px;
           "
         >
           <i class="fa-solid fa-key" aria-hidden="true"></i>
         </div>
-        <h1 style="font-size: 1.5rem; font-weight: 800; color: #0f172a; margin-bottom: 8px">
+        <h1 style="font-size: 1.5rem; font-weight: 800; color: var(--ink); letter-spacing: -0.01em; margin-bottom: 8px">
           استعادة كلمة السر
         </h1>
-        <p id="sent-message" style="color: #334155; font-size: 0.95rem; font-weight: 700; line-height: 1.7">
+        <p id="sent-message" style="color: var(--ink-700); font-size: 0.95rem; font-weight: 600; line-height: 1.7">
           اكتب رقم الموبايل أو البريد الإلكتروني المسجّل في حسابك.
         </p>
         <p id="sent-hint" style="color: #64748b; font-size: 0.82rem; line-height: 1.7; margin-top: 4px">
@@ -77,18 +78,24 @@
 
           <div class="form-group" id="otp-code-group" hidden>
             <label class="form-label" for="otp-code">الكود اللي وصلك على تليجرام</label>
-            <input
-              type="text"
-              id="otp-code"
-              class="input"
-              placeholder="000000"
-              inputmode="numeric"
-              autocomplete="one-time-code"
-              maxlength="6"
-              dir="ltr"
-              disabled
-              style="text-align: center; letter-spacing: 0.5em; font-size: 1.4rem; font-weight: 700; padding: 14px 10px"
-            />
+            <div class="otp-field" id="otp-field" dir="ltr">
+              <input
+                type="text"
+                id="otp-code"
+                class="otp-input"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                autocomplete="one-time-code"
+                maxlength="6"
+                spellcheck="false"
+                disabled
+              />
+              <div class="otp-slots" aria-hidden="true">
+                <span class="otp-slot"></span><span class="otp-slot"></span><span class="otp-slot"></span>
+                <span class="otp-gap"></span>
+                <span class="otp-slot"></span><span class="otp-slot"></span><span class="otp-slot"></span>
+              </div>
+            </div>
           </div>
 
           <div class="form-group" id="password-group" hidden>
@@ -163,6 +170,127 @@
     </main>
 
     <style>
+      .otp-field {
+        position: relative;
+        margin-top: 4px;
+      }
+      .otp-input {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        font-size: 16px; /* no iOS zoom on focus */
+        border: 0;
+        cursor: text;
+        z-index: 1;
+      }
+      .otp-slots {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+      }
+      .otp-gap {
+        width: 10px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--line-strong);
+        margin: 0 2px;
+      }
+      .otp-slot {
+        position: relative;
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 58px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--surface);
+        color: var(--ink);
+        font-family: var(--font-body);
+        font-size: 1.6rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        transition:
+          border-color 120ms ease,
+          box-shadow 120ms ease,
+          background-color 120ms ease;
+      }
+      .otp-slot.filled {
+        border-color: var(--line-strong);
+        animation: otp-pop 160ms ease-out;
+      }
+      .otp-slot.active {
+        border-color: var(--ink);
+        box-shadow: 0 0 0 3px var(--ink-100);
+      }
+      .otp-slot.active:empty::after {
+        content: '';
+        width: 2px;
+        height: 26px;
+        border-radius: 1px;
+        background: var(--ink);
+        animation: otp-caret 1s steps(1) infinite;
+      }
+      .otp-field.is-error .otp-slot {
+        border-color: var(--danger-500);
+        color: var(--danger-600);
+        background: var(--danger-50);
+        box-shadow: none;
+      }
+      .otp-field.is-error .otp-slots {
+        animation: otp-shake 320ms ease-in-out;
+      }
+      .otp-field.is-done .otp-slot {
+        border-color: var(--ink-300);
+      }
+      .otp-input:disabled + .otp-slots .otp-slot {
+        background: var(--ink-50);
+        color: var(--muted);
+      }
+      @keyframes otp-caret {
+        50% {
+          opacity: 0;
+        }
+      }
+      @keyframes otp-pop {
+        from {
+          transform: scale(0.92);
+        }
+        to {
+          transform: scale(1);
+        }
+      }
+      @keyframes otp-shake {
+        20%,
+        60% {
+          transform: translateX(-6px);
+        }
+        40%,
+        80% {
+          transform: translateX(6px);
+        }
+      }
+      @media (max-width: 400px) {
+        .otp-slots {
+          gap: 6px;
+        }
+        .otp-slot {
+          width: 42px;
+          height: 52px;
+          font-size: 1.4rem;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .otp-slot,
+        .otp-slot.filled,
+        .otp-field.is-error .otp-slots,
+        .otp-slot.active:empty::after {
+          animation: none;
+          transition: none;
+        }
+      }
       .link-btn {
         background: none;
         border: none;
@@ -220,9 +348,57 @@
         }
       }
 
+      const otpField = document.getElementById('otp-field');
+      const otpSlots = otpField.querySelectorAll('.otp-slot');
+
+      function renderCode() {
+        const value = codeEl.value;
+        const focused = document.activeElement === codeEl;
+        const activeIndex = Math.min(value.length, otpSlots.length - 1);
+        otpSlots.forEach((slot, i) => {
+          const digit = value[i] || '';
+          if (slot.textContent !== digit) {
+            slot.textContent = digit;
+            slot.classList.remove('filled');
+            if (digit) {
+              void slot.offsetWidth; // restart the pop for a retyped digit
+              slot.classList.add('filled');
+            }
+          }
+          slot.classList.toggle('active', focused && i === activeIndex);
+        });
+        otpField.classList.toggle('is-done', value.length === 6);
+      }
+
+      function keepCaretAtEnd() {
+        const end = codeEl.value.length;
+        codeEl.setSelectionRange(end, end);
+      }
+
+      function showCodeError(message) {
+        setFieldError(codeEl, message);
+        otpField.classList.remove('is-error');
+        void otpField.offsetWidth; // replay the shake
+        otpField.classList.add('is-error');
+      }
+
+      function clearCode() {
+        codeEl.value = '';
+        renderCode();
+      }
+
       codeEl.addEventListener('input', () => {
         codeEl.value = codeEl.value.replace(/\D/g, '').slice(0, 6);
+        if (otpField.classList.contains('is-error')) {
+          otpField.classList.remove('is-error');
+          clearFormErrors(codeGroup);
+        }
+        renderCode();
+        // Code complete: hand off to the password so the flow keeps moving.
+        if (codeEl.value.length === 6 && !passEl.value) passEl.focus();
       });
+      ['focus', 'blur'].forEach((ev) => codeEl.addEventListener(ev, renderCode));
+      ['focus', 'click', 'keyup'].forEach((ev) => codeEl.addEventListener(ev, keepCaretAtEnd));
       document.getElementById('show-password').addEventListener('change', (e) => {
         passEl.type = e.target.checked ? 'text' : 'password';
       });
@@ -230,6 +406,7 @@
       function resetAlerts() {
         notLinkedBox.hidden = true;
         clearFormErrors(form);
+        otpField.classList.remove('is-error');
       }
 
       function destinationAfterAuth(data) {
@@ -262,7 +439,7 @@
         if (step === 'request') {
           const data = await requestCode(btn, 'جارٍ الإرسال…');
           if (!data) return;
-          codeEl.value = '';
+          clearCode();
           passEl.value = '';
           idEl.setAttribute('readonly', 'readonly');
           // The server answers the same way for unknown and unlinked accounts,
@@ -278,7 +455,7 @@
         const otp = codeEl.value.trim();
         const password = passEl.value;
         if (!/^\d{6}$/.test(otp)) {
-          setFieldError(codeEl, 'اكتب الكود المكوّن من 6 أرقام');
+          showCodeError('اكتب الكود المكوّن من 6 أرقام');
           codeEl.focus();
           return;
         }
@@ -302,8 +479,12 @@
         } catch (err) {
           toast(err.message, 'error');
           if (/الكود/.test(err.message || '')) {
-            codeEl.value = '';
-            codeEl.focus();
+            showCodeError(err.message);
+            // Let the red boxes register before clearing them for a retry.
+            setTimeout(() => {
+              clearCode();
+              codeEl.focus();
+            }, 700);
           }
           Ui.btnReset(btn);
         }
@@ -312,14 +493,14 @@
       resendBtn.addEventListener('click', async () => {
         const data = await requestCode(resendBtn, 'جارٍ الإرسال…');
         if (!data) return;
-        codeEl.value = '';
+        clearCode();
         toast(data.message || 'اتبعتلك كود جديد', 'success');
         codeEl.focus();
       });
 
       changeIdBtn.addEventListener('click', () => {
         resetAlerts();
-        codeEl.value = '';
+        clearCode();
         passEl.value = '';
         setStep('request');
         idEl.removeAttribute('readonly');

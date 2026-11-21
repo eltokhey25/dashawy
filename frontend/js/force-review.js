@@ -171,7 +171,7 @@
         '</div>';
 
     box.innerHTML = [
-      '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4f46e5,#a855f7);color:#fff;display:grid;place-items:center;font-size:1.6rem;margin:0 auto 16px;">',
+      '<div style="width:64px;height:64px;border-radius:50%;background:#4f46e5;color:#fff;display:grid;place-items:center;font-size:1.6rem;margin:0 auto 16px;">',
       '<i class="fa-solid fa-star"></i>',
       '</div>',
       '<h2 id="force-review-title" style="font-size:1.4rem;font-weight:800;color:#0f172a;margin:0 0 8px;">',
