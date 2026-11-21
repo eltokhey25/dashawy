@@ -12,8 +12,8 @@ from .services.pricing import price_status
 from .upload_validators import validate_document_upload
 from .validation import (
     STATIC_SPECIALTY_KEYS,
+    checked_mobile,
     is_egypt_mobile,
-    local_mobile,
     resolve_location,
 )
 
@@ -160,11 +160,9 @@ class GuestCreateRequestSerializer(serializers.Serializer):
         return value
 
     def validate_phone(self, value):
-        local = local_mobile(value)
-        if not local:
-            raise serializers.ValidationError(
-                'اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015'
-            )
+        local, problem = checked_mobile(value)
+        if problem:
+            raise serializers.ValidationError(problem)
         return local
 
     def validate_area_key(self, value):

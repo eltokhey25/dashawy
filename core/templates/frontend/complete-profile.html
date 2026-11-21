@@ -168,10 +168,6 @@
       if (profile.location_text) $('cp-location').value = profile.location_text;
     }
 
-    // Mirrors the server's own rule so the obvious mistakes never cost a round
-    // trip: 11 digits, starting 01, second digit one of 0/1/2/5.
-    const PHONE_RE = /^01[0125]\d{8}$/;
-
     $('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       if ($('cp-save').disabled) return;
@@ -182,7 +178,8 @@
 
       let ok = true;
       if (name.length < 2) { setFieldError($('cp-name'), 'أدخل اسماً صحيحاً'); ok = false; }
-      if (!PHONE_RE.test(phone)) { setFieldError($('cp-phone'), 'اكتب الرقم بالشكل 01xxxxxxxxx'); ok = false; }
+      const phoneProblem = mobileError(phone);
+      if (phoneProblem) { setFieldError($('cp-phone'), phoneProblem); ok = false; }
       if (!$('cp-area').value) { setFieldError($('cp-area'), 'اختر منطقتك'); ok = false; }
       if (!$('cp-consent').checked) {
         toast('لازم توافق على الشروط وسياسة الخصوصية', 'error');

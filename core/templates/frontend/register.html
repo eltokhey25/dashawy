@@ -244,15 +244,14 @@
 
     // Validation mirrors the server's own rules so a step is never passed with a
     // value the API would reject anyway.
-    // Same rule as the server: an Egyptian mobile, optionally with +20.
-    const PHONE_RE = /^(?:\+?20|0)?1[0125]\d{8}$/;
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
     function stepErrors() {
       const errors = [];
       if (state.step === 1) {
         if ($('reg-name').value.trim().length < 2) errors.push(['reg-name', 'أدخل اسماً صحيحاً']);
-        if (!PHONE_RE.test($('reg-phone').value.trim())) errors.push(['reg-phone', 'رقم الهاتف غير صالح']);
+        const phoneProblem = mobileError($('reg-phone').value);
+        if (phoneProblem) errors.push(['reg-phone', phoneProblem]);
       }
       if (state.step === 2) {
         if (!EMAIL_RE.test($('reg-email').value.trim())) errors.push(['reg-email', 'بريد إلكتروني غير صالح']);

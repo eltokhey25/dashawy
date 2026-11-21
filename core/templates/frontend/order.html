@@ -248,7 +248,6 @@
 
       const params = new URLSearchParams(window.location.search);
       const requestedService = params.get('service') || '';
-      const phoneRe = /^01[0125]\d{8}$/;
 
       async function loadAreas() {
         const select = $('go-area');
@@ -371,7 +370,8 @@
         const description = $('go-description').value.trim();
 
         if (name.length < 2) fields.push(fieldError('go-name', 'اكتب اسمك (حرفين على الأقل)'));
-        if (!phoneRe.test(phone)) fields.push(fieldError('go-phone', 'اكتب رقم موبايل مصري صحيح يبدأ بـ 01'));
+        const phoneProblem = mobileError(phone);
+        if (phoneProblem) fields.push(fieldError('go-phone', phoneProblem));
         if (!area) fields.push(fieldError('go-area', 'اختار منطقتك'));
         if (!specialty) fields.push(fieldError('go-service', 'اختار نوع الخدمة'));
         if (description.length < 5) fields.push(fieldError('go-description', 'اكتب وصفاً بسيطاً للمشكلة'));

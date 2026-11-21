@@ -772,6 +772,28 @@
       .forEach((e) => e.classList.remove('invalid'));
   };
 
+  // Same rule as the server's checked_mobile(): an Egyptian mobile (optionally
+  // typed with +20 / 0020) whose last 8 digits don't look made up. Returns the
+  // Arabic reason it was refused, or '' when the number is fine. A made-up
+  // number gets the same reason as a malformed one.
+  window.mobileError = function mobileError(value) {
+    const invalid = 'اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015';
+    let digits = String(value || '').replace(/\D/g, '');
+    if (digits.startsWith('0020')) digits = digits.slice(2);
+    if (digits.startsWith('20') && digits.length === 12) digits = '0' + digits.slice(2);
+    if (!/^01[0125]\d{8}$/.test(digits)) return invalid;
+    const subscriber = digits.slice(3);
+    const madeUp = [0, 1, -1].some((step) => {
+      let run = 1;
+      for (let i = 1; i < subscriber.length; i++) {
+        run = Number(subscriber[i]) - Number(subscriber[i - 1]) === step ? run + 1 : 1;
+        if (run >= 6) return true;
+      }
+      return false;
+    });
+    return madeUp ? invalid : '';
+  };
+
   window.loadSpecialties = async function loadSpecialties(select, opts) {
     opts = opts || {};
     try {

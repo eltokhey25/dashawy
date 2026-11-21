@@ -59,7 +59,7 @@ PNG_BYTES = base64.b64decode(
 def guest_payload(**overrides):
     body = {
         'name': 'عميل من غير حساب',
-        'phone': '01000000001',
+        'phone': '01093840001',
         'area_key': 'smouha',
         'specialty': 'dish_install',
         'description': 'الطبق وقع ومحتاج تركيب جديد',
@@ -71,7 +71,7 @@ def guest_payload(**overrides):
     return body
 
 
-def make_guest_order(phone='01000000001', photo=None, **fields):
+def make_guest_order(phone='01093840001', photo=None, **fields):
     """A legacy token-tracked guest order, as made before accounts were
     required. Returns ``(job, token)``."""
     token = 'legacy-guest-token-' + phone + '-' + 'x' * 24
@@ -129,7 +129,7 @@ class GuestOrderTests(APITestCase):
         self.assertEqual(body['user']['email'], '')
         self.assertEqual(body['user']['role'], 'customer')
 
-        user = User.objects.get(phone='+201000000001')
+        user = User.objects.get(phone='+201093840001')
         self.assertTrue(user.email.endswith('@phone.dashawy.invalid'))
         customer = Customer.objects.get(user=user)
         self.assertEqual(customer.name, 'عميل من غير حساب')
@@ -145,7 +145,7 @@ class GuestOrderTests(APITestCase):
         # The new account signs in with the phone number and password.
         login = self.client.post(
             '/api/auth/login',
-            {'identifier': '01000000001', 'password': ORDER_PASSWORD},
+            {'identifier': '01093840001', 'password': ORDER_PASSWORD},
             format='json',
         )
         self.assertEqual(login.status_code, status.HTTP_200_OK)
@@ -182,11 +182,11 @@ class GuestOrderTests(APITestCase):
     def test_existing_phone_must_sign_in(self):
         user = User.objects.create(
             email='existing@example.com',
-            phone='+201000000001',
+            phone='+201093840001',
             password_hash=hash_password(PASSWORD),
             role='customer',
         )
-        customer = Customer.objects.create(user=user, name='عميل قديم', phone='+201000000001')
+        customer = Customer.objects.create(user=user, name='عميل قديم', phone='+201093840001')
 
         response = self.create_guest()
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
@@ -239,9 +239,9 @@ class GuestOrderTests(APITestCase):
 
     def test_per_ip_rate_limit(self):
         for index in range(5):
-            response = self.create_guest(phone='010000000%02d' % index)
+            response = self.create_guest(phone='010938400%02d' % index)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        blocked = self.create_guest(phone='01000000099')
+        blocked = self.create_guest(phone='01093840099')
         self.assertEqual(blocked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
         self.assertEqual(GuestSubmissionLog.objects.count(), 5)
 
@@ -249,12 +249,12 @@ class GuestOrderTests(APITestCase):
         for index in range(5):
             GuestSubmissionLog.objects.create(
                 ip_address='10.0.0.%d' % index,
-                phone='01000000111',
+                phone='01093840111',
                 created_at=utc_now(),
             )
         blocked = self.client.post(
             '/api/guest/requests',
-            guest_payload(phone='01000000111'),
+            guest_payload(phone='01093840111'),
             format='json',
             REMOTE_ADDR='10.0.0.99',
         )
@@ -263,14 +263,14 @@ class GuestOrderTests(APITestCase):
     def test_guest_can_cancel_and_technician_is_released(self):
         tech_user = User.objects.create(
             email='guest-tech@example.com',
-            phone='01000000222',
+            phone='01093840222',
             password_hash=hash_password(PASSWORD),
             role='technician',
         )
         technician = Technician.objects.create(
             user=tech_user,
             name='فني متاح',
-            phone='01000000222',
+            phone='01093840222',
             specialty='dish_install',
             availability='available',
             approval_status='approved',
@@ -316,17 +316,17 @@ class GuestLinkingTests(APITestCase):
         cache.clear()
         self.user = User.objects.create(
             email='link-customer@example.com',
-            phone='01000000001',
+            phone='01093840001',
             password_hash=hash_password(PASSWORD),
             role='customer',
         )
         self.customer = Customer.objects.create(
             user=self.user,
             name='عميل مرتبط',
-            phone='01000000001',
+            phone='01093840001',
         )
 
-    def create_guest(self, phone='01000000001'):
+    def create_guest(self, phone='01093840001'):
         job, token = make_guest_order(phone=phone)
         return {'tracking_token': token, 'request': {'id': job.pk}}
 
@@ -340,7 +340,7 @@ class GuestLinkingTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_link_rejects_a_different_phone(self):
-        created = self.create_guest(phone='01000000009')
+        created = self.create_guest(phone='01093840009')
         self.client.force_authenticate(user=self.user)
         response = self.client.post(
             '/api/customer/guest-orders/link',
@@ -384,7 +384,7 @@ class GuestLinkingTests(APITestCase):
 
         missing_consent = self.client.post(
             '/api/auth/complete-profile',
-            {'name': 'Google Customer', 'phone': '01000000001', 'area_key': 'smouha'},
+            {'name': 'Google Customer', 'phone': '01093840001', 'area_key': 'smouha'},
             format='json',
         )
         self.assertEqual(missing_consent.status_code, status.HTTP_400_BAD_REQUEST)
@@ -393,7 +393,7 @@ class GuestLinkingTests(APITestCase):
             '/api/auth/complete-profile',
             {
                 'name': 'Google Customer',
-                'phone': '01000000001',
+                'phone': '01093840001',
                 'area_key': 'smouha',
                 'accept_terms': True,
                 'policy_version': 'v1.0',
@@ -419,7 +419,7 @@ class ConsentTests(APITestCase):
     def registration_body(self, **overrides):
         body = {
             'name': 'عميل جديد',
-            'phone': '01000000333',
+            'phone': '01093840333',
             'email': 'new-customer@example.com',
             'password': 'StrongPass123',
             'area_key': 'smouha',
@@ -512,23 +512,23 @@ class PublicDataTests(APITestCase):
     def test_reviews_require_a_completed_request_and_a_comment(self):
         customer_user = User.objects.create(
             email='review-customer@example.com',
-            phone='01000002001',
+            phone='01093842001',
             password_hash=hash_password(PASSWORD),
             role='customer',
         )
         customer = Customer.objects.create(
-            user=customer_user, name='أحمد محمد', phone='01000002001'
+            user=customer_user, name='أحمد محمد', phone='01093842001'
         )
         tech_user = User.objects.create(
             email='review-tech@example.com',
-            phone='01000002002',
+            phone='01093842002',
             password_hash=hash_password(PASSWORD),
             role='technician',
         )
         technician = Technician.objects.create(
             user=tech_user,
             name='فني المراجعة',
-            phone='01000002002',
+            phone='01093842002',
             specialty='dish_install',
             approval_status='approved',
         )
@@ -589,11 +589,11 @@ class PricingTests(APITestCase):
         )
         user = User.objects.create(
             email='pricing@example.com',
-            phone='01000003001',
+            phone='01093843001',
             password_hash=hash_password(PASSWORD),
             role='customer',
         )
-        Customer.objects.create(user=user, name='عميل السعر', phone='01000003001')
+        Customer.objects.create(user=user, name='عميل السعر', phone='01093843001')
         self.client.force_authenticate(user=user)
 
     def test_new_request_freezes_price_and_commission(self):
@@ -637,23 +637,23 @@ class PrivateDocumentTests(APITestCase):
         )
         self.customer_user = User.objects.create(
             email='doc-customer@example.com',
-            phone='01000004001',
+            phone='01093844001',
             password_hash=hash_password(PASSWORD),
             role='customer',
         )
         Customer.objects.create(
-            user=self.customer_user, name='عميل', phone='01000004001'
+            user=self.customer_user, name='عميل', phone='01093844001'
         )
         tech_user = User.objects.create(
             email='doc-tech@example.com',
-            phone='01000004002',
+            phone='01093844002',
             password_hash=hash_password(PASSWORD),
             role='technician',
         )
         self.technician = Technician.objects.create(
             user=tech_user,
             name='فني',
-            phone='01000004002',
+            phone='01093844002',
             specialty='dish_install',
             approval_status='pending',
         )
@@ -764,7 +764,7 @@ class PublicSiteTests(APITestCase):
     def test_rendered_pages_do_not_hardcode_contact_details(self):
         for path in ('/privacy.html', '/terms.html', '/refund-cancellation.html', '/'):
             body = self.client.get(path).content.decode('utf-8')
-            self.assertNotIn('01000000000', body)
+            self.assertNotIn('01093840000', body)
             self.assertNotIn('owner@example.com', body)
 
     def test_manifest_is_rendered_with_site_url(self):
@@ -821,8 +821,8 @@ class PublicSiteTests(APITestCase):
 
     @override_settings(
         SITE_URL='https://example.test',
-        BUSINESS_PHONE='01000000000',
-        BUSINESS_WHATSAPP='201000000000',
+        BUSINESS_PHONE='01093840000',
+        BUSINESS_WHATSAPP='201093840000',
         BUSINESS_EMAIL='hello@example.test',
         SOCIAL_FACEBOOK='',
         SOCIAL_INSTAGRAM='',
@@ -832,10 +832,10 @@ class PublicSiteTests(APITestCase):
         clear_site_config_cache()
         data = self.client.get('/api/public/config').json()
         self.assertEqual(data['site_url'], 'https://example.test')
-        self.assertEqual(data['business_phone'], '01000000000')
-        self.assertEqual(data['business_whatsapp'], '201000000000')
+        self.assertEqual(data['business_phone'], '01093840000')
+        self.assertEqual(data['business_whatsapp'], '201093840000')
         self.assertEqual(data['business_email'], 'hello@example.test')
-        self.assertIn('wa.me/201000000000', data['whatsapp_url'])
+        self.assertIn('wa.me/201093840000', data['whatsapp_url'])
 
     def test_error_pages_exist(self):
         self.assertEqual(
@@ -862,7 +862,7 @@ class TechnicianRegistrationTests(APITestCase):
     def body(self, **overrides):
         body = {
             'name': 'فني جديد',
-            'phone': '01000005001',
+            'phone': '01093845001',
             'email': 'new-tech@example.com',
             'password': 'StrongPass123',
             'area_key': 'smouha',
@@ -992,28 +992,28 @@ class StartPinTests(APITestCase):
         Specialty.objects.create(key='dish_install', label='تركيب دش')
         self.customer_user = User.objects.create(
             email='pin-customer@example.com',
-            phone='+201000000123',
+            phone='+201093840123',
             password_hash=hash_password(PASSWORD),
             role='customer',
         )
         Customer.objects.create(
             user=self.customer_user,
             name='عميل الكود',
-            phone='+201000000123',
+            phone='+201093840123',
             location_text='سموحة',
             latitude=31.2156,
             longitude=29.9553,
         )
         self.tech_user = User.objects.create(
             email='pin-tech@example.com',
-            phone='+201000000124',
+            phone='+201093840124',
             password_hash=hash_password(PASSWORD),
             role='technician',
         )
         self.technician = Technician.objects.create(
             user=self.tech_user,
             name='فني الكود',
-            phone='+201000000124',
+            phone='+201093840124',
             specialty='dish_install',
             availability='available',
             approval_status='approved',
@@ -1254,14 +1254,14 @@ class StartPinTests(APITestCase):
     def test_reject_and_reassign_never_contains_the_code_at_any_depth(self):
         second_user = User.objects.create(
             email='pin-tech-2@example.com',
-            phone='+201000000125',
+            phone='+201093840125',
             password_hash=hash_password(PASSWORD),
             role='technician',
         )
         second = Technician.objects.create(
             user=second_user,
             name='فني الكود التاني',
-            phone='+201000000125',
+            phone='+201093840125',
             specialty='dish_install',
             availability='available',
             approval_status='approved',

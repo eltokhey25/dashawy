@@ -13,7 +13,6 @@ frontend was written against: the browser expects ``token`` (not SimpleJWT's
 """
 
 import json
-import re
 import secrets
 from datetime import timedelta
 
@@ -78,11 +77,11 @@ from .upload_validators import (
     save_private_upload,
 )
 from .validation import (
+    checked_mobile,
     is_egypt_mobile,
     is_non_empty_string,
     is_valid_email,
     is_valid_name,
-    is_valid_phone,
     local_mobile,
     normalize_email,
     normalize_phone,
@@ -425,8 +424,9 @@ class RegisterView(APIView):
 
         if not is_valid_name(name):
             raise bad_request('الاسم غير صالح (حرفان على الأقل)')
-        if not is_valid_phone(phone):
-            raise bad_request('رقم الهاتف غير صالح')
+        local, phone_problem = checked_mobile(phone)
+        if phone_problem:
+            raise bad_request(phone_problem)
         if not is_valid_email(email):
             raise bad_request('البريد الإلكتروني غير صالح')
         password_problem = password_policy_error(password)
@@ -453,9 +453,7 @@ class RegisterView(APIView):
         if User.objects.filter(email=norm_email).exists():
             raise bad_request('هذا البريد الإلكتروني مسجّل بالفعل')
 
-        norm_phone = normalize_phone(phone)
-        if not norm_phone or len(re.sub(r'\D', '', norm_phone)) < 8:
-            raise bad_request('رقم الهاتف غير صالح')
+        norm_phone = normalize_phone(local)
         if User.objects.filter(phone=norm_phone).exists():
             raise bad_request(
                 'هذا الرقم مسجّل بالفعل. جرّب تسجيل الدخول أو استخدم رقمًا آخر.'
@@ -961,9 +959,9 @@ class CompleteProfileView(APIView):
         if not is_valid_name(name):
             raise bad_request('اكتب اسم صحيح (حرفين على الأقل)')
 
-        local = local_mobile(data.get('phone'))
-        if not local:
-            raise bad_request('اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015')
+        local, phone_problem = checked_mobile(data.get('phone'))
+        if phone_problem:
+            raise bad_request(phone_problem)
         phone = normalize_phone(local)
         if User.objects.filter(phone=phone).exclude(pk=user.pk).exists():
             raise bad_request('هذا الرقم مسجّل بالفعل. جرّب رقمًا آخر.')
@@ -1107,9 +1105,9 @@ class TechnicianRegisterView(APIView):
 
         if not is_valid_name(name):
             raise bad_request('الاسم غير صالح (حرفان على الأقل)')
-        local = local_mobile(phone)
-        if not local:
-            raise bad_request('رقم الهاتف غير صالح')
+        local, phone_problem = checked_mobile(phone)
+        if phone_problem:
+            raise bad_request(phone_problem)
         if not is_valid_email(email):
             raise bad_request('البريد الإلكتروني غير صالح')
         password_problem = password_policy_error(password)

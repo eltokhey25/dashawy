@@ -35,10 +35,10 @@ from .services.broadcast import broadcast_request, close_offers
 from .services.start_pin import generate_start_pin
 from .services.uploads import delete_upload_later, delete_user_uploads
 from .validation import (
+    checked_mobile,
     is_non_empty_string,
     is_valid_email,
     is_valid_name,
-    is_valid_phone,
     is_valid_username,
     normalize_email,
     normalize_phone,
@@ -283,9 +283,10 @@ def _technician_fields(data, partial):
             raise bad_request('الاسم غير صالح')
         updates['name'] = data['name'].strip()
     if 'phone' in data or not partial:
-        if not is_valid_phone(data.get('phone')):
-            raise bad_request('رقم الهاتف غير صالح')
-        updates['phone'] = normalize_phone(data['phone'])
+        local, phone_problem = checked_mobile(data.get('phone'))
+        if phone_problem:
+            raise bad_request(phone_problem)
+        updates['phone'] = normalize_phone(local)
     # Every technician is a general dish technician; a specialty sent by an
     # older client is ignored rather than stored.
     if not partial:

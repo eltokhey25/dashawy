@@ -158,6 +158,47 @@ def local_mobile(value):
     return digits if EGYPT_MOBILE_RE.fullmatch(digits) else ''
 
 
+MOBILE_FORMAT_ERROR = 'اكتب رقم موبايل مصري صحيح يبدأ بـ 010 أو 011 أو 012 أو 015'
+
+# Six digits in a row is where a made-up number starts: a real subscriber
+# number almost never holds a run that long, while the fakes people type to get
+# past a form (01000000007, 01012345678, 01111111111) always do.
+_PLACEHOLDER_RUN = 6
+
+
+def _longest_run(digits, step):
+    """Length of the longest run where each digit is the previous one + step."""
+    longest = current = 1
+    for prev, cur in zip(digits, digits[1:]):
+        current = current + 1 if int(cur) - int(prev) == step else 1
+        longest = max(longest, current)
+    return longest
+
+
+def is_placeholder_mobile(local):
+    """True for a local mobile whose subscriber digits look made up.
+
+    Looks at the 8 digits after the operator prefix: the same digit six or more
+    times in a row, or six or more counting up or down by one.
+    """
+    subscriber = local[3:]
+    return any(_longest_run(subscriber, step) >= _PLACEHOLDER_RUN for step in (0, 1, -1))
+
+
+def checked_mobile(value):
+    """Validate a mobile typed into a form.
+
+    Returns ``(local, None)`` for a usable Egyptian mobile in ``01xxxxxxxxx``
+    form, or ``('', reason)`` with the Arabic reason it was refused. A made-up
+    number gets the same reason as a malformed one, so the form never tells
+    the visitor it thinks they are faking.
+    """
+    local = local_mobile(value)
+    if not local or is_placeholder_mobile(local):
+        return '', MOBILE_FORMAT_ERROR
+    return local, None
+
+
 def is_valid_name(value):
     return isinstance(value, str) and 2 <= len(value.strip()) <= 100
 

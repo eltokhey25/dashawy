@@ -303,15 +303,14 @@
     setupFileUpload('reg-criminal-record', 'criminal-record-upload', 'criminal-record-preview');
     setupFileUpload('reg-national-id', 'national-id-upload', 'national-id-preview');
 
-    // Same rule as the server: an Egyptian mobile, optionally with +20.
-    const PHONE_RE = /^(?:\+?20|0)?1[0125]\d{8}$/;
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
     function stepErrors() {
       const errors = [];
       if (state.step === 1) {
         if ($('reg-tech-name').value.trim().length < 2) errors.push(['reg-tech-name', 'اسم غير صالح']);
-        if (!PHONE_RE.test($('reg-tech-phone').value.trim())) errors.push(['reg-tech-phone', 'رقم غير صالح']);
+        const phoneProblem = mobileError($('reg-tech-phone').value);
+        if (phoneProblem) errors.push(['reg-tech-phone', phoneProblem]);
       }
       if (state.step === 2) {
         if (!EMAIL_RE.test($('reg-tech-email').value.trim())) errors.push(['reg-tech-email', 'إيميل غير صالح']);

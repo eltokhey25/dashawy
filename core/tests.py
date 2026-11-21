@@ -27,6 +27,7 @@ from .models import (
 from .serializers import TechnicianDocumentUploadSerializer
 from .site_config import clear_site_config_cache
 from .upload_validators import validate_document_upload
+from .validation import checked_mobile
 
 PASSWORD = 'TesterPass123'
 
@@ -238,6 +239,40 @@ class AuthApiTests(APITestCase):
         self.assertEqual(user.phone, '+201099997777')
         self.assertTrue(Customer.objects.filter(user=user).exists())
         self.assertEqual(body['profile']['location_text'], 'سموحة — 12 Test Street')
+
+    def test_register_rejects_made_up_and_non_mobile_numbers(self):
+        # Made-up numbers get the same reason as malformed ones.
+        phones = (
+            '01012345678',
+            '01000000007',
+            '01111111111',
+            '+201098765432',
+            '0123456',
+            '01399847261',
+        )
+        for index, phone in enumerate(phones):
+            with self.subTest(phone=phone):
+                response = self.client.post(
+                    '/api/auth/register',
+                    {
+                        'name': 'Fake Number',
+                        'phone': phone,
+                        'email': f'fake{index}@example.com',
+                        'password': PASSWORD,
+                        'accept_terms': True,
+                    },
+                    format='json',
+                )
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertIn('رقم موبايل مصري صحيح', response.json()['error'])
+        self.assertFalse(User.objects.filter(email__startswith='fake').exists())
+
+    def test_checked_mobile_accepts_real_looking_numbers_in_any_form(self):
+        for typed in ('01099847261', '+201099847261', '00201099847261', '010 9984 7261'):
+            with self.subTest(typed=typed):
+                self.assertEqual(checked_mobile(typed), ('01099847261', None))
+        # A short run of repeats or steps is normal in a real number.
+        self.assertEqual(checked_mobile('01200071234')[1], None)
 
     def test_register_rejects_duplicate_email_and_weak_password(self):
         self.create_customer(email='taken@example.com')
