@@ -477,6 +477,15 @@ class AdminRequestAssignView(APIView):
             raise bad_request('هذا الفني غير معتمد')
         now = utc_now()
         with transaction.atomic():
+            # Claim the technician first, the way an accepted offer does: the
+            # admin's list can be stale, and an unconditional 'busy' would hand
+            # a second job to someone already on one, or pull a suspended
+            # (offline) technician back into the pool when the job ends.
+            claimed = Technician.objects.filter(
+                pk=tech.pk, availability='available'
+            ).update(availability='busy')
+            if not claimed:
+                raise bad_request('الفني ده مش متاح دلوقتي: معاه طلب تاني أو موقوف')
             updated = Request.objects.filter(
                 pk=job.pk, status__in=('pending', 'no_technician')
             ).update(
@@ -490,8 +499,8 @@ class AdminRequestAssignView(APIView):
                 started_at=None,
             )
             if not updated:
+                # Raising rolls back the technician claim above.
                 raise bad_request('فقط طلب بانتظار فني يمكن تعيين فني له')
-            Technician.objects.filter(pk=tech.pk).update(availability='busy')
             RequestBroadcast.objects.filter(request_id=job.pk, status='sent').update(
                 status='expired', responded_at=now
             )

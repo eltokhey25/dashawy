@@ -302,6 +302,44 @@ class AdminManageTests(AdminBase):
         self.assertEqual(self.client.delete(f'/api/admin/requests/{job.pk}').status_code, 200)
         self.assertFalse(Request.objects.filter(pk=job.pk).exists())
 
+    def test_assign_refuses_a_technician_who_is_not_available(self):
+        first = Request.objects.create(
+            customer=self.customer, specialty='dish_install', description='x', status='pending'
+        )
+        second = Request.objects.create(
+            customer=self.customer, specialty='dish_install', description='y', status='pending'
+        )
+        self.as_super()
+        url = '/api/admin/requests/{}/assign'
+        body = {'technician_id': self.technician.pk}
+        self.assertEqual(self.client.post(url.format(first.pk), body, format='json').status_code, 200)
+
+        # Already on a job: a second assignment must not double-book them.
+        busy = self.client.post(url.format(second.pk), body, format='json')
+        self.assertEqual(busy.status_code, 400)
+        second.refresh_from_db()
+        self.assertEqual(second.status, 'pending')
+        self.assertIsNone(second.technician_id)
+
+        # Suspended: must stay offline, not become busy then available again.
+        Technician.objects.filter(pk=self.technician.pk).update(availability='offline')
+        offline = self.client.post(url.format(second.pk), body, format='json')
+        self.assertEqual(offline.status_code, 400)
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'offline')
+
+    def test_assign_to_a_taken_request_leaves_the_technician_free(self):
+        job = Request.objects.create(
+            customer=self.customer, specialty='dish_install', description='x', status='cancelled'
+        )
+        self.as_super()
+        response = self.client.post(
+            f'/api/admin/requests/{job.pk}/assign', {'technician_id': self.technician.pk}, format='json'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.technician.refresh_from_db()
+        self.assertEqual(self.technician.availability, 'available')
+
     def test_reviews_moderation(self):
         review = Review.objects.create(
             request=self.completed_job(), customer=self.customer,
