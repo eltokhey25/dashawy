@@ -562,61 +562,47 @@
       const profile = Auth.getProfile();
       Ui.clear(navUserEl);
       if (!Auth.isAuthed()) {
-        // Desktop-only buttons rendered into #nav-user
+        // A guest's bar stays light: one "sign in" button next to the order
+        // CTA. Making an account needs no button of its own — the order form
+        // creates one, and sign-in links to sign-up — and "join as a
+        // technician" is a plain link among the section links.
         navUserEl.appendChild(
           Ui.el(
             'a',
             {
-              class: 'btn btn-ghost btn-sm nav-desktop-only',
+              class: 'btn btn-ghost btn-sm nav-desktop-only nav-signin',
               attrs: { href: '/login.html' },
             },
-            ['تسجيل الدخول']
+            [Ui.ic('fa-regular fa-user'), 'تسجيل الدخول']
           )
         );
 
-        navUserEl.appendChild(
-          Ui.el(
-            'a',
-            {
-              class: 'btn btn-brand btn-sm nav-desktop-only',
-              attrs: { href: '/register.html' },
-            },
-            ['حساب جديد']
-          )
-        );
-
-        navUserEl.appendChild(
-          Ui.el(
-            'a',
-            {
-              class: 'btn btn-outline btn-sm nav-desktop-only',
-              attrs: { href: '/register-tech.html' },
-            },
-            [Ui.ic('fa-solid fa-screwdriver-wrench'), 'انضم كفني']
-          )
-        );
-
-        // Also inject the same links into the mobile menu (if it exists)
-        const mobileMenu = document.querySelector('.nav-menu');
-        if (mobileMenu) {
-          const guestLinks = [
-            { href: '/login.html', label: 'تسجيل الدخول', cls: 'nav-mobile-only' },
-            { href: '/register.html', label: 'حساب جديد', cls: 'nav-mobile-only' },
-            { href: '/register-tech.html', label: 'انضم كفني', cls: 'nav-mobile-only' },
-          ];
-          guestLinks.forEach((g) => {
-            mobileMenu.appendChild(
-              Ui.el(
-                'a',
-                {
-                  class: g.cls,
-                  attrs: { href: g.href },
-                },
-                [g.label]
-              )
-            );
-          });
+        const menu = document.querySelector('.nav-menu');
+        if (!menu) {
+          // A page without section links keeps the technician entry in the bar.
+          navUserEl.appendChild(
+            Ui.el(
+              'a',
+              { class: 'btn btn-outline btn-sm nav-desktop-only', attrs: { href: '/register-tech.html' } },
+              [Ui.ic('fa-solid fa-screwdriver-wrench'), 'انضم كفني']
+            )
+          );
+          return;
         }
+        menu.appendChild(
+          Ui.el('a', { class: 'nav-tech-link', attrs: { href: '/register-tech.html' } }, [
+            Ui.ic('fa-solid fa-screwdriver-wrench'),
+            'انضم كفني',
+          ])
+        );
+        // Phones hide the bar's buttons, so the ☰ menu carries the account
+        // entries as well.
+        [
+          { href: '/login.html', label: 'تسجيل الدخول' },
+          { href: '/register.html', label: 'حساب جديد' },
+        ].forEach((g) => {
+          menu.appendChild(Ui.el('a', { class: 'nav-mobile-only', attrs: { href: g.href } }, [g.label]));
+        });
         return;
       }
       // Accounts made from the order form may have no email; show the phone.
