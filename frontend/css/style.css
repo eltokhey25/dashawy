@@ -1954,6 +1954,86 @@ table.tbl tbody tr:last-child td {
   margin-top: 22px;
 }
 
+/* "Do you have an account?" — the two answers a guest picks from before
+   ordering (Ui.askHaveAccount). Each is one large tappable row. */
+.gate-choices {
+  display: grid;
+  gap: 12px;
+}
+.gate-choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color var(--t-fast) var(--ease-out),
+    background-color var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+.gate-choice:hover {
+  border-color: var(--brand-300);
+  background: var(--brand-50);
+  color: var(--ink);
+}
+.gate-choice:active {
+  transform: scale(0.99);
+}
+.gate-choice:focus-visible {
+  outline: 2px solid var(--brand-600);
+  outline-offset: 2px;
+}
+.gate-choice.is-primary {
+  border-color: var(--brand-600);
+  background: var(--brand-600);
+  color: #fff;
+}
+.gate-choice.is-primary:hover {
+  background: var(--brand-700);
+  border-color: var(--brand-700);
+  color: #fff;
+}
+.gate-choice-ic {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  background: var(--brand-50);
+  color: var(--brand-600);
+}
+.gate-choice.is-primary .gate-choice-ic {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.gate-choice-text {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  line-height: 1.5;
+}
+.gate-choice-text b {
+  font-size: 1rem;
+  font-weight: 800;
+}
+.gate-choice-text small {
+  font-size: 0.82rem;
+  color: var(--ink-500);
+}
+.gate-choice.is-primary .gate-choice-text small {
+  color: rgba(255, 255, 255, 0.85);
+}
+.gate-choice-go {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
 /* ---------- Toasts ---------- */
 #toast-root {
   position: fixed;
@@ -10240,11 +10320,13 @@ body.has-contact-dock > .footer {
 }
 
 /* The floating WhatsApp/call buttons must not cover a form the visitor is
-   filling in on a phone: they fade out while a field has focus or while a
+   filling in on a phone: they fade out while a field has focus, while a
+   dialog is open (it sits at the bottom as a sheet there), or while a
    form marked [data-hides-contact-dock] reaches the bottom of the screen
    (body.contact-dock-hidden, set in ui.js). */
 @media (max-width: 700px) {
   body:has(:is(input, select, textarea):focus) .contact-dock,
+  body:has(.modal-overlay.open) .contact-dock,
   body.contact-dock-hidden .contact-dock {
     opacity: 0;
     pointer-events: none;

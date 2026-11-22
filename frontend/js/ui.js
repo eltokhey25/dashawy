@@ -850,6 +850,75 @@
     forms.forEach((form) => obs.observe(form));
   };
 
+  // "Do you already have an account?" — asked of a guest who taps any
+  // request-service link (/order, /request), before they land on a form.
+  // Yes → sign in, keeping the chosen service so login carries it on to the
+  // wizard. No → the guest order form, which creates the account together
+  // with the order. Signed-in users, modified clicks (new tab) and the order
+  // page itself are left alone.
+  const ORDER_PATHS = ['/order', '/order.html', '/request', '/request.html'];
+
+  Ui.askHaveAccount = function askHaveAccount(orderHref) {
+    const target = new URL(orderHref, window.location.origin);
+    const service = target.searchParams.get('service');
+    // /request is the signed-in wizard; a guest who has no account takes
+    // the guest form, with the same query string.
+    const guestHref =
+      (target.pathname.indexOf('/request') === 0 ? '/order.html' : target.pathname) + target.search;
+    const loginHref = '/login.html' + (service ? '?service=' + encodeURIComponent(service) : '');
+
+    function choice(href, icon, title, sub, primary) {
+      return Ui.el('a', { class: 'gate-choice' + (primary ? ' is-primary' : ''), attrs: { href } }, [
+        Ui.el('span', { class: 'gate-choice-ic' }, [Ui.ic(icon)]),
+        Ui.el('span', { class: 'gate-choice-text' }, [
+          Ui.el('b', {}, [title]),
+          Ui.el('small', {}, [sub]),
+        ]),
+        Ui.el('i', { class: 'fa-solid fa-chevron-left gate-choice-go', attrs: { 'aria-hidden': 'true' } }),
+      ]);
+    }
+
+    const body = Ui.el('div', { class: 'gate-choices' }, [
+      choice(loginHref, 'fa-solid fa-right-to-bracket', 'أيوه، عندي حساب', 'سجّل دخول وكمّل طلبك من حسابك', false),
+      choice(guestHref, 'fa-solid fa-bolt', 'لأ، أول مرة أطلب', 'اطلب الخدمة دلوقتي، وحسابك هيتعمل مع الطلب', true),
+    ]);
+
+    return Ui.openModal(
+      { title: 'عندك حساب في دشاوي؟', icon: { cls: 'fa-solid fa-user-check' } },
+      body,
+      null,
+      {
+        // The overlay is display:none until the next frame adds .open, and a
+        // hidden element cannot take focus, so wait for it to show.
+        onOpen: () => {
+          setTimeout(() => {
+            const first = body.querySelector('.gate-choice');
+            if (first) first.focus();
+          }, 50);
+        },
+      }
+    );
+  };
+
+  document.addEventListener('click', (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const link = e.target.closest && e.target.closest('a[href]');
+    if (!link || link.hasAttribute('data-no-gate') || link.closest('.gate-choices')) return;
+    if (link.target && link.target !== '_self') return;
+    if (window.Auth && Auth.isAuthed()) return;
+    let url;
+    try {
+      url = new URL(link.href, window.location.origin);
+    } catch (_) {
+      return;
+    }
+    if (url.origin !== window.location.origin || ORDER_PATHS.indexOf(url.pathname) === -1) return;
+    // Already on the guest form: a link back to it needs no question.
+    if (ORDER_PATHS.indexOf(window.location.pathname) !== -1) return;
+    e.preventDefault();
+    Ui.askHaveAccount(url.href);
+  });
+
   window.Ui = Ui;
 
   if (document.readyState === 'loading') {
