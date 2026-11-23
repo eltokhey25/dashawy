@@ -498,9 +498,13 @@ class Request(models.Model):
 
     @property
     def display_location(self):
+        # The address typed on the order wins: it has the street, building and
+        # apartment, while the account may only know the customer's area.
+        if self.location_text:
+            return self.location_text
         if self.customer_id and self.customer:
-            return self.customer.location_text or self.location_text or ''
-        return self.location_text or ''
+            return self.customer.location_text or ''
+        return ''
 
 
 class GuestSubmissionLog(models.Model):

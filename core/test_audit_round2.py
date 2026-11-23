@@ -54,7 +54,7 @@ class Round2Base(APITestCase):
         self.client.force_authenticate(user=self.customer_user)
         return self.client.post(
             '/api/customer/requests',
-            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha'},
+            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'},
             format='json',
         )
 

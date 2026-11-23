@@ -77,6 +77,8 @@ from .upload_validators import (
     save_private_upload,
 )
 from .validation import (
+    AddressError,
+    address_detail,
     checked_mobile,
     is_egypt_mobile,
     is_non_empty_string,
@@ -441,7 +443,9 @@ class RegisterView(APIView):
             raise bad_request('وصف الموقع غير صالح')
 
         try:
-            resolved_location = resolve_location(area_key, location_text)
+            resolved_location = resolve_location(area_key, address_detail(data))
+        except AddressError as problem:
+            raise bad_request(str(problem))
         except KeyError:
             raise bad_request('المنطقة غير صالحة')
 
@@ -973,7 +977,9 @@ class CompleteProfileView(APIView):
         if location_text is not None and not is_non_empty_string(location_text, 300):
             raise bad_request('وصف الموقع غير صالح')
         try:
-            resolved_location = resolve_location(area_key, location_text)
+            resolved_location = resolve_location(area_key, address_detail(data))
+        except AddressError as problem:
+            raise bad_request(str(problem))
         except KeyError:
             raise bad_request('المنطقة غير صالحة')
 

@@ -147,8 +147,19 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="reg-location">العنوان بالتفصيل <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
-              <input type="text" id="reg-location" class="input" maxlength="300" placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
+              <label class="form-label" for="reg-street">الشارع <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+              <input type="text" id="reg-street" class="input" maxlength="150" autocomplete="address-line1" placeholder="مثال: فوزي معاذ">
+            </div>
+
+            <div class="addr-row">
+              <div class="form-group">
+                <label class="form-label" for="reg-building">العمارة <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+                <input type="text" id="reg-building" class="input" maxlength="30" placeholder="مثال: 12">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="reg-apartment">رقم الشقة <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+                <input type="text" id="reg-apartment" class="input" maxlength="30" placeholder="مثال: 5">
+              </div>
             </div>
 
             <div class="form-group">
@@ -366,8 +377,10 @@
           accept_terms: true,
           policy_version: 'v2.0'
         };
-        const loc = $('reg-location').value.trim();
-        if (loc) body.location_text = loc;
+        ['street', 'building', 'apartment'].forEach((part) => {
+          const value = $('reg-' + part).value.trim();
+          if (value) body[part] = value;
+        });
         const lat = $('reg-lat').value;
         const lng = $('reg-lng').value;
         if (lat && lng) { body.latitude = Number(lat); body.longitude = Number(lng); }

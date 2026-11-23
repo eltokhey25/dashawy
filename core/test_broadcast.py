@@ -54,7 +54,7 @@ class BroadcastFlowTests(APITestCase):
         self.client.force_authenticate(user=self.customer_user)
         response = self.client.post(
             '/api/customer/requests',
-            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha'},
+            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'},
             format='json',
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -179,6 +179,9 @@ class BroadcastFlowTests(APITestCase):
                 'name': 'عميل جديد',
                 'phone': '01000000398',
                 'area_key': 'smouha',
+                'street': 'فوزي معاذ',
+                'building': '12',
+                'apartment': '5',
                 'specialty': 'dish_install',
                 'description': 'محتاج تركيب دش',
                 'accept_terms': True,
@@ -215,6 +218,36 @@ class OfferPrivacyTests(BroadcastFlowTests):
         self.client.force_authenticate(user=self.tech_a)
         accepted = self.client.post(f"/api/technician/broadcasts/{offer['broadcast_id']}/accept").json()
         self.assertIn('فوزي', accepted['request']['location_text'])
+
+    def test_street_building_and_apartment_are_joined_and_required(self):
+        self.client.force_authenticate(user=self.customer_user)
+        body = {
+            'specialty': 'dish_install',
+            'description': 'الدش مش شغال',
+            'area_key': 'smouha',
+            'street': 'شارع فوزي معاذ',
+            'building': '12',
+        }
+        missing = self.client.post('/api/customer/requests', body, format='json')
+        self.assertEqual(missing.status_code, 400)
+        self.assertIn('رقم الشقة', missing.json()['error'])
+
+        body['apartment'] = '5'
+        created = self.client.post('/api/customer/requests', body, format='json')
+        self.assertEqual(created.status_code, 201, created.content)
+        job = Request.objects.get(pk=created.json()['request']['id'])
+        # "شارع" typed by the customer is not doubled.
+        self.assertEqual(job.location_text, 'سموحة — شارع فوزي معاذ، عمارة 12، شقة 5')
+
+    def test_order_with_no_address_is_refused(self):
+        self.client.force_authenticate(user=self.customer_user)
+        response = self.client.post(
+            '/api/customer/requests',
+            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('الشارع', response.json()['error'])
 
 
 class AtomicAcceptTests(BroadcastFlowTests):

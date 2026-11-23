@@ -132,7 +132,7 @@ class WalletTests(ChatWalletBase):
         self.client.force_authenticate(user=self.customer_user)
         first = self.client.post(
             '/api/customer/requests',
-            {'specialty': 'dish_install', 'description': 'طلب أول', 'area_key': 'smouha'},
+            {'specialty': 'dish_install', 'description': 'طلب أول', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'},
             format='json',
         ).json()
         self.assertEqual(first['broadcast']['sent_to'], 1)
@@ -147,7 +147,7 @@ class WalletTests(ChatWalletBase):
         self.client.force_authenticate(user=self.customer_user)
         second = self.client.post(
             '/api/customer/requests',
-            {'specialty': 'dish_install', 'description': 'طلب تاني', 'area_key': 'smouha'},
+            {'specialty': 'dish_install', 'description': 'طلب تاني', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'},
             format='json',
         ).json()
         self.assertEqual(second['broadcast']['sent_to'], 0)
