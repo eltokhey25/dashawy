@@ -3,6 +3,7 @@
   "regions": [
     "fra1"
   ],
+  "ignoreCommand": "[ \"$VERCEL_ENV\" != \"production\" ]",
   "functions": {
     "dashawy_backend/wsgi.py": {
       "includeFiles": "{core,frontend}/**",
