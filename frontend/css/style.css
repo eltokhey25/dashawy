@@ -2110,6 +2110,9 @@ table.tbl tbody tr:last-child td {
   display: grid;
   gap: 9px;
   width: min(92vw, 400px);
+  /* A toast is only read, never tapped: it must not swallow a tap meant for
+     whatever it happens to cover. */
+  pointer-events: none;
 }
 .toast {
   display: flex;
@@ -3018,6 +3021,13 @@ table.tbl tbody tr:last-child td {
   #toast-root {
     width: calc(100vw - 24px);
     bottom: 12px;
+  }
+  /* A dialog sits at the bottom of a phone screen with its main button last,
+     which is exactly where a toast lands. While one is open the toast goes to
+     the top, so "wrong code" no longer hides the button to try again. */
+  body:has(.modal-overlay.open) #toast-root {
+    bottom: auto;
+    top: calc(12px + env(safe-area-inset-top, 0px));
   }
   .toast {
     font-size: 0.85rem;

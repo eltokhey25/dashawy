@@ -1144,9 +1144,12 @@ textarea.input {
   box-sizing: border-box;
 }
 
+/* minmax(0, …): a plain 1fr column never gets narrower than its content, so a
+   wide table inside a card stretched the whole page sideways on a phone
+   instead of scrolling inside its own .adm-table-wrap. */
 .adm-grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
   margin-bottom: 18px;
 }
@@ -1385,6 +1388,12 @@ textarea.input {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Two date fields side by side are wider than a phone: let them shrink to
+     the toolbar instead of pushing the page sideways. */
+  max-width: 100%;
+}
+.toolbar .tb-date .input {
+  min-width: 0;
 }
 
 .muted {
@@ -1662,7 +1671,7 @@ canvas {
 
 @media (max-width: 1000px) {
   .adm-grid-2 {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
