@@ -97,8 +97,19 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="cp-location">العنوان بالتفصيل <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
-          <input type="text" id="cp-location" class="input" maxlength="300" placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
+          <label class="form-label" for="cp-street">الشارع <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+          <input type="text" id="cp-street" class="input" maxlength="150" autocomplete="address-line1" placeholder="مثال: فوزي معاذ">
+        </div>
+
+        <div class="addr-row">
+          <div class="form-group">
+            <label class="form-label" for="cp-building">العمارة <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+            <input type="text" id="cp-building" class="input" maxlength="30" placeholder="مثال: 12">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cp-apartment">رقم الشقة <span style="color:var(--muted);font-weight:600">(اختياري)</span></label>
+            <input type="text" id="cp-apartment" class="input" maxlength="30" placeholder="مثال: 5">
+          </div>
         </div>
 
         <div class="form-group">
@@ -169,7 +180,6 @@
       if (profile.name) $('cp-name').value = profile.name;
       if (profile.phone) $('cp-phone').value = String(profile.phone).replace(/^\+20/, '0');
       if (profile.area_key) $('cp-area').value = profile.area_key;
-      if (profile.location_text) $('cp-location').value = profile.location_text;
     }
 
     $('profile-form').addEventListener('submit', async (e) => {
@@ -202,8 +212,10 @@
           accept_terms: true,
           policy_version: 'v2.0'
         };
-        const loc = $('cp-location').value.trim();
-        if (loc) body.location_text = loc;
+        ['street', 'building', 'apartment'].forEach((part) => {
+          const value = $('cp-' + part).value.trim();
+          if (value) body[part] = value;
+        });
 
         const data = await api('/api/auth/complete-profile', { method: 'POST', body });
         // Patch the cached session rather than re-issuing one: the token is

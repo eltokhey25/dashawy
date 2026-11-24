@@ -203,7 +203,7 @@ class PushTests(ProfileBase):
         self.client.force_authenticate(user=self.customer_user)
         request_id = self.client.post(
             '/api/customer/requests',
-            {'specialty': 'dish_install', 'description': 'محتاج فني', 'area_key': 'smouha'},
+            {'specialty': 'dish_install', 'description': 'محتاج فني', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'},
             format='json',
         ).json()['request']['id']
         tech_push = self.sent.call_args_list[-1].kwargs

@@ -72,7 +72,7 @@ class QaFixesBase(APITestCase):
 
     def create_order(self, **extra):
         self.client.force_authenticate(user=self.customer_user)
-        body = {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha'}
+        body = {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'}
         body.update(extra)
         return self.client.post('/api/customer/requests', body, format='json')
 
@@ -150,6 +150,9 @@ class OrderPhotoTests(QaFixesBase):
                 'name': 'عميل الاختبار',
                 'phone': '01000000501',
                 'area_key': 'smouha',
+                'street': 'فوزي معاذ',
+                'building': '12',
+                'apartment': '5',
                 'specialty': 'dish_install',
                 'description': 'الطبق وقع',
                 'accept_terms': True,

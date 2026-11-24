@@ -123,21 +123,27 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="area">المنطقة في الإسكندرية</label>
+            <label class="form-label" for="area">المنطقة في الإسكندرية <span style="color:var(--danger-500);">*</span></label>
             <select id="area" class="input">
               <option value="">اختر منطقتك…</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="location_text">العنوان بالتفصيل</label>
-            <input
-              type="text"
-              id="location_text"
-              class="input"
-              maxlength="300"
-              placeholder="مثال: سموحة، شارع فوزي معاذ، عمارة 12، الدور 3">
-            <div class="form-hint">اكتب اسم الشارع ورقم العمارة والدور عشان الفني يوصلك بسهولة</div>
+            <label class="form-label" for="street">الشارع <span style="color:var(--danger-500);">*</span></label>
+            <input type="text" id="street" class="input" maxlength="150"
+                   autocomplete="address-line1" placeholder="مثال: فوزي معاذ">
+          </div>
+
+          <div class="addr-row">
+            <div class="form-group">
+              <label class="form-label" for="building">العمارة <span style="color:var(--danger-500);">*</span></label>
+              <input type="text" id="building" class="input" maxlength="30" placeholder="مثال: 12">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="apartment">رقم الشقة <span style="color:var(--danger-500);">*</span></label>
+              <input type="text" id="apartment" class="input" maxlength="30" placeholder="مثال: 5">
+            </div>
           </div>
 
           <div class="form-group">
@@ -450,22 +456,35 @@
       const customText = document.getElementById('custom_specialty_text').value.trim();
       const description = document.getElementById('description').value.trim();
       const area_key = document.getElementById('area').value;
-      const locationText = document.getElementById('location_text').value.trim();
+      const address = {};
+      ['street', 'building', 'apartment'].forEach((id) => {
+        address[id] = document.getElementById(id).value.trim();
+      });
       const latitude = document.getElementById('latitude').value;
       const longitude = document.getElementById('longitude').value;
 
-      let ok = true;
-      if (!specialty) { setFieldError(specialtySelect, 'اختر نوع الخدمة'); ok = false; }
-      if (specialty === 'other' && !customText) { setFieldError(document.getElementById('custom_specialty_text'), 'اكتب اسم الخدمة المطلوبة'); ok = false; }
-      if (!description) { setFieldError(document.getElementById('description'), 'اكتب وصف المشكلة'); ok = false; }
-      if (!ok) return;
+      // setFieldError shows one message at a time, so point at the first box
+      // (top to bottom) that still needs filling.
+      const problems = [
+        [!specialty, specialtySelect, 'اختر نوع الخدمة'],
+        [specialty === 'other' && !customText, document.getElementById('custom_specialty_text'), 'اكتب اسم الخدمة المطلوبة'],
+        [!description, document.getElementById('description'), 'اكتب وصف المشكلة'],
+        [!area_key, document.getElementById('area'), 'اختر منطقتك'],
+        [!address.street, document.getElementById('street'), 'اكتب اسم الشارع'],
+        [!address.building, document.getElementById('building'), 'اكتب رقم العمارة'],
+        [!address.apartment, document.getElementById('apartment'), 'اكتب رقم الشقة'],
+      ];
+      const first = problems.find(([failed]) => failed);
+      if (first) {
+        setFieldError(first[1], first[2]);
+        first[1].focus();
+        return;
+      }
 
       Ui.btnLoading(btn, 'جارٍ الإرسال…');
       try {
-        const body = { specialty, description };
+        const body = { specialty, description, area_key, ...address };
         if (specialty === 'other') body.custom_specialty_text = customText;
-        if (locationText) body.location_text = locationText;
-        if (area_key) body.area_key = area_key;
         if (latitude && longitude) { body.latitude = Number(latitude); body.longitude = Number(longitude); }
         if (preferredTechId) body.technician_id = preferredTechId;
         const data = await api('/api/customer/requests', { method: 'POST', body });

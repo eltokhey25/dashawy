@@ -387,9 +387,9 @@ def _ask_address(reply, state):
     state['step'] = 'address'
     set_state(reply.chat_id, state)
     reply.send(
-        'الخطوة 3 من 4: اكتب العنوان بالتفصيل (الشارع والعمارة والدور)، '
-        'أو اضغط «تخطي» لو هتتفق مع الفني.',
-        [[('⏭️ تخطي', 'new:skipaddress')], [('❌ إلغاء', 'new:abort')]],
+        'الخطوة 3 من 4: اكتب العنوان بالتفصيل: اسم الشارع، رقم العمارة، رقم الشقة.\n'
+        'مثال: شارع فوزي معاذ، عمارة 12، شقة 5',
+        [[('❌ إلغاء', 'new:abort')]],
     )
 
 
@@ -485,8 +485,8 @@ def _new_order_callback(reply, user, action, value, state):
         _ask_address(reply, state)
         return
     if action == 'skipaddress':
-        state['address'] = ''
-        _ask_description(reply, state)
+        # The «تخطي» button is gone, but one sent earlier can still be pressed.
+        _ask_address(reply, state)
         return
     if action == 'confirm':
         if state.get('step') != 'confirm':
@@ -507,6 +507,9 @@ def _new_order_text(reply, user, text, state):
         state['custom_text'] = text
         _ask_area(reply, state)
     elif step == 'address':
+        if not text:
+            reply.send('اكتب العنوان: اسم الشارع، رقم العمارة، رقم الشقة.')
+            return
         if len(text) > 300:
             reply.send('العنوان طويل، اختصره شوية (300 حرف كحد أقصى).')
             return

@@ -102,11 +102,24 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="go-location">العنوان بالتفصيل <span class="optional">(اختياري)</span></label>
-              <input type="text" id="go-location" class="input" name="location_text" maxlength="300"
-                     placeholder="مثال: شارع فوزي معاذ، عمارة 12، الدور الثالث">
-              <div class="form-hint">العنوان الدقيق يظهر للفني المعيّن فقط بعد قبول الطلب.</div>
+              <label class="form-label" for="go-street">الشارع <span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="go-street" class="input" name="street" maxlength="150"
+                     autocomplete="address-line1" placeholder="مثال: فوزي معاذ" required>
             </div>
+
+            <div class="addr-row">
+              <div class="form-group">
+                <label class="form-label" for="go-building">العمارة <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="go-building" class="input" name="building" maxlength="30"
+                       placeholder="مثال: 12" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="go-apartment">رقم الشقة <span class="req" aria-hidden="true">*</span></label>
+                <input type="text" id="go-apartment" class="input" name="apartment" maxlength="30"
+                       placeholder="مثال: 5" required>
+              </div>
+            </div>
+            <div class="form-hint" style="margin-top:-6px;margin-bottom:16px">الشارع والعمارة والشقة يظهروا للفني المعيّن فقط بعد قبول الطلب.</div>
 
             <div class="form-group">
               <label class="form-label" for="go-photo">صورة توضيحية <span class="optional">(اختياري)</span></label>
@@ -378,6 +391,12 @@
         if (specialty === 'other' && !$('go-custom-service').value.trim()) {
           fields.push(fieldError('go-custom-service', 'اكتب اسم الخدمة المطلوبة'));
         }
+        const street = $('go-street').value.trim();
+        const building = $('go-building').value.trim();
+        const apartment = $('go-apartment').value.trim();
+        if (!street) fields.push(fieldError('go-street', 'اكتب اسم الشارع'));
+        if (!building) fields.push(fieldError('go-building', 'اكتب رقم العمارة'));
+        if (!apartment) fields.push(fieldError('go-apartment', 'اكتب رقم الشقة'));
         const password = $('go-password').value;
         const email = $('go-email').value.trim();
         if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
@@ -407,8 +426,9 @@
         body.append('policy_version', 'v2.0');
         const custom = $('go-custom-service').value.trim();
         if (specialty === 'other' && custom) body.append('custom_specialty_text', custom);
-        const location = $('go-location').value.trim();
-        if (location) body.append('location_text', location);
+        body.append('street', street);
+        body.append('building', building);
+        body.append('apartment', apartment);
         const website = $('go-website').value;
         if (website) body.append('website', website);
         const photo = $('go-photo').files && $('go-photo').files[0];

@@ -161,7 +161,14 @@ class BotBase(APITestCase):
         from .serializers import CreateRequestSerializer
 
         serializer = CreateRequestSerializer(
-            data={'specialty': 'dish_install', 'description': description, 'area_key': 'smouha'}
+            data={
+                'specialty': 'dish_install',
+                'description': description,
+                'area_key': 'smouha',
+                'street': 'فوزي معاذ',
+                'building': '12',
+                'apartment': '5',
+            }
         )
         serializer.is_valid(raise_exception=True)
         job, _ = place_order(self.customer, serializer.validated_data)
@@ -324,21 +331,25 @@ class CustomerTests(BotBase):
             self.assertIn(f'offer:accept:r{job.pk}', self.buttons(offer))
             self.assertIn(f'offer:decline:r{job.pk}', self.buttons(offer))
 
-    def test_new_order_other_service_skip_address_and_abort(self):
+    def test_new_order_other_service_needs_an_address_and_abort(self):
         Specialty.objects.create(key='other', label='خدمة أخرى', sort_order=9)
         self.say('/new')
         self.press('new:spec:other')
         self.assertIn('اسم الخدمة', self.last()['text'])
         self.say('تركيب تلفزيون على الحيطة')
         self.press('new:area:miami')
+        # The address can no longer be skipped: an old «تخطي» button asks again.
+        self.assertNotIn('new:skipaddress', self.buttons(self.last()))
         self.press('new:skipaddress')
+        self.assertIn('رقم الشقة', self.last()['text'])
+        self.say('شارع خالد بن الوليد، عمارة 3، شقة 9')
         self.say('محتاج حد النهارده')
         self.assertIn('تركيب تلفزيون على الحيطة', self.last()['text'])
         self.press('new:confirm')
         job = Request.objects.get(customer=self.customer)
         self.assertEqual(job.specialty, 'other')
         self.assertEqual(job.custom_specialty_text, 'تركيب تلفزيون على الحيطة')
-        self.assertEqual(job.location_text, 'ميامي')
+        self.assertEqual(job.location_text, 'ميامي — شارع خالد بن الوليد، عمارة 3، شقة 9')
 
         self.say('/new')
         self.assertEqual(self.press('new:abort'), 'new:abort')
@@ -355,7 +366,7 @@ class CustomerTests(BotBase):
         self.say('/new')
         self.press('new:spec:dish_install')
         self.press('new:area:smouha')
-        self.press('new:skipaddress')
+        self.say('شارع فوزي معاذ، عمارة 12، شقة 5')
         self.say('رابع طلب')
         self.assertEqual(self.press('new:confirm'), 'error')
         self.assertIn('3 طلبات شغالة', self.last()['text'])

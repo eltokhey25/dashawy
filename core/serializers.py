@@ -12,6 +12,8 @@ from .services.pricing import price_status
 from .upload_validators import validate_document_upload
 from .validation import (
     STATIC_SPECIALTY_KEYS,
+    AddressError,
+    address_detail,
     checked_mobile,
     is_egypt_mobile,
     resolve_location,
@@ -65,6 +67,9 @@ class CreateRequestSerializer(serializers.Serializer):
         required=False, allow_blank=True, max_length=300,
         error_messages={'max_length': 'وصف الموقع طويل جدًا (300 حرف كحد أقصى)'},
     )
+    street = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    building = serializers.CharField(required=False, allow_blank=True, max_length=30)
+    apartment = serializers.CharField(required=False, allow_blank=True, max_length=30)
     area_key = serializers.CharField(required=False, allow_blank=True, max_length=64)
     latitude = OptionalFloatField(required=False, allow_null=True)
     longitude = OptionalFloatField(required=False, allow_null=True)
@@ -94,8 +99,10 @@ class CreateRequestSerializer(serializers.Serializer):
 
         try:
             resolved_location = resolve_location(
-                attrs.get('area_key'), attrs.get('location_text')
+                attrs.get('area_key'), address_detail(attrs, required=True)
             )
+        except AddressError as problem:
+            raise serializers.ValidationError(str(problem))
         except KeyError:
             raise serializers.ValidationError('المنطقة غير صالحة')
 
@@ -122,6 +129,9 @@ class GuestCreateRequestSerializer(serializers.Serializer):
     location_text = serializers.CharField(
         required=False, allow_blank=True, max_length=300
     )
+    street = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    building = serializers.CharField(required=False, allow_blank=True, max_length=30)
+    apartment = serializers.CharField(required=False, allow_blank=True, max_length=30)
     specialty = serializers.CharField(
         max_length=100,
         error_messages={'required': 'نوع الخدمة مطلوب', 'blank': 'نوع الخدمة مطلوب'},
@@ -190,9 +200,11 @@ class GuestCreateRequestSerializer(serializers.Serializer):
             raise serializers.ValidationError('اكتب اسم الخدمة المطلوبة')
 
         attrs['custom_specialty_text'] = custom if specialty == 'other' else None
-        attrs['resolved_location'] = resolve_location(
-            attrs.get('area_key'), attrs.get('location_text')
-        )
+        try:
+            detail = address_detail(attrs, required=True)
+        except AddressError as problem:
+            raise serializers.ValidationError(str(problem))
+        attrs['resolved_location'] = resolve_location(attrs.get('area_key'), detail)
         attrs['name'] = attrs['name'].strip()
         return attrs
 

@@ -236,6 +236,78 @@ def parse_lat_lng(latitude, longitude):
     return lat, lng
 
 
+class AddressError(ValueError):
+    """An address box is missing or too long; the message is shown as-is."""
+
+
+# The three boxes a customer fills under the area: the name the browser sends,
+# the longest value, the word put in front of it, the openings that already
+# say what it is (so "شارع فوزي معاذ" is not turned into "شارع شارع فوزي
+# معاذ"), and what to say when the box is empty or too long.
+ADDRESS_PARTS = (
+    (
+        'street', 150, 'شارع',
+        ('شارع', 'ش ', 'ش.', 'طريق', 'ميدان', 'كورنيش', 'حارة', 'حاره'),
+        'اكتب اسم الشارع', 'اسم الشارع طويل جدًا',
+    ),
+    (
+        'building', 30, 'عمارة',
+        ('عمارة', 'عماره', 'برج', 'فيلا', 'عقار', 'مبنى', 'بلوك'),
+        'اكتب رقم العمارة', 'رقم العمارة طويل جدًا',
+    ),
+    (
+        'apartment', 30, 'شقة',
+        ('شقة', 'شقه', 'محل', 'مكتب', 'فيلا', 'عيادة', 'عياده'),
+        'اكتب رقم الشقة', 'رقم الشقة طويل جدًا',
+    ),
+)
+
+
+def _address_box(value):
+    """One box as trimmed text; a JSON number (apartment 5) is accepted too."""
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        return ''
+    return str(value).strip()
+
+
+def address_detail(data, required=False):
+    """The street, building and apartment boxes as the line a technician reads.
+
+    ``{'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'}`` becomes
+    ``شارع فوزي معاذ، عمارة 12، شقة 5``. When none of the three boxes was sent
+    the older single ``location_text`` box is used instead: the Telegram bot
+    still asks for the address in one message, and so does a page cached from
+    before the boxes existed.
+
+    ``required`` is for orders, where the technician has to find the door: all
+    three boxes must be filled (or the older box, for those two senders).
+    Registration leaves it off and keeps whichever boxes were filled.
+
+    Raises AddressError with the Arabic message to show.
+    """
+    boxes = {part[0]: _address_box(data.get(part[0])) for part in ADDRESS_PARTS}
+    if not any(boxes.values()):
+        legacy = data.get('location_text')
+        legacy = legacy.strip() if isinstance(legacy, str) else ''
+        if len(legacy) > 300:
+            raise AddressError('وصف الموقع طويل جدًا (300 حرف كحد أقصى)')
+        if required and not legacy:
+            raise AddressError('اكتب العنوان بالتفصيل: الشارع والعمارة ورقم الشقة')
+        return legacy
+
+    pieces = []
+    for key, longest, word, openings, missing, too_long in ADDRESS_PARTS:
+        value = boxes[key]
+        if not value:
+            if required:
+                raise AddressError(missing)
+            continue
+        if len(value) > longest:
+            raise AddressError(too_long)
+        pieces.append(value if value.startswith(openings) else f'{word} {value}')
+    return '، '.join(pieces)
+
+
 def resolve_location(area_key, location_text):
     """Resolve an Alexandria area key to the same display string as Node.
 

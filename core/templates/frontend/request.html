@@ -72,7 +72,9 @@
           service: null,
           customText: '',
           area_key: null,
-          location_text: '',
+          street: '',
+          building: '',
+          apartment: '',
           description: '',
           latitude: null,
           longitude: null,
@@ -87,7 +89,7 @@
 
         const STEP_TITLES = {
           service: ['إيه اللي محتاج مساعدة فيه؟', 'اختر الخدمة وهنوصلك أقرب فني ليها'],
-          location: ['فين المكان؟', 'اختر منطقتك بالظبط عشان نوصلك أسرع فني'],
+          location: ['فين المكان؟', 'اختر منطقتك واكتب الشارع والعمارة ورقم الشقة عشان الفني يوصلك'],
           details: ['وصف المشكلة', 'اكتب تفاصيل بسيطة — الفني هيعرف يتصرف'],
           confirm: ['تأكيد الطلب', 'راجع البيانات قبل ما تبعتها'],
         };
@@ -293,25 +295,33 @@
             ])
           );
 
-          const address = Ui.el('input', {
-            class: 'input ub-field',
-            id: 'ub-address',
-            attrs: {
-              type: 'text',
-              maxlength: '300',
-              placeholder: 'مثال: شارع فوزي معاذ، عمارة 12، الدور 3',
-              value: state.location_text,
-            },
-          });
-          address.addEventListener('input', () => {
-            state.location_text = address.value;
-          });
-          frag.appendChild(
-            Ui.el('div', { class: 'form-group', attrs: { style: 'margin-top:16px' } }, [
-              Ui.el('label', { class: 'form-label', attrs: { for: 'ub-address' } }, [
-                'العنوان بالتفصيل (اختياري)',
+          // The technician needs all three to find the door, so the step
+          // stays locked until each one is filled.
+          const addressBox = (key, label, maxlength, placeholder) => {
+            const input = Ui.el('input', {
+              class: 'input ub-field',
+              id: 'ub-' + key,
+              attrs: { type: 'text', maxlength: String(maxlength), placeholder, value: state[key] },
+            });
+            input.addEventListener('input', () => {
+              state[key] = input.value;
+              renderSheet();
+            });
+            return Ui.el('div', { class: 'form-group' }, [
+              Ui.el('label', { class: 'form-label', attrs: { for: 'ub-' + key } }, [
+                label + ' ',
+                Ui.el('span', { class: 'ub-req' }, ['*']),
               ]),
-              address,
+              input,
+            ]);
+          };
+          const street = addressBox('street', 'الشارع', 150, 'مثال: فوزي معاذ');
+          street.style.marginTop = '16px';
+          frag.appendChild(street);
+          frag.appendChild(
+            Ui.el('div', { class: 'addr-row' }, [
+              addressBox('building', 'العمارة', 30, 'مثال: 12'),
+              addressBox('apartment', 'رقم الشقة', 30, 'مثال: 5'),
             ])
           );
 
@@ -390,7 +400,9 @@
             ['الخدمة', selectedServiceLabel()],
             ['المنطقة', areaLabel(state.area_key)],
           ];
-          if (state.location_text.trim()) rows.push(['العنوان', state.location_text.trim()]);
+          rows.push(['الشارع', state.street.trim()]);
+          rows.push(['العمارة', state.building.trim()]);
+          rows.push(['رقم الشقة', state.apartment.trim()]);
           if (state.description.trim()) rows.push(['الوصف', state.description.trim()]);
           rows.forEach(([k, v]) => {
             card.appendChild(
@@ -527,7 +539,7 @@
                       step === 'service'
                         ? 'اكتب اسم الخدمة المطلوبة'
                         : step === 'location'
-                          ? 'اختر منطقتك الأول'
+                          ? 'اختر منطقتك واكتب الشارع والعمارة ورقم الشقة'
                           : 'اكتب وصف بسيط للمشكلة',
                       'error'
                     );
@@ -543,7 +555,11 @@
         function isStepValid() {
           // 'other' additionally needs the service name the server demands.
           if (state.step === 'service') return state.customText.trim().length >= 3;
-          if (state.step === 'location') return Boolean(state.area_key);
+          if (state.step === 'location') {
+            return Boolean(
+              state.area_key && state.street.trim() && state.building.trim() && state.apartment.trim()
+            );
+          }
           if (state.step === 'details') return state.description.trim().length >= 5;
           return true;
         }
@@ -581,7 +597,9 @@
               area_key: state.area_key,
             };
             if (state.service === 'other') body.custom_specialty_text = state.customText.trim();
-            if (state.location_text.trim()) body.location_text = state.location_text.trim();
+            body.street = state.street.trim();
+            body.building = state.building.trim();
+            body.apartment = state.apartment.trim();
             if (state.latitude !== null && state.longitude !== null) {
               body.latitude = state.latitude;
               body.longitude = state.longitude;
@@ -663,7 +681,9 @@
           state.service = null;
           state.customText = '';
           state.area_key = null;
-          state.location_text = '';
+          state.street = '';
+          state.building = '';
+          state.apartment = '';
           state.description = '';
           state.latitude = null;
           state.longitude = null;

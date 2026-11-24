@@ -65,7 +65,7 @@ class CompletionBase(APITestCase):
         self.as_customer()
         request_id = self.client.post(
             '/api/customer/requests',
-            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha'},
+            {'specialty': 'dish_install', 'description': 'الدش مش شغال', 'area_key': 'smouha', 'street': 'فوزي معاذ', 'building': '12', 'apartment': '5'},
             format='json',
         ).json()['request']['id']
         self.as_technician()
